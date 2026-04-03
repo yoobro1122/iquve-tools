@@ -1015,7 +1015,7 @@ function renderSegment(id) {
       <div class="msg-item-header">
         <div class="msg-timing-wrap">
           <div class="msg-section-label">발송 타이밍</div>
-          <input class="editable" data-field="messages.${mi}.timing" value="${esc(m.timing)}" readonly style="font-size:11px;color:var(--text3);font-family:var(--mono);width:100%;">
+          <input class="editable" data-field="messages.${mi}.timing" value="${esc(m.timing)}" readonly style="font-size:11px;color:var(--text);font-family:var(--mono);width:100%;">
           <div class="msg-section-label" style="margin-top:6px;">메시지 제목</div>
           <input class="editable msg-step-title" data-field="messages.${mi}.step" value="${esc(m.step)}" readonly style="font-weight:500;width:100%;">
         </div>
@@ -1186,15 +1186,21 @@ function toggleChannel(mi, ch, checked, id) {
 }
 
 function addMessage(id) {
+  collectEditingData(id);
   const s = segments.find(x => x.id === id);
   s.messages.push({ timing: 'D+N · 오전 9~11시', step: '새 메시지', channels: ['알림톡'], body: '메시지 내용을 입력하세요.', tip: '', cta: false, ctaLabel: '', ctaUrl: '', active: false, comments: [] });
   renderSegment(id);
+  setTimeout(() => {
+    const items = document.querySelectorAll('#segmentPanelContainer .msg-item');
+    if (items.length) items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 50);
   showToast('메시지가 추가됐어요');
 }
 
 function removeMessage(mi, id) {
   const s = segments.find(x => x.id === id);
   if (s.messages.length <= 1) { showToast('마지막 메시지는 삭제할 수 없어요'); return; }
+  collectEditingData(id);
   s.messages.splice(mi, 1);
   renderSegment(id);
 }
@@ -1315,6 +1321,7 @@ function deleteComment(segId, mi, ci) {
 function moveMessage(segId, mi, dir) {
   const s = segments.find(x => x.id === segId);
   if (!s) return;
+  collectEditingData(segId);
   const msgs = s.messages;
   const newMi = mi + dir;
   if (newMi < 0 || newMi >= msgs.length) return;
