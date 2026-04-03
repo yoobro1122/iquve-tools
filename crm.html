@@ -166,6 +166,7 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 .ch-push { background: rgba(26,138,90,0.08); color: var(--accent-a); border-color: rgba(26,138,90,0.2); }
 .ch-email { background: rgba(160,96,16,0.08); color: var(--accent-c); border-color: rgba(160,96,16,0.2); }
 .ch-channel { background: rgba(90,90,106,0.1); color: var(--text2); border-color: rgba(90,90,106,0.2); }
+.ch-phone { background: rgba(192,32,58,0.08); color: var(--accent-d); border-color: rgba(192,32,58,0.2); }
 .channel-select { display: none; }
 .edit-mode .channel-select { display: flex; flex-wrap: wrap; gap: 5px; }
 .edit-mode .channel-tags-display { display: none !important; }
@@ -175,9 +176,10 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 .ch-checkbox.checked { border-style: solid; font-weight: 500; }
 .ch-checkbox.checked[data-ch="알림톡"] { background: rgba(255,180,0,0.12); border-color: #c8a000; color: #8a6a00; }
 .ch-checkbox.checked[data-ch="문자"] { background: rgba(26,106,170,0.12); border-color: var(--accent-b); color: var(--accent-b); }
-.ch-checkbox.checked[data-ch="채널메시지"] { background: rgba(90,90,106,0.1); border-color: var(--text3); color: var(--text2); }
+.ch-checkbox.checked[data-ch="카카오채널"] { background: rgba(90,90,106,0.1); border-color: var(--text3); color: var(--text2); }
 .ch-checkbox.checked[data-ch="앱푸시"] { background: rgba(26,138,90,0.12); border-color: var(--accent-a); color: var(--accent-a); }
-.ch-checkbox.checked[data-ch="이메일"] { background: rgba(160,96,16,0.12); border-color: var(--accent-c); color: var(--accent-c); }
+.ch-checkbox.checked[data-ch="이메일뉴스레터"] { background: rgba(160,96,16,0.12); border-color: var(--accent-c); color: var(--accent-c); }
+.ch-checkbox.checked[data-ch="전화상담"] { background: rgba(192,32,58,0.12); border-color: var(--accent-d); color: var(--accent-d); }
 .ch-checkbox.checked[data-ch="광고"] { background: rgba(192,32,58,0.1); border-color: var(--accent-d); color: var(--accent-d); }
 .ch-checkbox.checked { background: var(--bg2); border-color: var(--text3); color: var(--text); }
 .msg-body-text { font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; word-break: keep-all; border-left: 2px solid var(--line2); padding-left: 12px; margin-bottom: 8px; }
@@ -588,8 +590,8 @@ D 쿠폰: D+8 발송 시 신규 발급, 유효기간 7일.
 // ═══════════════════════════════════════════
 // DATA
 // ═══════════════════════════════════════════
-const CHANNELS = ['알림톡', '문자', '채널메시지', '앱푸시', '이메일'];
-const CH_CLASS = { '알림톡':'ch-kakao', '문자':'ch-sms', '채널메시지':'ch-channel', '앱푸시':'ch-push', '이메일':'ch-email' };
+const CHANNELS = ['알림톡', '문자', '카카오채널', '앱푸시', '이메일뉴스레터', '전화상담'];
+const CH_CLASS = { '알림톡':'ch-kakao', '문자':'ch-sms', '카카오채널':'ch-channel', '앱푸시':'ch-push', '이메일뉴스레터':'ch-email', '전화상담':'ch-phone' };
 
 let segments = [
   {
@@ -597,8 +599,8 @@ let segments = [
     desc:'가장 이상적인 상태. 리텐션 유지·충성도 강화·바이럴 유도가 목표.',
     stats:[{label:'핵심 전략',val:'월 1~2회'},{label:'핵심 혜택',val:'리뷰 / 지인 추천'},{label:'핵심 채널',val:'네이버페이 2,000원'},{label:'발송 주기',val:'오후 1~3시'}],
     messages:[
-      {timing:'D+0 · 결제 완료 직후',step:'웰컴 + 사용 팁',channels:['앱푸시','채널메시지'],body:'🎉 아이큐브 프리미엄 멤버가 되셨어요!\n\n3,000권 무제한 이용이 시작됩니다.\n이비가 [아이 이름]를 기다리고 있어요.\n\n👉 오늘의 책 보러 가기',tip:'자녀 이름 개인화 필수. 첫 감동 포인트.'},
-      {timing:'D+7 · 오후 1~3시',step:'독서 리포트 + 리뷰 유도',channels:['채널메시지'],body:'[아이 이름]의 첫 1주일 독서 리포트 📖\n\n이번 주 읽은 책: N권\n이비와 나눈 대화: N번\n\n리뷰 작성 시 네이버페이 2,000원을 드립니다.\n\n👉 리뷰 작성하기',tip:'리포트 수치는 앱 데이터 연동 권장.'},
+      {timing:'D+0 · 결제 완료 직후',step:'웰컴 + 사용 팁',channels:['앱푸시','카카오채널'],body:'🎉 아이큐브 프리미엄 멤버가 되셨어요!\n\n3,000권 무제한 이용이 시작됩니다.\n이비가 [아이 이름]를 기다리고 있어요.\n\n👉 오늘의 책 보러 가기',tip:'자녀 이름 개인화 필수. 첫 감동 포인트.'},
+      {timing:'D+7 · 오후 1~3시',step:'독서 리포트 + 리뷰 유도',channels:['카카오채널'],body:'[아이 이름]의 첫 1주일 독서 리포트 📖\n\n이번 주 읽은 책: N권\n이비와 나눈 대화: N번\n\n리뷰 작성 시 네이버페이 2,000원을 드립니다.\n\n👉 리뷰 작성하기',tip:'리포트 수치는 앱 데이터 연동 권장.'},
       {timing:'매월 정기 · 오후 1~3시',step:'신규 콘텐츠 + 이달의 추천',channels:['앱푸시'],body:'이번 달 새로 나온 책이 있어요 📚\n\n[자녀 연령]에 딱 맞는 이달의 추천:\n• [책 제목 1]\n• [책 제목 2]\n\n👉 바로가기',tip:''}
     ]
   },
@@ -607,7 +609,7 @@ let segments = [
     desc:'결제 의사는 있으나 연결제 부담. 혜택 제시를 통해 연간 결제 전환이 목표.',
     stats:[{label:'핵심 전략',val:'전화 아웃바운드'},{label:'핵심 혜택',val:'결제 후 D+1~3'},{label:'핵심 채널',val:'1개월 연장 + 선물'},{label:'발송 주기',val:'전화 오전 / 보완 오후'}],
     messages:[
-      {timing:'D+1~3 · 오전 9~11시',step:'학습지원팀 아웃바운드 전화',channels:['전화'],body:'안녕하세요, 아이큐브 학습지원팀입니다.\n[아이 이름] 어머니/아버님 맞으시죠?\n\n연간 결제로 전환하시면 1개월을 추가로 드리고\n[선물]도 함께 보내드리고 있거든요.\n\n한 번 안내해 드려도 될까요?',tip:'강압적 영업 지양. 아이 케어 확인 먼저.'},
+      {timing:'D+1~3 · 오전 9~11시',step:'학습지원팀 아웃바운드 전화',channels:['전화상담'],body:'안녕하세요, 아이큐브 학습지원팀입니다.\n[아이 이름] 어머니/아버님 맞으시죠?\n\n연간 결제로 전환하시면 1개월을 추가로 드리고\n[선물]도 함께 보내드리고 있거든요.\n\n한 번 안내해 드려도 될까요?',tip:'강압적 영업 지양. 아이 케어 확인 먼저.'},
       {timing:'D+2~4 · 전화 미응답 시 / 오후 1~3시',step:'카카오채널 보완 발송',channels:['알림톡'],body:'안녕하세요, 아이큐브입니다 😊\n\n연간 결제로 전환 시:\n✔ 1개월 무료 연장\n✔ [선물] 증정\n\n[상담 신청하기]',tip:''},
       {timing:'매월 결제일 D-3 / 오후 1~3시',step:'매월 정기 넛지',channels:['알림톡'],body:'아이큐브 이용 [N]개월이 됐어요 🎉\n\n연간 결제로 전환하면 앞으로도 더 알뜰하게!\n\n👉 연간 전환 혜택 보기',tip:''}
     ]
@@ -630,7 +632,7 @@ let segments = [
       {timing:'D+8 · 오전 9~11시',step:'1차 — 복귀 유도 + 쿠폰',channels:['알림톡'],body:'[아이 이름]에게 신규 쿠폰 발급 안내\n\n특별 혜택은 끝났지만 아이의 성장은 멈출 수 없기에,\n다시 한번 할인 혜택을 제공합니다.\n\n👉 할인 받고 시작하기',tip:'아이 성장 중심의 감성적 접근으로 재유입 유도.'},
       {timing:'D+8 · 오전 9~11시 (병행)',step:'2차 — 하루 3편 이벤트 종료 예고',channels:['알림톡'],body:'하루 3편 시청 이벤트 종료 임박!\n\n내일이면 매일 3편 무료 이벤트가 종료돼요.\n내일까지는 3편 모두 볼 수 있으니 지금 바로!\n\n👉 특별 혜택 확인하기',tip:''},
       {timing:'D+9 · 오전 9~11시',step:'3차 — 하루 3편 이벤트 종료 당일',channels:['알림톡','앱푸시'],body:'오늘로 하루 3편 무료 이벤트가 끝나요 ⏰\n\n내일부터는 하루 1편만 볼 수 있어요.\n특별 혜택 가격 놓치지 마시고 사고력 성장을 이어주세요.\n\n👉 특별 혜택 확인하기',tip:''},
-      {timing:'D+11 · 쿠폰 미사용 시 / 오전 9~11시',step:'4차 — 학습지원팀 아웃바운드 전화',channels:['전화'],body:'안녕하세요, 아이큐브 학습지원팀입니다.\n[아이 이름] 어머니/아버님 맞으시죠?\n\n결제가 부담되셨다면,\n첫 달 할인 쿠폰이랑 함께 연간 결제 혜택도 안내해 드려도 될까요?',tip:''},
+      {timing:'D+11 · 쿠폰 미사용 시 / 오전 9~11시',step:'4차 — 학습지원팀 아웃바운드 전화',channels:['전화상담'],body:'안녕하세요, 아이큐브 학습지원팀입니다.\n[아이 이름] 어머니/아버님 맞으시죠?\n\n결제가 부담되셨다면,\n첫 달 할인 쿠폰이랑 함께 연간 결제 혜택도 안내해 드려도 될까요?',tip:''},
       {timing:'D+14 · 오전 9~11시 + 저녁 8~9시',step:'5차 — 만료 마감 알림 (2회 발송)',channels:['문자','알림톡'],body:'[오전 문자]\n아이큐브 마지막 할인 혜택이 오늘 만료돼요.\n\n👉 지금 시작하기\n\n──────────────\n[저녁 알림톡 — 쿠폰 미사용자만]\n오늘 자정 할인 혜택이 사라져요 ⏰\n\n👉 할인 혜택 확인하기',tip:'저녁 발송은 쿠폰 미사용자에게만 조건 발송.'},
       {timing:'D+30 · 오전 9~11시 (가입 후 한 달 미결제 시)',step:'6차 — 5일 3편 이벤트 오픈',channels:['알림톡','앱푸시'],body:'[아이 이름] 부모님, 오랜만이에요 😊\n\n특별히, 하루 3편 무료 이벤트를 한 번 더 열었어요.\n5일 동안 매일 3편씩 무료로 이용하실 수 있어요.\n\n👉 다시 시작하기',tip:'트리거: 가입 후 30일 경과 & 미결제. 1회 한정 오픈.'}
     ]
@@ -646,7 +648,7 @@ let segments = [
       {timing:'D+8 · 오전 9~11시',step:'4차 — 하루 3편 이벤트 종료 예고',channels:['알림톡','앱푸시'],body:'내일이면 30편 동화책이 사라져요 😭\n\n10일간 매일 3편씩 무료로 볼 수 있는 이벤트,\n내일이면 종료돼요.\n\n내일까지 동화책 한 편만 시청해도\n이케아 20만원 상품권 이벤트에 자동으로 응모돼요!\n\n👉 지금 보러가기',tip:''},
       {timing:'D+9 · 오전 9~11시',step:'5차 — 하루 3편 이벤트 종료 당일',channels:['알림톡','앱푸시'],body:'오늘로 하루 3편 무료 이벤트가 끝나요 ⏰\n\n오늘 안에 첫 동화를 시청하면\n이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 지금 시청하기',tip:''},
       {timing:'D+30 · 오전 9~11시 (한 달 미결제 시)',step:'6차 — 5일 3편 이벤트 재오픈',channels:['알림톡','앱푸시'],body:'[아이 이름] 부모님, 오랜만이에요 😊\n\n특별히 하루 3편 이벤트를 다시 한번 제공해드려요.\n5일 동안 매일 3편씩 무료로 이용하실 수 있어요.\n\n👉 이벤트 다시 시작하기',tip:''},
-      {timing:'D+3부터 주 1회 · 오전 9~11시',step:'정기 뉴스레터',channels:['이메일','알림톡','앱푸시'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 현재 진행 중인 이벤트 1건 메인 노출\n② 신규 콘텐츠 — [아이 이름]의 [발달 영역]을 발달시켜 줄 \'[책 제목]\' 업데이트\n③ 이번 주 추천 — [자녀 나이]살 또래 인기 도서 2~3권\n\nCTA: [지금 무료로 읽기]',tip:'주 1회 고정 발송. 첫 시청 전환 시 C로 이동하며 뉴스레터 중단.'}
+      {timing:'D+3부터 주 1회 · 오전 9~11시',step:'정기 뉴스레터',channels:['이메일뉴스레터','알림톡','앱푸시'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 현재 진행 중인 이벤트 1건 메인 노출\n② 신규 콘텐츠 — [아이 이름]의 [발달 영역]을 발달시켜 줄 \'[책 제목]\' 업데이트\n③ 이번 주 추천 — [자녀 나이]살 또래 인기 도서 2~3권\n\nCTA: [지금 무료로 읽기]',tip:'주 1회 고정 발송. 첫 시청 전환 시 C로 이동하며 뉴스레터 중단.'}
     ]
   },
   {
@@ -660,7 +662,7 @@ let segments = [
       {timing:'D+8 · 오전 9~11시',step:'4차 — 하루 3편 이벤트 종료 예고',channels:['알림톡','앱푸시'],body:'내일이면 30편 동화책이 사라져요 😭\n\n10일간 매일 3편씩 무료로 볼 수 있는 이벤트, 내일이면 종료돼요.\n내일까지 동화책 한 편만 시청해도 이케아 20만원 상품권 이벤트에 자동으로 응모돼요!\n\n👉 지금 보러가기',tip:''},
       {timing:'D+9 · 오전 9~11시',step:'5차 — 하루 3편 이벤트 종료 당일',channels:['알림톡','앱푸시'],body:'오늘로 하루 3편 무료 이벤트가 끝나요 ⏰\n\n오늘 안에 첫 동화를 시청하면 이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 지금 시청하기',tip:''},
       {timing:'D+30 · 오전 9~11시 (한 달 미결제 시)',step:'6차 — 5일 3편 이벤트 재오픈',channels:['알림톡','앱푸시'],body:'아이큐브입니다. 오랜만이에요 😊\n\n특별히 하루 3편 이벤트를 다시 한번 제공해드려요.\n5일 동안 매일 3편씩 무료로 이용하실 수 있어요.\n자녀 정보를 등록하면 이비가 아이 이름을 직접 불러줘요 📖\n\n👉 이벤트 다시 시작하기',tip:''},
-      {timing:'D+3부터 주 1회 · 오전 9~11시',step:'정기 뉴스레터',channels:['이메일','앱푸시'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 이케아 20만원권 추첨 · 자녀 등록 시 큐브 100개\n② 신규 콘텐츠 — 오늘 업데이트된 추천 도서 (연령대 일반 추천)\n③ 이번 주 추천 — 연령대별 인기 도서 2~3권\n\nCTA: [지금 무료로 읽기]',tip:'자녀 등록 완료 시 E로 이동하며 개인화 메시지 수신.'}
+      {timing:'D+3부터 주 1회 · 오전 9~11시',step:'정기 뉴스레터',channels:['이메일뉴스레터','앱푸시'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 이케아 20만원권 추첨 · 자녀 등록 시 큐브 100개\n② 신규 콘텐츠 — 오늘 업데이트된 추천 도서 (연령대 일반 추천)\n③ 이번 주 추천 — 연령대별 인기 도서 2~3권\n\nCTA: [지금 무료로 읽기]',tip:'자녀 등록 완료 시 E로 이동하며 개인화 메시지 수신.'}
     ]
   },
   {
@@ -668,8 +670,8 @@ let segments = [
     desc:'회원가입 후 본인인증에서 이탈. 이벤트 혜택으로 인증 완료 유도.',
     stats:[{label:'핵심 전략',val:'설치 후 D+3'},{label:'핵심 혜택',val:'주 1회'},{label:'핵심 채널',val:'뉴스레터'},{label:'발송 주기',val:'오전 9~11시'}],
     messages:[
-      {timing:'D+3 · 오전 9~11시',step:'1차 — 브랜드 소개 뉴스레터',channels:['이메일'],body:'제목: 유튜브 대신 이걸 보여주면 우리 아이 집중력이 1.7배 상승합니다.\n\n안녕하세요. 아이큐브입니다.\n\n아이큐브는 그 시간을 생각하는 시간으로 바꿔요.\n콘텐츠 시청 중 아이 이름을 부르며 질문을 하면,\n아이의 잠든 뇌가 깨어나고 생각이 자라기 시작합니다.\n\n▶ 이비와 아이의 첫 대화 보기 (영상)\n▶ 7일 무료로 시작하기\n\n아이큐브 드림',tip:'가입 강요 X. 콘텐츠 → 영상 → 자연스러운 가입 흐름 유도.'},
-      {timing:'D+10, D+17, D+24 · 주 1회',step:'정기 뉴스레터 — 콘텐츠 중심',channels:['이메일'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 현재 진행 중인 이벤트 1건\n② 신규 콘텐츠 — 오늘 업데이트된 추천 도서\n③ 이번 주 추천 — 연령대별 인기 도서 2~3권\n\nCTA: [아이큐브 바로가기]',tip:'뉴스레터는 읽을 가치가 먼저. 판매 냄새 나면 즉시 수신거부.'}
+      {timing:'D+3 · 오전 9~11시',step:'1차 — 브랜드 소개 뉴스레터',channels:['이메일뉴스레터'],body:'제목: 유튜브 대신 이걸 보여주면 우리 아이 집중력이 1.7배 상승합니다.\n\n안녕하세요. 아이큐브입니다.\n\n아이큐브는 그 시간을 생각하는 시간으로 바꿔요.\n콘텐츠 시청 중 아이 이름을 부르며 질문을 하면,\n아이의 잠든 뇌가 깨어나고 생각이 자라기 시작합니다.\n\n▶ 이비와 아이의 첫 대화 보기 (영상)\n▶ 7일 무료로 시작하기\n\n아이큐브 드림',tip:'가입 강요 X. 콘텐츠 → 영상 → 자연스러운 가입 흐름 유도.'},
+      {timing:'D+10, D+17, D+24 · 주 1회',step:'정기 뉴스레터 — 콘텐츠 중심',channels:['이메일뉴스레터'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 현재 진행 중인 이벤트 1건\n② 신규 콘텐츠 — 오늘 업데이트된 추천 도서\n③ 이번 주 추천 — 연령대별 인기 도서 2~3권\n\nCTA: [아이큐브 바로가기]',tip:'뉴스레터는 읽을 가치가 먼저. 판매 냄새 나면 즉시 수신거부.'}
     ]
   },
   {
