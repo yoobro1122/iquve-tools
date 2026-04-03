@@ -278,6 +278,12 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; }
 <style>
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+/* 로딩 오버레이 */
+#loadingOverlay { position:fixed; inset:0; z-index:9998; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; transition:opacity 0.3s; }
+#loadingOverlay.hidden { opacity:0; pointer-events:none; }
+.loading-spinner { width:32px; height:32px; border:3px solid var(--line2); border-top-color:var(--accent-a); border-radius:50%; animation:spin 0.8s linear infinite; }
+.loading-text { font-family:var(--mono); font-size:12px; color:var(--text3); letter-spacing:1px; }
+@keyframes spin { to { transform:rotate(360deg); } }
 
 /* ── 메시지 활성화 토글 */
 .msg-active-toggle { display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none; flex-shrink:0; }
@@ -804,16 +810,9 @@ async function loadData() {
       funnelSteps = grpData.funnel_steps;
     }
 
-    renderSidebar();
-    renderOverview();
-    if (segments.length > 0) selectSeg(segments[0].id);
     showToast('불러오기 완료 ☁️');
   } catch (e) {
     console.warn('클라우드 로드 실패, 로컬 데이터 사용:', e.message);
-    renderSidebar();
-    renderOverview();
-    if (segments.length > 0) selectSeg(segments[0].id);
-    showToast('로컬 데이터로 시작합니다');
   }
 }
 
@@ -1888,19 +1887,25 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 async function initApp() {
-  // 로컬 데이터로 먼저 렌더링
-  renderSidebar();
-  renderOverview();
-  if (segments.length > 0) selectSeg(segments[0].id);
-  updateFloatingBar();
-  // Supabase 라이브러리 로드 대기 후 클라우드 갱신
+  // Supabase 라이브러리 로드 대기
   let retries = 0;
   while (!window.supabase && retries < 20) {
     await new Promise(r => setTimeout(r, 100));
     retries++;
   }
+  // 클라우드에서 로드 (실패 시 로컬 데이터 사용)
   await loadData();
+  // 로드 완료 후 렌더링
+  renderSidebar();
+  renderOverview();
+  if (segments.length > 0) selectSeg(segments[0].id);
   updateFloatingBar();
+  // 로딩 오버레이 제거
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    setTimeout(() => overlay.remove(), 350);
+  }
 }
 </script>
 </body>
