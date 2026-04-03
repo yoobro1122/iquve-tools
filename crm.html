@@ -154,8 +154,8 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 .msg-order-btn { font-size:11px; padding:2px 5px; border-radius:4px; border:1px solid var(--line2); background:transparent; color:var(--text3); cursor:pointer; line-height:1; transition:all 0.12s; }
 .msg-order-btn:hover { background:var(--bg2); color:var(--text); border-color:var(--text3); }
 .msg-order-btn:disabled { opacity:0.2; cursor:default; }
-.msg-var-text { font-size: 12px; color: var(--text2); width: 100%; resize: vertical; background: transparent; border: none; outline: none; font-family: var(--sans); line-height: 1.6; padding: 0; }
-.edit-mode .msg-var-text { background: var(--bg2); border: 1px solid var(--line2); border-radius: 5px; padding: 6px 8px; }
+.msg-var-text { font-size: 12px; color: var(--text2); width: 100%; resize: none; overflow: hidden; background: transparent; border: none; outline: none; font-family: var(--sans); line-height: 1.6; padding: 0; box-sizing: border-box; }
+.edit-mode .msg-var-text { background: var(--bg2); border: 1px solid var(--line2); border-radius: 5px; padding: 6px 8px; resize: vertical; overflow: auto; }
 .edit-mode .msg-var-text:focus { border-color: var(--accent-b); }
 .edit-mode .msg-remove-btn { opacity: 1; }
 .msg-remove-btn:hover { background: rgba(192,32,58,0.1); color: var(--accent-d); border-color: rgba(192,32,58,0.2); }
@@ -1041,7 +1041,7 @@ function renderSegment(id) {
       ${ctaViewHtml}
       <div class="edit-mode-cta" style="display:none;">${ctaEditHtml}</div>
       <div class="msg-var-label">변수 정의</div>
-      <textarea class="editable msg-var-text" data-field="messages.${mi}.tip" rows="2" readonly placeholder="변수 정의를 입력하세요 (예: [아이 이름] = 자녀명 개인화)">${esc(m.tip||'')}</textarea>
+      <textarea class="editable msg-var-text" data-field="messages.${mi}.tip" rows="${Math.max(2,(m.tip||'').split('\n').length)}" readonly placeholder="변수 정의를 입력하세요 (예: [아이 이름] = 자녀명 개인화)">${esc(m.tip||'')}</textarea>
       <div class="comment-section">
         <div class="comment-list" id="comments-${id}-${mi}">${commentsHtml}</div>
         <div class="comment-input-row">
@@ -1078,6 +1078,14 @@ function renderSegment(id) {
 
   document.getElementById('segmentPanelContainer').innerHTML = html;
 
+  // 뷰 모드에서 textarea 높이 자동 조정
+  requestAnimationFrame(() => {
+    document.querySelectorAll(`#panel-${id} .msg-var-text`).forEach(el => {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    });
+  });
+
   // activate edit inputs
   if (isEdit) {
     document.querySelectorAll(`#panel-${id} .editable`).forEach(el => {
@@ -1085,6 +1093,9 @@ function renderSegment(id) {
     });
     document.querySelectorAll(`#panel-${id} .msg-var-text`).forEach(el => {
       el.removeAttribute('readonly');
+      // 뷰 모드에서도 내용 전체 높이로 자동 조정
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
     });
     // tip 항상 표시
     document.querySelectorAll(`#panel-${id} .msg-tip-text`).forEach(el => el.style.display = 'block');
