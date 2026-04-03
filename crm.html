@@ -759,14 +759,21 @@ async function loadData() {
     // 그룹 로드 (crm_groups 테이블)
     const { data: grpData, error: grpErr } = await sb
       .from('crm_groups')
-      .select('data, funnel_steps')
+      .select('data, funnel_steps, segments_order')
       .eq('id', 1)
       .single();
     if (grpErr && grpErr.code !== 'PGRST116') throw grpErr;
 
-    // 세그먼트 데이터 적용 (클라우드 우선, 없으면 로컬 유지)
+    // 세그먼트 데이터 적용 (클라우드 순서 우선)
     if (segData && segData.length > 0) {
-      // 클라우드에 있는 세그먼트는 덮어쓰기
+      // 클라우드 순서 정보 가져오기
+      const { data: orderData } = await sb
+        .from('crm_groups')
+        .select('segments_order')
+        .eq('id', 1)
+        .single();
+
+      // 클라우드 데이터로 segments 갱신
       segData.forEach(row => {
         const localIdx = segments.findIndex(s => s.id === row.id);
         if (localIdx >= 0) {
@@ -775,6 +782,18 @@ async function loadData() {
           segments.push({ ...row.data, id: row.id });
         }
       });
+
+      // 저장된 순서가 있으면 그 순서대로 재정렬
+      if (orderData && Array.isArray(orderData.segments_order) && orderData.segments_order.length > 0) {
+        const order = orderData.segments_order;
+        segments.sort((a, b) => {
+          const ai = order.indexOf(a.id);
+          const bi = order.indexOf(b.id);
+          if (ai === -1) return 1;
+          if (bi === -1) return -1;
+          return ai - bi;
+        });
+      }
     }
 
     // 그룹 데이터 적용
@@ -829,12 +848,14 @@ async function syncToCloud() {
       );
     }
 
-    // 그룹 + 퍼널 스텝 저장
+    // 그룹 + 퍼널 스텝 + 세그먼트 순서 저장
+    const segOrder = segments.map(s => s.id);
     promises.push(
       sb.from('crm_groups').upsert({
         id: 1,
         data: groups,
         funnel_steps: funnelSteps,
+        segments_order: segOrder,
         updated_at: new Date().toISOString()
       }).then(({ error }) => {
         if (error) throw error;
@@ -1448,6 +1469,8 @@ function onDrop(e, targetId) {
   const newTgtIdx = segments.findIndex(s => s.id === targetId);
   segments.splice(newTgtIdx, 0, srcSeg);
 
+  // 순서 변경된 모든 세그먼트를 dirty로 표시
+  segments.forEach(s => markDirty(s.id));
   renderSidebar();
   renderOverview();
   if (currentSeg === dragSrcId) renderSegment(currentSeg);
