@@ -266,9 +266,12 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; }
-</style>
+<style>
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+</style></style>
 </head>
 <body>
+
 
 <!-- TOOLBAR -->
 <div class="toolbar">
@@ -381,7 +384,30 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
   <button class="floating-btn floating-btn-del" id="floatDel" onclick="floatDelete()" style="display:none;">🗑 삭제</button>
   <button class="floating-btn floating-btn-cancel" id="floatCancel" onclick="floatCancel()" style="display:none;">취소</button>
   <button class="floating-btn floating-btn-save" id="floatSave" onclick="floatSave()" style="display:none;">✓ 저장</button>
-  <button class="floating-btn floating-btn-sync" id="floatSync" onclick="syncToCloud()">☁ 동기화</button>
+  <div id="syncWidget" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+  <div id="syncExpandBox" style="
+    display:flex;align-items:center;gap:0;
+    background:#1a6aaa;border-radius:24px;
+    overflow:hidden;
+    box-shadow:0 2px 12px rgba(0,0,0,0.15);
+    transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    max-width:120px;
+  ">
+    <button id="floatSync" onclick="toggleSyncExpand()" style="
+      background:transparent;border:none;cursor:pointer;
+      color:#fff;font-family:var(--mono);font-size:12px;
+      padding:10px 14px;white-space:nowrap;flex-shrink:0;
+    ">☁ 동기화</button>
+    <div id="syncInputWrap" style="display:flex;align-items:center;gap:6px;padding:0;max-width:0;overflow:hidden;transition:max-width 0.25s,padding 0.25s;">
+      <input id="syncPwInput" type="password" placeholder="비밀번호"
+        style="width:110px;background:rgba(255,255,255,0.15);border:none;border-left:1px solid rgba(255,255,255,0.25);color:#fff;font-family:var(--mono);font-size:12px;padding:10px 10px;outline:none;letter-spacing:2px;"
+        onkeydown="if(event.key==='Enter')confirmSync();if(event.key==='Escape')cancelSync();"
+        placeholder="비밀번호">
+      <button onclick="confirmSync()" style="background:rgba(255,255,255,0.2);border:none;border-radius:0 24px 24px 0;cursor:pointer;color:#fff;font-size:12px;padding:10px 14px;white-space:nowrap;font-family:var(--mono);transition:background 0.15s;">확인</button>
+    </div>
+  </div>
+  <div id="syncErrMsg" style="font-family:var(--mono);font-size:10px;color:#e84a6a;text-align:right;height:14px;padding-right:4px;"></div>
+</div>
   <button class="floating-btn floating-btn-cancel" id="floatEdit" onclick="floatEdit()">✎ 수정하기</button>
 </div>
 
@@ -632,6 +658,66 @@ let segments = [
     ]
   }
 ];
+
+// ═══════════════════════════════════════════
+// SYNC PASSWORD (인라인 확장형)
+// ═══════════════════════════════════════════
+const SYNC_PASS = 'growv';
+let syncExpanded = false;
+
+function toggleSyncExpand() {
+  syncExpanded = !syncExpanded;
+  const box = document.getElementById('syncExpandBox');
+  const wrap = document.getElementById('syncInputWrap');
+  const errMsg = document.getElementById('syncErrMsg');
+  if (syncExpanded) {
+    box.style.maxWidth = '320px';
+    wrap.style.maxWidth = '220px';
+    wrap.style.padding = '0';
+    setTimeout(() => document.getElementById('syncPwInput').focus(), 200);
+  } else {
+    cancelSync();
+  }
+}
+
+function cancelSync() {
+  syncExpanded = false;
+  const box = document.getElementById('syncExpandBox');
+  const wrap = document.getElementById('syncInputWrap');
+  box.style.maxWidth = '120px';
+  wrap.style.maxWidth = '0';
+  wrap.style.padding = '0';
+  const input = document.getElementById('syncPwInput');
+  if (input) { input.value = ''; input.style.borderColor = ''; }
+  const err = document.getElementById('syncErrMsg');
+  if (err) err.textContent = '';
+}
+
+function confirmSync() {
+  const val = document.getElementById('syncPwInput').value;
+  if (val === SYNC_PASS) {
+    cancelSync();
+    syncToCloud();
+  } else {
+    const input = document.getElementById('syncPwInput');
+    const err = document.getElementById('syncErrMsg');
+    input.style.background = 'rgba(232,74,106,0.2)';
+    if (err) err.textContent = '비밀번호가 틀렸어요';
+    setTimeout(() => {
+      input.style.background = 'rgba(255,255,255,0.15)';
+      input.value = '';
+      input.focus();
+      if (err) err.textContent = '';
+    }, 800);
+  }
+}
+
+// 바깥 클릭 시 닫기
+document.addEventListener('click', function(e) {
+  if (syncExpanded && !document.getElementById('syncWidget').contains(e.target)) {
+    cancelSync();
+  }
+});
 
 // ═══════════════════════════════════════════
 // SUPABASE
@@ -1368,7 +1454,7 @@ function updateFloatingBar() {
   bar.classList.add('visible');
 
   document.getElementById('floatEdit').style.display   = (!isEditing && currentSeg) ? 'block' : 'none';
-  document.getElementById('floatSync').style.display   = isEditing ? 'none' : 'block';
+  const sw = document.getElementById('syncWidget'); if(sw) sw.style.display = isEditing ? 'none' : 'flex';
   document.getElementById('floatSave').style.display   = isEditing ? 'block' : 'none';
   document.getElementById('floatCancel').style.display = isEditing ? 'block' : 'none';
   document.getElementById('floatDel').style.display    = isEditing ? 'block' : 'none';
@@ -1398,13 +1484,16 @@ function floatDelete() {
 // INIT
 // ═══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async function() {
-  // 일단 로컬 데이터로 먼저 렌더링
+  await initApp();
+});
+
+async function initApp() {
+  // 로컬 데이터로 먼저 렌더링
   renderSidebar();
   renderOverview();
   if (segments.length > 0) selectSeg(segments[0].id);
   updateFloatingBar();
-
-  // Supabase 라이브러리 로드 대기 후 클라우드 데이터로 갱신
+  // Supabase 라이브러리 로드 대기 후 클라우드 갱신
   let retries = 0;
   while (!window.supabase && retries < 20) {
     await new Promise(r => setTimeout(r, 100));
@@ -1412,7 +1501,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
   await loadData();
   updateFloatingBar();
-});
+}
 </script>
 </body>
 </html>
