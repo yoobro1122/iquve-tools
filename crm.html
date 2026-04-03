@@ -845,6 +845,7 @@ async function syncToCloud() {
 
     await Promise.all(promises);
     dirtySegments.clear();
+    updateFloatingBar();
     showToast('동기화 완료 ☁️');
   } catch (e) {
     alert('저장 실패: ' + e.message);
