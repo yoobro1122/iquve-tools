@@ -812,10 +812,23 @@ async function loadData() {
       funnelSteps = grpData.funnel_steps;
     }
 
+    migrateChannelNames();
     showToast('불러오기 완료 ☁️');
   } catch (e) {
     console.warn('클라우드 로드 실패, 로컬 데이터 사용:', e.message);
+    migrateChannelNames();
   }
+}
+
+function migrateChannelNames() {
+  const map = { '전화': '전화상담', '채널메시지': '카카오채널', '이메일': '이메일뉴스레터' };
+  segments.forEach(s => {
+    (s.messages || []).forEach(m => {
+      if (Array.isArray(m.channels)) {
+        m.channels = m.channels.map(c => map[c] || c);
+      }
+    });
+  });
 }
 
 // 변경된 세그먼트 ID 추적
