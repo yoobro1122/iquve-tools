@@ -1185,6 +1185,40 @@ function toggleChannel(mi, ch, checked, id) {
   if (label) label.classList.toggle('checked', checked);
 }
 
+function collectEditingData(segId) {
+  const panel = document.getElementById('panel-' + segId);
+  if (!panel) return;
+  const s = segments.find(x => x.id === segId);
+  if (!s) return;
+  panel.querySelectorAll('.editable[data-field]').forEach(el => {
+    const field = el.dataset.field;
+    const val = el.value;
+    const parts = field.split('.');
+    try {
+      if (parts.length === 1) {
+        s[parts[0]] = val;
+      } else if (parts.length === 2) {
+        const arr = s[parts[0]]; const i = parseInt(parts[1]);
+        if (Array.isArray(arr) && arr[i] !== undefined) arr[i] = val;
+        else if (arr && typeof arr === 'object') arr[parts[1]] = val;
+      } else if (parts.length === 3) {
+        const arr = s[parts[0]]; const i = parseInt(parts[1]);
+        if (Array.isArray(arr) && arr[i] !== undefined) arr[i][parts[2]] = val;
+      }
+    } catch(e) {}
+  });
+  panel.querySelectorAll('.msg-var-text[data-field]').forEach(el => {
+    const field = el.dataset.field;
+    const parts = field.split('.');
+    try {
+      if (parts.length === 3) {
+        const arr = s[parts[0]]; const i = parseInt(parts[1]);
+        if (Array.isArray(arr) && arr[i] !== undefined) arr[i][parts[2]] = el.value;
+      }
+    } catch(e) {}
+  });
+}
+
 function addMessage(id) {
   collectEditingData(id);
   const s = segments.find(x => x.id === id);
