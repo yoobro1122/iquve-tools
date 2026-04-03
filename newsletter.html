@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>iQUVE 뉴스레터 에디터</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --main:#a402f9;--yellow:#fab400;
+  --bg:#F3F4F6;--surface:#fff;--surface2:#F9FAFB;
+  --border:#E5E7EB;--border2:#D1D5DB;
+  --text:#111827;--muted:#6B7280;
+  --radius:8px;--radius-lg:12px;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.logo{font-size:16px;font-weight:900;color:#111827;}
+.logo em{color:var(--main);font-style:normal;}
+.logo-sub{font-size:11px;color:var(--muted);margin-left:8px;}
+.workspace{display:flex;height:calc(100vh - 52px);}
+.edit-panel{width:320px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.edit-panel-head{padding:11px 16px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;flex-shrink:0;}
+.edit-scroll{overflow-y:auto;flex:1;}
+.preview-panel{flex:1;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;}
+.preview-head{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:44px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.preview-head-left{display:flex;align-items:center;gap:10px;}
+.preview-head-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;}
+.view-toggle{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.view-toggle button{padding:5px 12px;font-size:11px;font-weight:700;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;display:flex;align-items:center;gap:4px;}
+.view-toggle button.active{background:var(--main);color:#fff;}
+.view-toggle button:not(.active):hover{background:var(--surface2);color:var(--text);}
+.preview-scroll{flex:1;overflow-y:auto;overflow-x:auto;display:flex;align-items:flex-start;justify-content:center;padding:24px;}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;font-size:12px;font-weight:700;border-radius:var(--radius);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;border:none;line-height:1;}
+.btn-dark{background:#111827;color:#fff;}
+.btn-dark:hover{opacity:.85;}
+.btn-save{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:9px;margin-top:4px;background:var(--main);color:#fff;border:none;border-radius:var(--radius);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+.btn-save:hover{opacity:.88;}
+.btn-save.saved{background:#16a34a;}
+.btn-add{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
+.btn-add:hover{border-color:var(--main);color:var(--main);background:#fdf5ff;}
+.btn-remove{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);font-size:11px;cursor:pointer;flex-shrink:0;transition:all .15s;}
+.btn-remove:hover{background:#FEE2E2;border-color:#FCA5A5;color:#DC2626;}
+.sec{border-bottom:1px solid var(--border);}
+.sec-head{display:flex;align-items:center;gap:8px;padding:11px 16px;cursor:pointer;font-size:11px;font-weight:700;color:#374151;letter-spacing:.4px;user-select:none;}
+.sec-head:hover{background:var(--surface2);}
+.sec-head .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.sec-head .arr{margin-left:auto;font-size:9px;color:var(--muted);transition:transform .2s;}
+.sec.collapsed .sec-body{display:none;}
+.sec.collapsed .arr{transform:rotate(-90deg);}
+.sec-body{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px;}
+.field{display:flex;flex-direction:column;gap:3px;}
+.field label{font-size:10px;font-weight:500;color:var(--muted);}
+.field input[type=text],.field input[type=url],.field textarea{width:100%;padding:7px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;font-family:'Noto Sans KR',sans-serif;transition:border-color .15s;resize:vertical;}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--main);box-shadow:0 0 0 2px rgba(164,2,249,0.08);}
+.field textarea{min-height:48px;line-height:1.5;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.upload-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:#fff;border:1.5px dashed var(--border2);border-radius:var(--radius);color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;transition:all .2s;}
+.upload-btn:hover{border-color:var(--main);color:var(--main);background:#fdf5ff;}
+.img-preview-wrap{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
+.img-preview-wrap img{width:100%;display:block;object-fit:cover;max-height:100px;}
+.img-remove{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.img-name{font-size:10px;color:var(--muted);margin-top:2px;word-break:break-all;}
+.logo-zone{border:1.5px dashed var(--border2);border-radius:var(--radius);padding:14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2);}
+.logo-zone:hover{border-color:var(--main);background:#fdf5ff;}
+.item-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;display:flex;flex-direction:column;gap:7px;}
+.item-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+.item-card-num{font-size:10px;font-weight:700;color:var(--main);}
+.book-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.book-col-head{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.4px;padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:2px;}
+
+/* ── 컬러 피커 행 ── */
+.color-row{display:flex;align-items:center;gap:8px;}
+.color-row label{font-size:10px;font-weight:500;color:var(--muted);flex:1;}
+.color-picker-wrap{display:flex;align-items:center;gap:6px;}
+.color-swatch{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);cursor:pointer;flex-shrink:0;overflow:hidden;padding:0;}
+.color-swatch input[type=color]{width:200%;height:200%;border:none;cursor:pointer;transform:translate(-25%,-25%);padding:0;background:none;}
+.color-hex{font-size:11px;font-family:monospace;color:var(--text);width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;}
+.color-hex:focus{outline:none;border-color:var(--main);}
+
+/* ── 헤더 배경 모드 탭 ── */
+.mode-tabs{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.mode-tab{flex:1;padding:6px;font-size:11px;font-weight:700;text-align:center;cursor:pointer;color:var(--muted);border:none;background:transparent;font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+.mode-tab.active{background:var(--main);color:#fff;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:10px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;">
+    <span class="logo">i<em>Q</em>UVE</span>
+    <span class="logo-sub">뉴스레터 에디터</span>
+  </div>
+</div>
+
+<div class="workspace">
+
+  <!-- ===== LEFT: 편집 패널 ===== -->
+  <div class="edit-panel">
+    <div class="edit-panel-head">편집 패널</div>
+    <div class="edit-scroll">
+
+      <!-- 디자인 커스텀 -->
+      <div class="sec">
+        <div class="sec-head" onclick="toggleSec(this)"><span class="dot" style="background:linear-gradient(135deg,#a402f9,#fab400);"></span>디자인 커스텀<span class="arr">▾</span></div>
+        <div class="sec-body">
+
+          <!-- 헤더 배경 -->
+          <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:2px;">헤더 배경</div>
+          <div class="mode-tabs">
+            <button class="mode-tab active" id="hdr-tab-color" onclick="setHeaderMode('color')">단색</button>
+            <button class="mode-tab" id="hdr-tab-gradient" onclick="setHeaderMode('gradient')">그라디언트</button>
+            <button class="mode-tab" id="hdr-tab-image" onclick="setHeaderMode('image')">이미지</button>
+          </div>
+
+          <div id="hdr-color-area">
+            <div class="color-row">
+              <label>배경 색상</label>
+              <div class="color-picker-wrap">
+                <div class="color-swatch"><input type="color" id="color-header-bg" value="#a402f9" oninput="syncHex(this,'hex-header-bg')"/></div>
+                <input type="text" class="color-hex" id="hex-header-bg" value="#a402f9" onchange="syncColor(this,'color-header-bg')"/>
+              </div>
+            </div>
+          </div>
+
+          <div id="hdr-gradient-area" style="display:none;">
+            <div class="color-row">
+              <label>그라디언트 시작</label>
+              <div class="color-picker-wrap">
+                <div class="color-swatch"><input type="color" id="color-grad-start" value="#a402f9" oninput="syncHex(this,'hex-grad-start')"/></div>
+                <input type="text" class="color-hex" id="hex-grad-start" value="#a402f9" onchange="syncColor(this,'color-grad-start')"/>
+              </div>
+            </div>
+            <div class="color-row" style="margin-top:6px;">
+              <label>그라디언트 끝</label>
+              <div class="color-picker-wrap">
+                <div class="color-swatch"><input type="color" id="color-grad-end" value="#4d1696" oninput="syncHex(this,'hex-grad-end')"/></div>
+                <input type="text" class="color-hex" id="hex-grad-end" value="#4d1696" onchange="syncColor(this,'color-grad-end')"/>
+              </div>
+            </div>
+          </div>
+
+          <div id="hdr-image-area" style="display:none;">
+            <div id="hdr-img-preview" style="display:none;" class="img-preview-wrap">
+              <img id="hdr-img-el" src="" alt="" style="max-height:80px;object-fit:cover;"/>
+              <button class="img-remove" onclick="removeHdrImg()">x</button>
+            </div>
+            <div id="hdr-img-upload" class="upload-btn" onclick="document.getElementById('hdr-img-file').click()">
+              <input type="file" id="hdr-img-file" accept="image/*" style="display:none" onchange="handleHdrImg(event)"/>
+              헤더 배경 이미지 업로드
+            </div>
+          </div>
+
+          <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+
+          <!-- CTA 버튼 -->
+          <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:2px;">CTA 버튼</div>
+          <div class="color-row">
+            <label>버튼 배경색</label>
+            <div class="color-picker-wrap">
+              <div class="color-swatch"><input type="color" id="color-cta-bg" value="#fab400" oninput="syncHex(this,'hex-cta-bg')"/></div>
+              <input type="text" class="color-hex" id="hex-cta-bg" value="#fab400" onchange="syncColor(this,'color-cta-bg')"/>
+            </div>
+          </div>
+          <div class="color-row" style="margin-top:6px;">
+            <label>버튼 텍스트색</label>
+            <div class="color-picker-wrap">
+              <div class="color-swatch"><input type="color" id="color-cta-text" value="#a402f9" oninput="syncHex(this,'hex-cta-text')"/></div>
+              <input type="text" class="color-hex" id="hex-cta-text" value="#a402f9" onchange="syncColor(this,'color-cta-text')"/>
+            </div>
+          </div>
+
+          <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+
+          <!-- 섹션 강조색 -->
+          <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:2px;">섹션 강조색</div>
+          <div class="color-row">
+            <label>이벤트 강조</label>
+            <div class="color-picker-wrap">
+              <div class="color-swatch"><input type="color" id="color-event-accent" value="#a402f9" oninput="syncHex(this,'hex-event-accent')"/></div>
+              <input type="text" class="color-hex" id="hex-event-accent" value="#a402f9" onchange="syncColor(this,'color-event-accent')"/>
+            </div>
+          </div>
+          <div class="color-row" style="margin-top:6px;">
+            <label>신규 도서 강조</label>
+            <div class="color-picker-wrap">
+              <div class="color-swatch"><input type="color" id="color-book-accent" value="#111827" oninput="syncHex(this,'hex-book-accent')"/></div>
+              <input type="text" class="color-hex" id="hex-book-accent" value="#111827" onchange="syncColor(this,'color-book-accent')"/>
+            </div>
+          </div>
+          <div class="color-row" style="margin-top:6px;">
+            <label>추천 도서 강조</label>
+            <div class="color-picker-wrap">
+              <div class="color-swatch"><input type="color" id="color-rec-accent" value="#fab400" oninput="syncHex(this,'hex-rec-accent')"/></div>
+              <input type="text" class="color-hex" id="hex-rec-accent" value="#fab400" onchange="syncColor(this,'color-rec-accent')"/>
+            </div>
+          </div>
+
+          <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+
+          <!-- 하단 CTA 배너 -->
+          <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:2px;">하단 CTA 배너</div>
+          <div class="color-row">
+            <label>배너 배경색</label>
+            <div class="color-picker-wrap">
+              <div class="color-swatch"><input type="color" id="color-banner-bg" value="#a402f9" oninput="syncHex(this,'hex-banner-bg')"/></div>
+              <input type="text" class="color-hex" id="hex-banner-bg" value="#a402f9" onchange="syncColor(this,'color-banner-bg')"/>
+            </div>
+          </div>
+          <div class="color-row" style="margin-top:6px;">
+            <label>배너 버튼색</label>
+            <div class="color-picker-wrap">
+              <div class="color-swatch"><input type="color" id="color-banner-btn" value="#fab400" oninput="syncHex(this,'hex-banner-btn')"/></div>
+              <input type="text" class="color-hex" id="hex-banner-btn" value="#fab400" onchange="syncColor(this,'color-banner-btn')"/>
+            </div>
+          </div>
+          <div class="color-row" style="margin-top:6px;">
+            <label>배너 버튼 텍스트</label>
+            <div class="color-picker-wrap">
+              <div class="color-swatch"><input type="color" id="color-banner-btn-text" value="#a402f9" oninput="syncHex(this,'hex-banner-btn-text')"/></div>
+              <input type="text" class="color-hex" id="hex-banner-btn-text" value="#a402f9" onchange="syncColor(this,'color-banner-btn-text')"/>
+            </div>
+          </div>
+
+          <button class="btn-save" onclick="saveBlock('design')">저장 — 미리보기 반영</button>
+        </div>
+      </div>
+
+      <!-- 히어로 -->
+      <div class="sec">
+        <div class="sec-head" onclick="toggleSec(this)"><span class="dot" style="background:var(--main);"></span>헤더 / 히어로<span class="arr">▾</span></div>
+        <div class="sec-body">
+
+          <!-- 헤더 로고 -->
+          <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:4px;">헤더 로고</div>
+          <div id="header-logo-preview" style="display:none;" class="img-preview-wrap">
+            <img id="header-logo-el" src="" alt="" style="max-height:60px;object-fit:contain;"/>
+            <button class="img-remove" onclick="removeLogo('header')">x</button>
+          </div>
+          <div id="header-logo-upload" class="upload-btn" onclick="document.getElementById('header-logo-file').click()">
+            <input type="file" id="header-logo-file" accept="image/*" style="display:none" onchange="handleLogoUpload(event,'header')"/>
+            로고 이미지 업로드
+          </div>
+          <div class="field" style="margin-top:4px;">
+            <label>로고 높이 (px)</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="range" id="header-logo-size" min="16" max="80" value="36" style="flex:1;" oninput="document.getElementById('header-logo-size-val').textContent=this.value"/>
+              <span id="header-logo-size-val" style="font-size:11px;font-weight:700;color:var(--text);min-width:28px;">36</span>
+              <span style="font-size:10px;color:var(--muted);">px</span>
+            </div>
+          </div>
+
+          <div style="height:1px;background:var(--border);margin:6px 0;"></div>
+
+          <div class="row2">
+            <div class="field"><label>발송일</label><input type="text" id="SEND_DATE" placeholder="2025년 4월 2일"/></div>
+            <div class="field"><label>CTA 버튼 텍스트</label><input type="text" id="CTA_TEXT" placeholder="지금 바로 읽기"/></div>
+          </div>
+          <div class="field"><label>헤드라인 메인</label><input type="text" id="HEADLINE_MAIN" placeholder="이번 주 이비가 준비했어요"/></div>
+          <div class="field"><label>헤드라인 서브</label><input type="text" id="HEADLINE_SUB" placeholder="새 동화책이 도착했어요!"/></div>
+          <div class="field"><label>히어로 본문 카피</label><textarea id="HERO_BODY_COPY" placeholder="이번 주도 이비가 새로운 동화책을 들고 왔어요."></textarea></div>
+          <div class="field"><label>CTA URL</label><input type="url" id="CTA_URL" placeholder="https://"/></div>
+          <button class="btn-save" onclick="saveBlock('hero')">저장 — 미리보기 반영</button>
+        </div>
+      </div>
+
+      <!-- 이벤트 -->
+      <div class="sec">
+        <div class="sec-head" onclick="toggleSec(this)"><span class="dot" style="background:var(--yellow);"></span>블록 1 — 이벤트<span class="arr">▾</span></div>
+        <div class="sec-body">
+          <div id="event-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+          <button class="btn-add" onclick="addEvent()">+ 이벤트 추가</button>
+          <button class="btn-save" onclick="saveBlock('events')">저장 — 미리보기 반영</button>
+        </div>
+      </div>
+
+      <!-- 신규 도서 -->
+      <div class="sec">
+        <div class="sec-head" onclick="toggleSec(this)"><span class="dot" style="background:#111827;"></span>블록 2 — 신규 콘텐츠<span class="arr">▾</span></div>
+        <div class="sec-body">
+          <div id="newbook-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+          <button class="btn-add" onclick="addNewBook()">+ 도서 추가</button>
+          <button class="btn-save" onclick="saveBlock('newbooks')">저장 — 미리보기 반영</button>
+        </div>
+      </div>
+
+      <!-- 추천 도서 -->
+      <div class="sec">
+        <div class="sec-head" onclick="toggleSec(this)"><span class="dot" style="background:var(--main);opacity:.35;border:1.5px solid var(--main);"></span>블록 3 — 추천 도서<span class="arr">▾</span></div>
+        <div class="sec-body">
+          <div class="book-grid">
+            <div>
+              <div class="book-col-head">도서 1</div>
+              <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px;">
+                <div class="field"><label>제목</label><input type="text" id="REC_BOOK1_TITLE" placeholder="제목"/></div>
+                <div class="field"><label>연령</label><input type="text" id="REC_BOOK1_AGE" placeholder="3~5세"/></div>
+                <div class="field"><label>한줄 소개</label><textarea id="REC_BOOK1_ONE_LINE" style="min-height:40px;" placeholder="소개"></textarea></div>
+                <div class="field"><label>표지</label>
+                  <div id="rec1-img-preview" style="display:none;" class="img-preview-wrap"><img id="rec1-img-el" src="" alt=""/><button class="img-remove" onclick="removeImg('rec1')">x</button></div>
+                  <div id="rec1-img-upload" class="upload-btn" style="font-size:10px;" onclick="document.getElementById('rec1-img-file').click()"><input type="file" id="rec1-img-file" accept="image/*" style="display:none" onchange="handleImg(event,'rec1')"/>업로드</div>
+                </div>
+                <div class="field"><label>링크</label><input type="url" id="REC_BOOK1_URL" placeholder="https://"/></div>
+              </div>
+            </div>
+            <div>
+              <div class="book-col-head">도서 2</div>
+              <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px;">
+                <div class="field"><label>제목</label><input type="text" id="REC_BOOK2_TITLE" placeholder="제목"/></div>
+                <div class="field"><label>연령</label><input type="text" id="REC_BOOK2_AGE" placeholder="5~7세"/></div>
+                <div class="field"><label>한줄 소개</label><textarea id="REC_BOOK2_ONE_LINE" style="min-height:40px;" placeholder="소개"></textarea></div>
+                <div class="field"><label>표지</label>
+                  <div id="rec2-img-preview" style="display:none;" class="img-preview-wrap"><img id="rec2-img-el" src="" alt=""/><button class="img-remove" onclick="removeImg('rec2')">x</button></div>
+                  <div id="rec2-img-upload" class="upload-btn" style="font-size:10px;" onclick="document.getElementById('rec2-img-file').click()"><input type="file" id="rec2-img-file" accept="image/*" style="display:none" onchange="handleImg(event,'rec2')"/>업로드</div>
+                </div>
+                <div class="field"><label>링크</label><input type="url" id="REC_BOOK2_URL" placeholder="https://"/></div>
+              </div>
+            </div>
+            <div>
+              <div class="book-col-head">도서 3</div>
+              <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px;">
+                <div class="field"><label>제목</label><input type="text" id="REC_BOOK3_TITLE" placeholder="제목"/></div>
+                <div class="field"><label>연령</label><input type="text" id="REC_BOOK3_AGE" placeholder="6~9세"/></div>
+                <div class="field"><label>한줄 소개</label><textarea id="REC_BOOK3_ONE_LINE" style="min-height:40px;" placeholder="소개"></textarea></div>
+                <div class="field"><label>표지</label>
+                  <div id="rec3-img-preview" style="display:none;" class="img-preview-wrap"><img id="rec3-img-el" src="" alt=""/><button class="img-remove" onclick="removeImg('rec3')">x</button></div>
+                  <div id="rec3-img-upload" class="upload-btn" style="font-size:10px;" onclick="document.getElementById('rec3-img-file').click()"><input type="file" id="rec3-img-file" accept="image/*" style="display:none" onchange="handleImg(event,'rec3')"/>업로드</div>
+                </div>
+                <div class="field"><label>링크</label><input type="url" id="REC_BOOK3_URL" placeholder="https://"/></div>
+              </div>
+            </div>
+          </div>
+          <button class="btn-save" onclick="saveBlock('rec')">저장 — 미리보기 반영</button>
+        </div>
+      </div>
+
+      <!-- 하단 CTA 배너 -->
+      <div class="sec">
+        <div class="sec-head" onclick="toggleSec(this)"><span class="dot" style="background:var(--main);"></span>하단 CTA 배너<span class="arr">▾</span></div>
+        <div class="sec-body">
+          <div class="field"><label>메인 문구</label><input type="text" id="CTA_BANNER_TITLE" placeholder="지금 이비랑 읽으러 가볼까요?"/></div>
+          <div class="field"><label>서브 문구</label><input type="text" id="CTA_BANNER_SUB" placeholder="하루 한 편, 아이의 전두엽을 깨우는 대화"/></div>
+          <div class="field"><label>버튼 텍스트</label><input type="text" id="CTA_BANNER_BTN_TEXT" placeholder="앱에서 읽기"/></div>
+          <div class="field"><label>버튼 URL</label><input type="url" id="CTA_BANNER_URL" placeholder="https://"/></div>
+          <button class="btn-save" onclick="saveBlock('cta')">저장 — 미리보기 반영</button>
+        </div>
+      </div>
+
+      <!-- 푸터 -->
+      <div class="sec">
+        <div class="sec-head" onclick="toggleSec(this)"><span class="dot" style="background:#9CA3AF;"></span>푸터<span class="arr">▾</span></div>
+        <div class="sec-body">
+
+          <!-- 푸터 로고 -->
+          <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:4px;">푸터 로고</div>
+          <div id="footer-logo-preview" style="display:none;" class="img-preview-wrap">
+            <img id="footer-logo-el" src="" alt="" style="max-height:60px;object-fit:contain;"/>
+            <button class="img-remove" onclick="removeLogo('footer')">x</button>
+          </div>
+          <div id="footer-logo-upload" class="upload-btn" onclick="document.getElementById('footer-logo-file').click()">
+            <input type="file" id="footer-logo-file" accept="image/*" style="display:none" onchange="handleLogoUpload(event,'footer')"/>
+            로고 이미지 업로드
+          </div>
+          <div class="field" style="margin-top:4px;">
+            <label>로고 높이 (px)</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="range" id="footer-logo-size" min="16" max="80" value="28" style="flex:1;" oninput="document.getElementById('footer-logo-size-val').textContent=this.value"/>
+              <span id="footer-logo-size-val" style="font-size:11px;font-weight:700;color:var(--text);min-width:28px;">28</span>
+              <span style="font-size:10px;color:var(--muted);">px</span>
+            </div>
+          </div>
+
+          <div style="height:1px;background:var(--border);margin:6px 0;"></div>
+
+          <div class="field"><label>수신자 이메일 변수</label><input type="text" id="USER_EMAIL" placeholder="{{수신자이메일}}"/></div>
+          <div class="row2">
+            <div class="field"><label>수신거부 URL</label><input type="url" id="UNSUBSCRIBE_URL" placeholder="https://"/></div>
+            <div class="field"><label>개인정보처리방침 URL</label><input type="url" id="PRIVACY_URL" placeholder="https://"/></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>앱 다운로드 URL</label><input type="url" id="APP_STORE_URL" placeholder="https://"/></div>
+            <div class="field"><label>앱 열기 URL</label><input type="url" id="APP_OPEN_URL" placeholder="https://"/></div>
+          </div>
+          <button class="btn-save" onclick="saveBlock('footer')">저장 — 미리보기 반영</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== RIGHT: 미리보기 패널 ===== -->
+  <div class="preview-panel">
+    <div class="preview-head">
+      <div class="preview-head-left">
+        <span class="preview-head-title">미리보기</span>
+        <div class="view-toggle">
+          <button id="btn-pc" class="active" onclick="setViewMode('pc')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            PC
+          </button>
+          <button id="btn-mobile" onclick="setViewMode('mobile')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            모바일
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-dark" onclick="downloadHTML()">HTML 다운로드</button>
+    </div>
+    <div class="preview-scroll" id="preview-scroll">
+      <div id="frame-outer" style="background:#fdf5ff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+        <iframe id="preview-frame" scrolling="no" style="border:none;display:block;width:680px;min-height:600px;"></iframe>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let viewMode = 'pc';
+let headerMode = 'color';
+const imgStore = { headerLogo:null, footerLogo:null, rec1:null, rec2:null, rec3:null, hdrImg:null };
+const eventImgs = {}, newbookImgs = {};
+let eventCount=0, newbookCount=0;
+const events=[], newbooks=[];
+
+let saved = {
+  design: {
+    headerMode: 'color',
+    headerBg: '#a402f9',
+    headerGradStart: '#a402f9',
+    headerGradEnd: '#4d1696',
+    headerImg: null,
+    ctaBg: '#fab400',
+    ctaText: '#a402f9',
+    eventAccent: '#a402f9',
+    bookAccent: '#111827',
+    recAccent: '#fab400',
+    bannerBg: '#a402f9',
+    bannerBtn: '#fab400',
+    bannerBtnText: '#a402f9',
+  },
+  hero: {SEND_DATE:'',HEADLINE_MAIN:'',HEADLINE_SUB:'',HERO_BODY_COPY:'',CTA_TEXT:'',CTA_URL:'',headerLogo:null,headerLogoSize:36},
+  events: [],
+  newbooks: [],
+  rec: {books:[{title:'',age:'',oneline:'',url:'',img:null},{title:'',age:'',oneline:'',url:'',img:null},{title:'',age:'',oneline:'',url:'',img:null}]},
+  cta: {bannerTitle:'지금 이비랑 읽으러 가볼까요?', bannerSub:'하루 한 편, 아이의 전두엽을 깨우는 대화', bannerBtnText:'앱에서 읽기', bannerUrl:''},
+  footer: {USER_EMAIL:'',UNSUBSCRIBE_URL:'',PRIVACY_URL:'',APP_STORE_URL:'',APP_OPEN_URL:'',footerLogo:null,footerLogoSize:28}
+};
+
+// ── 컬러 피커 동기화 ──
+function syncHex(colorInput, hexId) {
+  document.getElementById(hexId).value = colorInput.value;
+}
+function syncColor(hexInput, colorId) {
+  const v = hexInput.value.trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById(colorId).value = v;
+}
+
+// ── 헤더 배경 모드 전환 ──
+function setHeaderMode(mode) {
+  headerMode = mode;
+  ['color','gradient','image'].forEach(m => {
+    document.getElementById('hdr-tab-'+m).classList.toggle('active', m===mode);
+    document.getElementById('hdr-'+m+'-area').style.display = m===mode ? 'flex' : 'none';
+    if(m===mode) document.getElementById('hdr-'+m+'-area').style.flexDirection = 'column';
+  });
+}
+
+// ── 헤더 배경 이미지 ──
+function handleHdrImg(e) {
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    imgStore.hdrImg=ev.target.result;
+    document.getElementById('hdr-img-el').src=ev.target.result;
+    document.getElementById('hdr-img-preview').style.display='block';
+    document.getElementById('hdr-img-upload').style.display='none';
+  }; r.readAsDataURL(f);
+}
+function removeHdrImg() {
+  imgStore.hdrImg=null;
+  document.getElementById('hdr-img-el').src='';
+  document.getElementById('hdr-img-preview').style.display='none';
+  document.getElementById('hdr-img-upload').style.display='flex';
+  document.getElementById('hdr-img-file').value='';
+}
+
+// ── 헤더/푸터 로고 업로드 ──
+function handleLogoUpload(e, area) {
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    imgStore[area+'Logo']=ev.target.result;
+    document.getElementById(area+'-logo-el').src=ev.target.result;
+    document.getElementById(area+'-logo-preview').style.display='block';
+    document.getElementById(area+'-logo-upload').style.display='none';
+  }; r.readAsDataURL(f);
+}
+function removeLogo(area) {
+  imgStore[area+'Logo']=null;
+  document.getElementById(area+'-logo-el').src='';
+  document.getElementById(area+'-logo-preview').style.display='none';
+  document.getElementById(area+'-logo-upload').style.display='flex';
+  document.getElementById(area+'-logo-file').value='';
+}
+
+// ── 뷰모드 전환 ──
+function setViewMode(mode) {
+  viewMode = mode;
+  document.getElementById('btn-pc').classList.toggle('active', mode==='pc');
+  document.getElementById('btn-mobile').classList.toggle('active', mode==='mobile');
+  const outer=document.getElementById('frame-outer');
+  const frame=document.getElementById('preview-frame');
+  if(mode==='mobile') {
+    if(!document.getElementById('mobile-notch')) {
+      const notch=document.createElement('div');
+      notch.id='mobile-notch';
+      notch.style.cssText='width:90px;height:22px;background:#1a1a1a;border-radius:0 0 14px 14px;margin:0 auto;display:block;';
+      outer.insertBefore(notch,frame);
+    }
+    outer.style.cssText='background:#1a1a1a;border-radius:40px;padding:12px;box-shadow:0 12px 48px rgba(0,0,0,.35);display:inline-flex;flex-direction:column;align-items:center;width:399px;';
+    frame.style.cssText='border:none;display:block;width:375px;border-radius:28px;background:#fdf5ff;';
+  } else {
+    const notch=document.getElementById('mobile-notch');
+    if(notch)notch.remove();
+    outer.style.cssText='background:#fdf5ff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);';
+    frame.style.cssText='border:none;display:block;width:680px;min-height:600px;';
+  }
+  frame.srcdoc='';
+  setTimeout(()=>renderPreview(),0);
+}
+
+function gv(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function toggleSec(h){h.closest('.sec').classList.toggle('collapsed');}
+
+// ── 저장 ──
+function saveBlock(block) {
+  if(block==='design') {
+    saved.design = {
+      headerMode: headerMode,
+      headerBg: gv('hex-header-bg') || '#a402f9',
+      headerGradStart: gv('hex-grad-start') || '#a402f9',
+      headerGradEnd: gv('hex-grad-end') || '#4d1696',
+      headerImg: imgStore.hdrImg,
+      ctaBg: gv('hex-cta-bg') || '#fab400',
+      ctaText: gv('hex-cta-text') || '#a402f9',
+      eventAccent: gv('hex-event-accent') || '#a402f9',
+      bookAccent: gv('hex-book-accent') || '#111827',
+      recAccent: gv('hex-rec-accent') || '#fab400',
+      bannerBg: gv('hex-banner-bg') || '#a402f9',
+      bannerBtn: gv('hex-banner-btn') || '#fab400',
+      bannerBtnText: gv('hex-banner-btn-text') || '#a402f9',
+    };
+  }
+  else if(block==='hero') saved.hero={
+    SEND_DATE:gv('SEND_DATE'),HEADLINE_MAIN:gv('HEADLINE_MAIN'),HEADLINE_SUB:gv('HEADLINE_SUB'),
+    HERO_BODY_COPY:gv('HERO_BODY_COPY'),CTA_TEXT:gv('CTA_TEXT'),CTA_URL:gv('CTA_URL'),
+    headerLogo:imgStore.headerLogo,
+    headerLogoSize:parseInt(document.getElementById('header-logo-size').value)||36
+  };
+  else if(block==='events') saved.events=events.map(e=>({title:gv('evt_title_'+e.id),period:gv('evt_period_'+e.id),desc:gv('evt_desc_'+e.id),url:gv('evt_url_'+e.id),img:eventImgs[e.id]||null}));
+  else if(block==='newbooks') saved.newbooks=newbooks.map(b=>({title:gv('nb_title_'+b.id),age:gv('nb_age_'+b.id),pub:gv('nb_pub_'+b.id),desc:gv('nb_desc_'+b.id),url:gv('nb_url_'+b.id),tag1:gv('nb_tag1_'+b.id),tag2:gv('nb_tag2_'+b.id),img:newbookImgs[b.id]||null}));
+  else if(block==='cta') saved.cta={
+    bannerTitle:gv('CTA_BANNER_TITLE')||'지금 이비랑 읽으러 가볼까요?',
+    bannerSub:gv('CTA_BANNER_SUB')||'하루 한 편, 아이의 전두엽을 깨우는 대화',
+    bannerBtnText:gv('CTA_BANNER_BTN_TEXT')||'앱에서 읽기',
+    bannerUrl:gv('CTA_BANNER_URL')||''
+  };
+  else if(block==='rec') saved.rec.books=[1,2,3].map(n=>({title:gv('REC_BOOK'+n+'_TITLE'),age:gv('REC_BOOK'+n+'_AGE'),oneline:gv('REC_BOOK'+n+'_ONE_LINE'),url:gv('REC_BOOK'+n+'_URL'),img:imgStore['rec'+n]||null}));
+  else if(block==='footer') saved.footer={
+    USER_EMAIL:gv('USER_EMAIL'),UNSUBSCRIBE_URL:gv('UNSUBSCRIBE_URL'),PRIVACY_URL:gv('PRIVACY_URL'),
+    APP_STORE_URL:gv('APP_STORE_URL'),APP_OPEN_URL:gv('APP_OPEN_URL'),
+    footerLogo:imgStore.footerLogo,
+    footerLogoSize:parseInt(document.getElementById('footer-logo-size').value)||28
+  };
+  renderPreview(block);
+}
+
+// ── 이벤트 ──
+function addEvent(){const id=++eventCount;events.push({id});eventImgs[id]=null;renderEventList();}
+function removeEvent(id){events.splice(events.findIndex(e=>e.id===id),1);delete eventImgs[id];renderEventList();}
+function renderEventList(){
+  const c=document.getElementById('event-list');c.innerHTML='';
+  events.forEach((e,i)=>{
+    const id=e.id,d=document.createElement('div');d.className='item-card';
+    d.innerHTML=`<div class="item-card-header"><span class="item-card-num">이벤트 ${i+1}</span>${events.length>1?`<button class="btn-remove" onclick="removeEvent(${id})">x</button>`:''}</div>
+<div class="row2"><div class="field"><label>제목</label><input type="text" id="evt_title_${id}" placeholder="이벤트 제목"/></div><div class="field"><label>기간</label><input type="text" id="evt_period_${id}" placeholder="~4월 15일까지"/></div></div>
+<div class="field"><label>설명</label><textarea id="evt_desc_${id}" placeholder="이벤트 설명"></textarea></div>
+<div class="field"><label>이미지</label>
+<div id="evt_imgprev_${id}" style="display:none;" class="img-preview-wrap"><img id="evt_imgel_${id}" src="" alt=""/><button class="img-remove" onclick="removeEventImg(${id})">x</button></div>
+<div id="evt_imgupload_${id}" class="upload-btn" onclick="document.getElementById('evt_imgfile_${id}').click()"><input type="file" id="evt_imgfile_${id}" accept="image/*" style="display:none" onchange="handleEventImg(event,${id})"/>이미지 업로드</div>
+<span class="img-name" id="evt_imgname_${id}"></span></div>
+<div class="field"><label>링크 URL</label><input type="url" id="evt_url_${id}" placeholder="https://"/></div>`;
+    c.appendChild(d);
+  });
+}
+function handleEventImg(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{eventImgs[id]=ev.target.result;document.getElementById('evt_imgel_'+id).src=ev.target.result;document.getElementById('evt_imgprev_'+id).style.display='block';document.getElementById('evt_imgupload_'+id).style.display='none';document.getElementById('evt_imgname_'+id).textContent=f.name;};r.readAsDataURL(f);}
+function removeEventImg(id){eventImgs[id]=null;document.getElementById('evt_imgel_'+id).src='';document.getElementById('evt_imgprev_'+id).style.display='none';document.getElementById('evt_imgupload_'+id).style.display='flex';document.getElementById('evt_imgname_'+id).textContent='';document.getElementById('evt_imgfile_'+id).value='';}
+
+// ── 신규 도서 ──
+function addNewBook(){const id=++newbookCount;newbooks.push({id});newbookImgs[id]=null;renderNewBookList();}
+function removeNewBook(id){newbooks.splice(newbooks.findIndex(b=>b.id===id),1);delete newbookImgs[id];renderNewBookList();}
+function renderNewBookList(){
+  const c=document.getElementById('newbook-list');c.innerHTML='';
+  newbooks.forEach((b,i)=>{
+    const id=b.id,d=document.createElement('div');d.className='item-card';
+    d.innerHTML=`<div class="item-card-header"><span class="item-card-num">도서 ${i+1}</span>${newbooks.length>1?`<button class="btn-remove" onclick="removeNewBook(${id})">x</button>`:''}</div>
+<div class="row2"><div class="field"><label>도서명</label><input type="text" id="nb_title_${id}" placeholder="구름빵"/></div><div class="field"><label>대상 연령</label><input type="text" id="nb_age_${id}" placeholder="4~7세"/></div></div>
+<div class="row2"><div class="field"><label>출판사</label><input type="text" id="nb_pub_${id}" placeholder="한솔수북"/></div><div class="field"><label>도서 링크</label><input type="url" id="nb_url_${id}" placeholder="https://"/></div></div>
+<div class="field"><label>도서 소개</label><textarea id="nb_desc_${id}" placeholder="도서 소개"></textarea></div>
+<div class="row2"><div class="field"><label>발달영역 태그 1</label><input type="text" id="nb_tag1_${id}" placeholder="상상력"/></div><div class="field"><label>발달영역 태그 2</label><input type="text" id="nb_tag2_${id}" placeholder="창의력"/></div></div>
+<div class="field"><label>표지 이미지</label>
+<div id="nb_imgprev_${id}" style="display:none;" class="img-preview-wrap"><img id="nb_imgel_${id}" src="" alt="" style="max-height:120px;object-fit:contain;"/><button class="img-remove" onclick="removeNewBookImg(${id})">x</button></div>
+<div id="nb_imgupload_${id}" class="upload-btn" onclick="document.getElementById('nb_imgfile_${id}').click()"><input type="file" id="nb_imgfile_${id}" accept="image/*" style="display:none" onchange="handleNewBookImg(event,${id})"/>표지 이미지 업로드</div>
+<span class="img-name" id="nb_imgname_${id}"></span></div>`;
+    c.appendChild(d);
+  });
+}
+function handleNewBookImg(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{newbookImgs[id]=ev.target.result;document.getElementById('nb_imgel_'+id).src=ev.target.result;document.getElementById('nb_imgprev_'+id).style.display='block';document.getElementById('nb_imgupload_'+id).style.display='none';document.getElementById('nb_imgname_'+id).textContent=f.name;};r.readAsDataURL(f);}
+function removeNewBookImg(id){newbookImgs[id]=null;document.getElementById('nb_imgel_'+id).src='';document.getElementById('nb_imgprev_'+id).style.display='none';document.getElementById('nb_imgupload_'+id).style.display='flex';document.getElementById('nb_imgname_'+id).textContent='';document.getElementById('nb_imgfile_'+id).value='';}
+function handleImg(e,key){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{imgStore[key]=ev.target.result;document.getElementById(key+'-img-el').src=ev.target.result;document.getElementById(key+'-img-preview').style.display='block';document.getElementById(key+'-img-upload').style.display='none';};r.readAsDataURL(f);}
+function removeImg(key){imgStore[key]=null;document.getElementById(key+'-img-el').src='';document.getElementById(key+'-img-preview').style.display='none';document.getElementById(key+'-img-upload').style.display='flex';const fi=document.getElementById(key+'-img-file');if(fi)fi.value='';}
+function handleLogo(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{imgStore.logo=ev.target.result;document.getElementById('logo-zone-inner').innerHTML=`<img src="${ev.target.result}" style="max-height:40px;max-width:140px;object-fit:contain;display:block;margin:0 auto;border-radius:4px;" alt="로고"/><div style="font-size:10px;color:var(--muted);margin-top:6px;">${f.name}</div><div style="font-size:10px;color:#9CA3AF;">클릭하여 변경</div>`;};r.readAsDataURL(f);}
+
+// ── HTML 빌더 ──
+function buildHTML(isMobile) {
+  const s=saved, h=s.hero, f=s.footer, d=s.design;
+  const W = isMobile ? '100%' : '600';
+  const maxW = isMobile ? '100%' : '600px';
+  const outerPad = isMobile ? '12px 0' : '24px 16px';
+  const cPad = isMobile ? '20px 12px' : '28px 32px';
+  const heroFS = isMobile ? '20px' : '28px';
+  const heroLH = isMobile ? '30px' : '40px';
+  const secFS = isMobile ? '15px' : '20px';
+
+  // 헤더 배경 스타일
+  let hdrBg = '';
+  if(d.headerMode==='image' && d.headerImg) {
+    hdrBg = `background-image:url('${d.headerImg}');background-size:cover;background-position:center;`;
+  } else if(d.headerMode==='gradient') {
+    hdrBg = `background:linear-gradient(135deg,${d.headerGradStart},${d.headerGradEnd});`;
+  } else {
+    hdrBg = `background:${d.headerBg};`;
+  }
+
+  const hLogoSize = h.headerLogoSize || 36;
+  const logoHtml = h.headerLogo
+    ? `<img src="${h.headerLogo}" alt="로고" height="${hLogoSize}" style="display:inline-block;height:${hLogoSize}px;max-width:200px;object-fit:contain;"/>`
+    : `<span style="font-family:'Noto Sans KR',sans-serif;font-size:${isMobile?18:22}px;font-weight:900;color:#fff;letter-spacing:-0.5px;">i<span style="color:${d.ctaBg};">Q</span>UVE</span>`;
+
+  const fLogoSize = f.footerLogoSize || 28;
+  const footerLogoHtml = f.footerLogo
+    ? `<img src="${f.footerLogo}" alt="로고" style="height:${fLogoSize}px;max-width:200px;object-fit:contain;display:inline-block;"/>`
+    : `<span style="font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:900;color:#111827;">i<span style="color:${d.eventAccent};">Q</span>UVE</span>`;
+
+  // 이벤트
+  const evList = s.events.length ? s.events : [{title:'이벤트 제목',period:'기간 미정',desc:'이벤트 설명을 입력하세요.',url:'#',img:null}];
+  const eventsHtml = evList.map((ev,i,arr)=>{
+    const imgHtml = ev.img
+      ? `<img src="${ev.img}" alt="이벤트" style="${isMobile?'width:100%;max-height:160px;border-radius:12px 12px 0 0;':'width:100px;height:100px;border-radius:12px;'}display:block;object-fit:cover;"/>`
+      : `<div style="background:${d.eventAccent};${isMobile?'width:100%;height:100px;border-radius:12px 12px 0 0;':'width:100px;height:100px;border-radius:12px;'}"></div>`;
+    const inner = `
+<div style="display:inline-block;background:${d.eventAccent};border-radius:100px;padding:3px 12px;margin-bottom:10px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:10px;font-weight:700;color:#fff;">${ev.period||'기간 미정'}</span></div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:${isMobile?'15px':'16px'};font-weight:900;color:#111827;line-height:24px;margin-bottom:6px;">${ev.title||'이벤트 제목'}</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:13px;color:#555;line-height:20px;margin-bottom:14px;">${ev.desc||''}</div>
+<table role="presentation" ${isMobile?'width="100%"':''} border="0" cellpadding="0" cellspacing="0"><tr><td style="background:${d.eventAccent};border-radius:8px;${isMobile?'text-align:center;':''}"><a href="${ev.url||'#'}" style="display:${isMobile?'block':'inline-block'};font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;color:#fff;text-decoration:none;padding:9px 20px;">이벤트 참여하기 →</a></td></tr></table>`;
+    if(isMobile) return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:${i<arr.length-1?'16px':'0'};"><tr><td style="background:#fff9ff;border-radius:16px;border:2px solid ${d.eventAccent};overflow:hidden;">${imgHtml}<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding:16px;">${inner}</td></tr></table></td></tr></table>`;
+    return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:${i<arr.length-1?'16px':'0'};"><tr><td style="background:#fff9ff;border-radius:16px;border:2px solid ${d.eventAccent};overflow:hidden;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td width="130" style="vertical-align:top;padding:20px 0 20px 20px;">${imgHtml}</td><td style="padding:20px;vertical-align:top;">${inner}</td></tr></table></td></tr></table>`;
+  }).join('');
+
+  // 신규 도서
+  const nbList = s.newbooks.length ? s.newbooks : [{title:'도서명',age:'연령',pub:'출판사',desc:'도서 소개를 입력하세요.',url:'#',tag1:'태그1',tag2:'태그2',img:null}];
+  const newbooksHtml = nbList.map((b,i,arr)=>{
+    const imgHtml = b.img
+      ? `<img src="${b.img}" alt="${b.title}" style="${isMobile?'width:100%;max-height:180px;object-fit:cover;border-radius:12px 12px 0 0;display:block;':'width:90px;height:120px;border-radius:8px;display:block;object-fit:cover;'}"/>`
+      : `<div style="background:${d.bookAccent};${isMobile?'width:100%;height:120px;border-radius:12px 12px 0 0;':'width:90px;height:120px;border-radius:8px;'}"></div>`;
+    const info = `
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;color:${d.bookAccent};margin-bottom:6px;">${b.age||'연령'} · ${b.pub||'출판사'}</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:${isMobile?'16px':'17px'};font-weight:900;color:#111827;line-height:26px;margin-bottom:8px;">《${b.title||'도서명'}》</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:13px;color:#4B5563;line-height:20px;margin-bottom:14px;">${b.desc||''}</div>
+<div style="margin-bottom:14px;"><span style="display:inline-block;background:#fdf0ff;border-radius:6px;padding:3px 10px;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;color:${d.eventAccent};margin-right:6px;border:1px solid #e8c0ff;">${b.tag1||'태그1'}</span><span style="display:inline-block;background:#fffbea;border-radius:6px;padding:3px 10px;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;color:#92600a;border:1px solid #fde68a;">${b.tag2||'태그2'}</span></div>
+<table role="presentation" ${isMobile?'width="100%"':''} border="0" cellpadding="0" cellspacing="0"><tr><td style="background:${d.bookAccent};border-radius:8px;${isMobile?'text-align:center;':''}"><a href="${b.url||'#'}" style="display:${isMobile?'block':'inline-block'};font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;color:#fff;text-decoration:none;padding:9px 20px;">이비랑 읽어보기 →</a></td></tr></table>`;
+    if(isMobile) return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:${i<arr.length-1?'16px':'0'};"><tr><td style="border-radius:16px;border:1.5px solid #e5e7eb;overflow:hidden;">${imgHtml}<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding:16px;background:#fff;">${info}</td></tr></table></td></tr></table>`;
+    return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:${i<arr.length-1?'16px':'0'};"><tr><td style="border-radius:16px;border:1.5px solid #e5e7eb;overflow:hidden;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td width="130" style="vertical-align:top;background:#fdf8ff;padding:20px;">${imgHtml}</td><td style="padding:20px;vertical-align:top;background:#fff;">${info}</td></tr></table></td></tr></table>`;
+  }).join('');
+
+  // 추천 도서 카드
+  function recCard(bk, mob) {
+    const img = bk.img
+      ? `<img src="${bk.img}" alt="${bk.title}" width="${mob?100:80}" height="${mob?130:105}" style="border-radius:8px;display:inline-block;object-fit:cover;"/>`
+      : `<div style="width:${mob?100:80}px;height:${mob?130:105}px;border-radius:8px;background:${d.recAccent};display:inline-block;"></div>`;
+    return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-radius:12px;border:1.5px solid #e5e7eb;overflow:hidden;">
+<tr><td style="padding:${mob?18:16}px;text-align:center;background:#fdf8ff;">${img}</td></tr>
+<tr><td style="padding:${mob?14:12}px;">
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:10px;color:${d.recAccent};font-weight:700;margin-bottom:4px;">${bk.age||'연령'}</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:${mob?14:13}px;font-weight:900;color:#111827;line-height:19px;margin-bottom:6px;">${bk.title||'도서명'}</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:${mob?12:11}px;color:#6B7280;line-height:16px;margin-bottom:10px;">${bk.oneline||'한줄 소개'}</div>
+<a href="${bk.url||'#'}" style="display:block;text-align:center;background:#fdf0ff;border-radius:6px;padding:${mob?9:7}px;font-family:'Noto Sans KR',sans-serif;font-size:${mob?12:11}px;font-weight:700;color:${d.recAccent};text-decoration:none;border:1px solid #e8c0ff;">읽기 →</a>
+</td></tr></table>`;
+  }
+  const [r1,r2,r3] = s.rec.books;
+  const recHtml = isMobile
+    ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding-bottom:10px;">${recCard(r1,true)}</td></tr><tr><td style="padding-bottom:10px;">${recCard(r2,true)}</td></tr><tr><td>${recCard(r3,true)}</td></tr></table>`
+    : `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td valign="top" style="width:33.33%;padding-right:8px;">${recCard(r1,false)}</td><td valign="top" style="width:33.33%;padding:0 4px;">${recCard(r2,false)}</td><td valign="top" style="width:33.33%;padding-left:8px;">${recCard(r3,false)}</td></tr></table>`;
+
+  return `<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>아이큐브 뉴스레터</title>
+<style>
+body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
+table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
+img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}
+body{margin:0!important;padding:0!important;background-color:#fdf5ff;}
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#fdf5ff;font-family:'Noto Sans KR',Apple SD Gothic Neo,Malgun Gothic,sans-serif;">
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#fdf5ff;">
+<tr><td align="center" style="padding:${outerPad};">
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="${W}" style="max-width:${maxW};width:100%;${isMobile?'padding:0 12px;box-sizing:border-box;':''}">
+
+<tr><td style="${hdrBg}border-radius:${isMobile?'16px 16px':'20px 20px'} 0 0;">
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+<tr><td style="padding:${isMobile?'18px 20px 0':'22px 32px 0'};">
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr>
+<td>${logoHtml}</td>
+<td style="text-align:right;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:rgba(255,255,255,0.55);">${h.SEND_DATE||'{{SEND_DATE}}'} 뉴스레터</span></td>
+</tr></table></td></tr>
+<tr><td style="padding:${isMobile?'22px 20px 0':cPad};">
+<div style="display:inline-block;border-radius:100px;padding:5px 16px;margin-bottom:16px;background:${d.ctaBg};">
+<span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:900;color:${d.ctaText};letter-spacing:0.5px;">이번 주 아이큐브</span>
+</div>
+<h1 style="font-family:'Noto Sans KR',sans-serif;font-size:${heroFS};font-weight:900;color:#fff;line-height:${heroLH};margin:0 0 10px;letter-spacing:-0.5px;">
+${h.HEADLINE_MAIN||'헤드라인을 입력하세요'}<br/>
+<span style="color:${d.ctaBg};">${h.HEADLINE_SUB||'서브 헤드라인'}</span>
+</h1>
+<p style="font-family:'Noto Sans KR',sans-serif;font-size:${isMobile?'13px':'14px'};color:rgba(255,255,255,0.8);line-height:22px;margin:0 0 22px;">${h.HERO_BODY_COPY||'본문 카피를 입력하세요.'}</p>
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:28px;${isMobile?'width:100%;':''}"><tr>
+<td style="border-radius:12px;background:${d.ctaBg};box-shadow:0 4px 16px rgba(0,0,0,0.2);${isMobile?'text-align:center;display:block;':''}">
+<a href="${h.CTA_URL||'#'}" style="display:${isMobile?'block':'inline-block'};font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:900;color:${d.ctaText};text-decoration:none;padding:${isMobile?'13px 20px':'13px 28px'};border-radius:12px;">${h.CTA_TEXT||'지금 바로 읽기'} →</a>
+</td></tr></table>
+</td></tr>
+<tr><td style="line-height:0;font-size:0;">
+<svg width="100%" height="28" viewBox="0 0 600 28" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;">
+<path d="M0 0 Q150 28 300 14 Q450 0 600 28 L600 28 L0 28 Z" fill="#fdf5ff"/>
+</svg></td></tr>
+</table></td></tr>
+
+<tr><td style="background:#fff;">
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+<tr><td style="padding:${isMobile?'20px 12px 16px':cPad};">
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
+<td style="border-left:4px solid ${d.eventAccent};padding-left:12px;">
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;color:${d.eventAccent};letter-spacing:1.5px;margin-bottom:2px;">EVENT</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:${secFS};font-weight:900;color:#111827;">이벤트 안내</div>
+</td></tr></table>
+${eventsHtml}
+</td></tr></table></td></tr>
+
+<tr><td style="background:#fff;padding:0 ${isMobile?16:32}px;"><div style="height:1px;background:#f0e0ff;"></div></td></tr>
+
+<tr><td style="background:#fff;">
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+<tr><td style="padding:${isMobile?'20px 12px 16px':cPad};">
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
+<td style="border-left:4px solid ${d.bookAccent};padding-left:12px;">
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;color:${d.bookAccent};letter-spacing:1.5px;margin-bottom:2px;">NEW BOOK</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:${secFS};font-weight:900;color:#111827;">이번 주 새 동화책</div>
+</td></tr></table>
+${newbooksHtml}
+</td></tr></table></td></tr>
+
+<tr><td style="background:#fff;padding:0 ${isMobile?'12px':'32px'};"><div style="height:1px;background:#f0e0ff;"></div></td></tr>
+
+<tr><td style="background:#fff;border-radius:0 0 20px 20px;">
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+<tr><td style="padding:${isMobile?'20px 12px 24px':cPad};">
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
+<td style="border-left:4px solid ${d.recAccent};padding-left:12px;">
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;color:${d.recAccent};letter-spacing:1.5px;margin-bottom:2px;">WEEKLY PICK</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:${secFS};font-weight:900;color:#111827;">이번 주 추천 동화책</div>
+</td></tr></table>
+${recHtml}
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top:20px;"><tr>
+<td style="text-align:center;background:${d.bannerBg};border-radius:14px;padding:${isMobile?'20px 12px':'28px 24px'};">
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:${isMobile?'15px':'16px'};font-weight:900;color:#fff;margin-bottom:6px;">${s.cta.bannerTitle||'지금 이비랑 읽으러 가볼까요?'}</div>
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:18px;">${s.cta.bannerSub||'하루 한 편, 아이의 전두엽을 깨우는 대화'}</div>
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;${isMobile?'width:100%;':''}"><tr>
+<td style="background:${d.bannerBtn};border-radius:12px;${isMobile?'text-align:center;display:block;':''}">
+<a href="${s.cta.bannerUrl||f.APP_OPEN_URL||'#'}" style="display:${isMobile?'block':'inline-block'};font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:900;color:${d.bannerBtnText};text-decoration:none;padding:13px 32px;">${s.cta.bannerBtnText||'앱에서 읽기'} →</a>
+</td></tr></table>
+</td></tr></table>
+</td></tr></table></td></tr>
+
+<tr><td style="padding:20px 0 0;">
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 8px;">${footerLogoHtml}<span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;margin-left:8px;">대화하는 동화책</span></td></tr>
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 6px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;">그로비교육 · 서울특별시</span></td></tr>
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 14px;">
+<a href="${f.UNSUBSCRIBE_URL||'#'}" style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;text-decoration:underline;">수신거부</a>
+<span style="color:#D1D5DB;margin:0 6px;">|</span>
+<a href="${f.PRIVACY_URL||'#'}" style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;text-decoration:underline;">개인정보처리방침</a>
+<span style="color:#D1D5DB;margin:0 6px;">|</span>
+<a href="${f.APP_STORE_URL||'#'}" style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;text-decoration:underline;">앱 다운로드</a>
+</td></tr>
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 4px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:10px;color:#D1D5DB;">본 메일은 ${f.USER_EMAIL||'{{수신자이메일}}'} 으로 발송되었습니다.</span></td></tr>
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 20px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:10px;color:#D1D5DB;">© 2025 그로비교육. All rights reserved.</span></td></tr>
+</table></td></tr>
+
+</table></td></tr></table>
+</body></html>`;
+}
+
+function renderPreview(block) {
+  const isMobile=(viewMode==='mobile');
+  const frame=document.getElementById('preview-frame');
+  frame.srcdoc=buildHTML(isMobile);
+  frame.onload=function(){
+    try{const h=frame.contentDocument.documentElement.scrollHeight;frame.style.height=Math.max(h+20,400)+'px';}
+    catch(e){frame.style.height='900px';}
+  };
+  if(block){
+    document.querySelectorAll('.btn-save').forEach(b=>{
+      if(b.getAttribute('onclick')&&b.getAttribute('onclick').includes("'"+block+"'")){
+        const orig=b.textContent;b.textContent='저장 완료!';b.classList.add('saved');
+        setTimeout(()=>{b.textContent=orig;b.classList.remove('saved');},1500);
+      }
+    });
+  }
+}
+
+function downloadHTML(){
+  const html=buildHTML(false);
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  const d=new Date();
+  a.download='iquve_newsletter_'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'.html';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function init(){addEvent();addNewBook();renderPreview();}
+init();
+</script>
+</body>
+</html>

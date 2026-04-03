@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iQUVE CRM 전략</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f8f6; --bg2: #f0f0ec; --bg3: #ffffff; --bg4: #f4f4f0;
+  --line: rgba(0,0,0,0.08); --line2: rgba(0,0,0,0.14);
+  --text: #1a1a1e; --text2: #555560; --text3: #9090a0;
+  --accent-a: #1a8a5a; --accent-b: #1a6aaa; --accent-c: #a06010; --accent-d: #c0203a;
+  --mono: 'DM Mono', monospace; --sans: 'Noto Sans KR', sans-serif;
+  --radius: 10px;
+}
+body.dark {
+  --bg: #0d0d0f; --bg2: #141416; --bg3: #1a1a1e; --bg4: #202026;
+  --line: rgba(255,255,255,0.07); --line2: rgba(255,255,255,0.13);
+  --text: #e8e8ec; --text2: #9090a0; --text3: #5a5a6a;
+  --accent-a: #4ade9e; --accent-b: #4a9ede; --accent-c: #e8a24a; --accent-d: #e84a6a;
+}
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.6; transition: background 0.2s, color 0.2s; }
+
+/* ── FIXED TOOLBAR ── */
+.toolbar { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: var(--bg3); border-bottom: 1px solid var(--line); padding: 10px 32px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.toolbar-left { display: flex; align-items: center; gap: 10px; }
+.brand { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--accent-a); letter-spacing: 1px; }
+.toolbar-right { display: flex; align-items: center; gap: 8px; }
+.btn { font-family: var(--mono); font-size: 11px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line2); background: transparent; color: var(--text2); cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px; white-space: nowrap; }
+.btn:hover { color: var(--text); border-color: var(--text3); background: var(--bg2); }
+.btn-primary { background: var(--accent-a); color: #fff; border-color: var(--accent-a); }
+body.dark .btn-primary { color: #0d0d0f; }
+.btn-primary:hover { opacity: 0.85; color: #fff; }
+.btn-danger { background: rgba(192,32,58,0.1); color: var(--accent-d); border-color: rgba(192,32,58,0.25); }
+.btn-danger:hover { background: rgba(192,32,58,0.2); }
+
+/* ── LAYOUT ── */
+.page-wrap { padding-top: 56px; display: flex; min-height: 100vh; }
+.sidebar { width: 240px; min-width: 240px; background: var(--bg3); border-right: 1px solid var(--line); padding: 20px 0; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; display: flex; flex-direction: column; }
+.main { flex: 1; padding: 28px 36px; min-width: 0; }
+
+/* ── SIDEBAR ── */
+.sidebar-section { margin-bottom: 8px; }
+.sidebar-group-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 16px; }
+.sidebar-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; cursor: pointer; transition: background 0.12s; font-size: 13px; color: var(--text2); border-left: 3px solid transparent; user-select: none; }
+.sidebar-item:hover { background: var(--bg2); color: var(--text); }
+.sidebar-item:hover .seg-item-actions { opacity: 1; }
+.sidebar-item.active { background: var(--bg2); color: var(--text); border-left-color: var(--accent-a); font-weight: 500; }
+.sidebar-item.active.grp-green { border-left-color: var(--accent-a); }
+.sidebar-item.active.grp-blue { border-left-color: var(--accent-b); }
+.sidebar-item.active.grp-amber { border-left-color: var(--accent-c); }
+.sidebar-item.dragging { opacity: 0.4; background: var(--bg2); }
+.sidebar-item.drag-over { border-top: 2px solid var(--accent-b); }
+.drag-handle { color: var(--text3); font-size: 12px; cursor: grab; padding: 0 2px; flex-shrink: 0; }
+.drag-handle:active { cursor: grabbing; }
+.seg-item-actions { display: flex; gap: 3px; margin-left: auto; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+.seg-action-btn { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--line2); background: transparent; color: var(--text3); cursor: pointer; transition: all 0.12s; }
+.seg-action-btn:hover { background: var(--bg3); color: var(--text); }
+.seg-action-btn.del:hover { background: rgba(192,32,58,0.1); color: var(--accent-d); border-color: rgba(192,32,58,0.2); }
+/* edit segment modal */
+.seg-edit-modal { background: var(--bg3); border: 1px solid var(--line2); border-radius: 12px; padding: 24px; width: 420px; max-width: 90vw; }
+.seg-badge { font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+.badge-green { background: rgba(26,138,90,0.1); color: var(--accent-a); }
+.badge-blue { background: rgba(26,106,170,0.1); color: var(--accent-b); }
+.badge-amber { background: rgba(160,96,16,0.1); color: var(--accent-c); }
+.badge-gray { background: rgba(90,90,106,0.1); color: var(--text3); }
+.sidebar-add { margin: 8px 12px 0; }
+.sidebar-divider { height: 1px; background: var(--line); margin: 10px 0; }
+
+/* ── OVERVIEW TAB ── */
+.top-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+.top-tab { font-family: var(--mono); font-size: 12px; padding: 10px 18px; border: none; background: transparent; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+.top-tab:hover { color: var(--text2); }
+.top-tab.active { color: var(--accent-a); border-bottom-color: var(--accent-a); }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── FUNNEL OVERVIEW ── */
+.section-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; }
+.funnel-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 14px 18px; background: var(--bg3); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 20px; }
+.funnel-step { font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 4px; white-space: nowrap; }
+.funnel-arrow { color: var(--text3); font-size: 12px; }
+.fs-gray { background: rgba(90,90,106,0.15); color: var(--text3); border: 1px solid rgba(90,90,106,0.3); }
+.fs-amber { background: rgba(160,96,16,0.08); color: var(--accent-c); border: 1px solid rgba(160,96,16,0.2); }
+.fs-blue { background: rgba(26,106,170,0.08); color: var(--accent-b); border: 1px solid rgba(26,106,170,0.2); }
+.fs-green { background: rgba(26,138,90,0.1); color: var(--accent-a); border: 1px solid rgba(26,138,90,0.25); }
+.group-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+.group-card { background: var(--bg3); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden; }
+.group-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.gc-green::before { background: linear-gradient(90deg, var(--accent-a), transparent); }
+.gc-blue::before { background: linear-gradient(90deg, var(--accent-b), transparent); }
+.gc-amber::before { background: linear-gradient(90deg, var(--accent-c), transparent); }
+.gc-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 5px; }
+.gc-green .gc-label { color: var(--accent-a); } .gc-blue .gc-label { color: var(--accent-b); } .gc-amber .gc-label { color: var(--accent-c); }
+.gc-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.gc-desc { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+/* ── SEGMENT PANEL ── */
+.panel-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.panel-meta { flex: 1; }
+.panel-seg-id { font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
+.panel-title-text { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.panel-desc-text { font-size: 13px; color: var(--text2); max-width: 500px; }
+.panel-actions { display: flex; gap: 6px; align-items: flex-start; padding-top: 4px; }
+
+/* ── EDIT MODE ── */
+.editable { border-radius: 5px; transition: background 0.15s; }
+.edit-mode .editable { background: var(--bg2); outline: none; }
+.edit-mode .editable:focus { outline: 2px solid var(--accent-b); }
+input.editable, textarea.editable { font-family: inherit; font-size: inherit; color: inherit; background: transparent; border: none; width: 100%; resize: none; }
+.edit-mode input.editable, .edit-mode textarea.editable { background: var(--bg2); padding: 4px 6px; border-radius: 5px; border: 1px solid var(--line2); }
+.edit-mode input.editable:focus, .edit-mode textarea.editable:focus { outline: 2px solid var(--accent-b); border-color: transparent; }
+.view-mode input.editable, .view-mode textarea.editable { pointer-events: none; }
+
+/* ── STATS ROW ── */
+.stats-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+.stat-box { background: var(--bg4); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 110px; }
+.stat-label { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+.stat-val { font-size: 13px; font-weight: 500; color: var(--text); }
+
+/* ── MESSAGES ── */
+.messages-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.messages-title { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; }
+.msg-list { display: flex; flex-direction: column; gap: 14px; }
+.msg-item { background: var(--bg3); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; position: relative; }
+.msg-item-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.msg-timing-wrap { flex: 1; }
+.msg-timing-label { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+.msg-step-title { font-size: 14px; font-weight: 500; color: var(--text); }
+.msg-remove-btn { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line2); background: transparent; color: var(--text3); cursor: pointer; opacity: 0; transition: opacity 0.15s; white-space: nowrap; }
+.edit-mode .msg-remove-btn { opacity: 1; }
+.msg-remove-btn:hover { background: rgba(192,32,58,0.1); color: var(--accent-d); border-color: rgba(192,32,58,0.2); }
+.msg-channel-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
+.channel-tag { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; cursor: default; border: 1px solid transparent; }
+.ch-kakao { background: rgba(255,180,0,0.1); color: #a07000; border-color: rgba(255,180,0,0.25); }
+.ch-sms { background: rgba(26,106,170,0.08); color: var(--accent-b); border-color: rgba(26,106,170,0.2); }
+.ch-push { background: rgba(26,138,90,0.08); color: var(--accent-a); border-color: rgba(26,138,90,0.2); }
+.ch-email { background: rgba(160,96,16,0.08); color: var(--accent-c); border-color: rgba(160,96,16,0.2); }
+.ch-channel { background: rgba(90,90,106,0.1); color: var(--text2); border-color: rgba(90,90,106,0.2); }
+.channel-select { display: none; }
+.edit-mode .channel-select { display: flex; flex-wrap: wrap; gap: 5px; }
+.edit-mode .channel-tags-display { display: none !important; }
+.ch-checkbox { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; cursor: pointer; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line2); color: var(--text2); transition: all 0.12s; user-select: none; }
+.ch-checkbox input { display: none; }
+.ch-checkbox.checked { background: var(--bg2); border-color: var(--text3); color: var(--text); }
+.msg-body-text { font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; word-break: keep-all; border-left: 2px solid var(--line2); padding-left: 12px; margin-bottom: 8px; }
+.msg-tip-text { font-size: 11px; color: var(--text3); padding-top: 8px; border-top: 1px solid var(--line); }
+.add-msg-btn { width: 100%; padding: 10px; border: 1px dashed var(--line2); border-radius: var(--radius); background: transparent; color: var(--text3); font-family: var(--mono); font-size: 11px; cursor: pointer; transition: all 0.15s; display: none; margin-top: 10px; }
+.edit-mode .add-msg-btn { display: block; }
+.add-msg-btn:hover { border-color: var(--accent-b); color: var(--accent-b); background: rgba(26,106,170,0.04); }
+
+/* ── OPS VIEW ── */
+.ops-block { margin-bottom: 36px; }
+.ops-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.ops-desc { font-size: 12px; color: var(--text2); margin-bottom: 18px; }
+.branch-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.branch-table th { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; padding: 8px 12px; border-bottom: 1px solid var(--line2); text-align: left; font-weight: 400; }
+.branch-table td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 12px; }
+.branch-table tr:last-child td { border-bottom: none; }
+.branch-table tr:hover td { background: var(--bg2); }
+.seg-tag { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 4px; white-space: nowrap; display: inline-block; }
+.st-green { background: rgba(26,138,90,0.1); color: var(--accent-a); border: 1px solid rgba(26,138,90,0.2); }
+.st-blue { background: rgba(26,106,170,0.1); color: var(--accent-b); border: 1px solid rgba(26,106,170,0.2); }
+.st-amber { background: rgba(160,96,16,0.1); color: var(--accent-c); border: 1px solid rgba(160,96,16,0.2); }
+.st-gray { background: rgba(90,90,106,0.1); color: var(--text3); border: 1px solid rgba(90,90,106,0.2); }
+.st-red { background: rgba(192,32,58,0.1); color: var(--accent-d); border: 1px solid rgba(192,32,58,0.2); }
+.time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.time-card { background: var(--bg3); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.time-card-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+.tc-morning .time-card-label { color: var(--accent-b); }
+.tc-afternoon .time-card-label { color: var(--accent-c); }
+.tc-evening .time-card-label { color: var(--accent-d); }
+.time-card-time { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+.time-card-desc { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 10px; }
+.time-card-segs { display: flex; flex-wrap: wrap; gap: 4px; }
+.rule-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.rule-card { background: var(--bg3); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.rule-card-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.rule-icon { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--bg4); color: var(--text3); border: 1px solid var(--line2); }
+.rule-body { font-size: 12px; color: var(--text2); line-height: 1.8; }
+.rule-body li { margin-left: 14px; margin-bottom: 2px; }
+.branch-cell { display: block; outline: none; border-radius: 3px; padding: 1px 3px; }
+.ops-editing .branch-cell { background: var(--bg2); cursor: text; }
+.ops-editing .branch-cell:focus { outline: 2px solid var(--accent-b); }
+.ops-editing [contenteditable="true"] { background: var(--bg2); border-radius: 4px; padding: 2px 5px; cursor: text; }
+.ops-editing [contenteditable="true"]:focus { outline: 2px solid var(--accent-b); }
+.rule-card-edit { width: 100%; min-height: 80px; font-family: var(--sans); font-size: 12px; color: var(--text2); background: var(--bg2); border: 1px solid var(--line2); border-radius: 6px; padding: 8px; resize: vertical; line-height: 1.8; outline: none; display: none; }
+.rule-card-edit:focus { border-color: var(--accent-b); }
+.add-branch-row { width: 100%; margin-top: 8px; padding: 7px; border: 1px dashed var(--line2); border-radius: 6px; background: transparent; color: var(--text3); font-family: var(--mono); font-size: 11px; cursor: pointer; display: none; }
+.add-branch-row:hover { border-color: var(--accent-b); color: var(--accent-b); }
+.ops-editing .add-branch-row { display: block; }
+.del-row-btn { font-size: 10px; padding: 1px 5px; border-radius: 3px; border: 1px solid var(--line2); background: transparent; color: var(--text3); cursor: pointer; display: none; vertical-align: middle; }
+.ops-editing .del-row-btn { display: inline; }
+.del-row-btn:hover { background: rgba(192,32,58,0.1); color: var(--accent-d); border-color: rgba(192,32,58,0.2); }
+.channel-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 14px 18px; background: var(--bg3); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 10px; }
+.ch-flow-tag { font-size: 12px; padding: 4px 10px; border-radius: 6px; font-weight: 500; }
+.ch-flow-kakao { background: rgba(255,180,0,0.1); color: #a07000; border: 1px solid rgba(255,180,0,0.2); }
+.ch-flow-sms { background: rgba(26,106,170,0.08); color: var(--accent-b); border: 1px solid rgba(26,106,170,0.2); }
+.ch-flow-push { background: rgba(26,138,90,0.08); color: var(--accent-a); border: 1px solid rgba(26,138,90,0.2); }
+.ch-flow-del { background: rgba(192,32,58,0.08); color: var(--accent-d); border: 1px solid rgba(192,32,58,0.2); }
+.ch-flow-arrow { color: var(--text3); }
+.ch-flow-cond { font-size: 11px; color: var(--text3); font-style: italic; }
+
+/* ── ADD FUNNEL MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--bg3); border: 1px solid var(--line2); border-radius: 12px; padding: 24px; width: 400px; max-width: 90vw; }
+.modal-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 18px; }
+.form-row { margin-bottom: 14px; }
+.form-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+.form-input { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line2); background: var(--bg2); color: var(--text); font-family: var(--sans); font-size: 13px; outline: none; }
+.form-input:focus { border-color: var(--accent-b); }
+.form-select { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line2); background: var(--bg2); color: var(--text); font-family: var(--sans); font-size: 13px; outline: none; cursor: pointer; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--bg); font-family: var(--mono); font-size: 12px; padding: 10px 16px; border-radius: 8px; z-index: 999; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateY(0); }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <span class="brand">iQUVE · CRM</span>
+  </div>
+  <div class="toolbar-right">
+    <button class="btn" onclick="switchMainTab('ops')">전환 분기 &amp; 운영 기준</button>
+    <button class="btn" onclick="switchMainTab('overview')">퍼널 개요</button>
+    <button class="btn" onclick="toggleTheme()">🌙 다크</button>
+  </div>
+</div>
+
+<!-- MODAL: 퍼널 추가 -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-title">새 세그먼트 추가</div>
+    <div class="form-row">
+      <div class="form-label">세그먼트 ID (알파벳)</div>
+      <input class="form-input" id="newId" placeholder="예: K" maxlength="2">
+    </div>
+    <div class="form-row">
+      <div class="form-label">타이틀</div>
+      <input class="form-input" id="newTitle" placeholder="예: 이탈 유저">
+    </div>
+    <div class="form-row">
+      <div class="form-label">설명</div>
+      <input class="form-input" id="newDesc" placeholder="예: 30일 이상 미접속 유저">
+    </div>
+    <div class="form-row">
+      <div class="form-label">그룹</div>
+      <select class="form-select" id="newGroup">
+        <option value="green">Group 1 — 결제 유저</option>
+        <option value="blue" selected>Group 2 — 온보딩 완료 / 결제 미전환</option>
+        <option value="amber">Group 3 — 초기 이탈</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="addSegment()">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 그룹 수정 -->
+<div class="modal-overlay" id="editGroupModal">
+  <div class="seg-edit-modal">
+    <div class="modal-title">그룹 수정</div>
+    <div class="form-row">
+      <div class="form-label">그룹 레이블 (사이드바 표시)</div>
+      <input class="form-input" id="editGroupLabel" placeholder="예: GROUP 1 · 결제 유저">
+    </div>
+    <div class="form-row">
+      <div class="form-label">타이틀</div>
+      <input class="form-input" id="editGroupTitle" placeholder="예: 유지 &amp; 업셀">
+    </div>
+    <div class="form-row">
+      <div class="form-label">설명</div>
+      <textarea class="form-input" id="editGroupDesc" rows="3" placeholder="그룹 설명" style="resize:vertical;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeEditGroupModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveEditGroup()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 세그먼트 수정 -->
+<div class="modal-overlay" id="editSegModal">
+  <div class="seg-edit-modal">
+    <div class="modal-title">세그먼트 수정</div>
+    <div class="form-row">
+      <div class="form-label">세그먼트 ID</div>
+      <input class="form-input" id="editSegId" placeholder="예: A" maxlength="2">
+    </div>
+    <div class="form-row">
+      <div class="form-label">타이틀</div>
+      <input class="form-input" id="editSegTitle" placeholder="예: 연결제 완료 유저">
+    </div>
+    <div class="form-row">
+      <div class="form-label">서브 ID (표시용)</div>
+      <input class="form-input" id="editSegSubId" placeholder="예: Segment A · Group 1">
+    </div>
+    <div class="form-row">
+      <div class="form-label">설명</div>
+      <input class="form-input" id="editSegDesc" placeholder="세그먼트 설명">
+    </div>
+    <div class="form-row">
+      <div class="form-label">그룹</div>
+      <select class="form-select" id="editSegGroup">
+        <option value="green">Group 1 — 결제 유저</option>
+        <option value="blue">Group 2 — 온보딩 완료 / 결제 미전환</option>
+        <option value="amber">Group 3 — 초기 이탈</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="deleteFromEditModal()" style="margin-right:auto">삭제</button>
+      <button class="btn" onclick="closeEditSegModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveEditSeg()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">저장됐어요</div>
+
+<div class="page-wrap">
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div id="sidebarContent"></div>
+    <div style="padding: 10px 12px; margin-top: auto;">
+      <button class="btn" style="width:100%; justify-content:center;" onclick="openModal()">+ 세그먼트 추가</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="section-label" style="margin-bottom:0;">Funnel Flow</div>
+        <div style="display:flex;gap:6px;" id="overviewBtns">
+          <button class="btn" onclick="editOverview()">수정</button>
+        </div>
+      </div>
+      <div class="funnel-flow" id="funnelFlow"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;margin-top:4px;">
+        <div class="section-label" style="margin-bottom:0;">그룹 구성</div>
+      </div>
+      <div class="group-grid" id="groupGrid"></div>
+    </div>
+
+    <!-- SEGMENT PANELS -->
+    <div class="view" id="view-segment">
+      <div id="segmentPanelContainer"></div>
+    </div>
+
+    <!-- OPS -->
+    <div class="view" id="view-ops">
+      <div class="ops-block" id="opsBlock-branch">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div class="ops-title">전환 분기 로직</div>
+          <div style="display:flex;gap:6px;" id="branchBtns">
+            <button class="btn" onclick="editOps('branch')">수정</button>
+          </div>
+        </div>
+        <div class="ops-desc" id="ops-branch-desc" contenteditable="false">실시간 이벤트 트리거 기반. 조건 충족 즉시 현재 세그먼트 CRM 중단 → 다음 세그먼트로 자동 이동.</div>
+        <table class="branch-table" id="branchTable">
+          <thead><tr><th style="width:12%">현재 세그</th><th style="width:32%">전환 트리거</th><th style="width:16%">이동 세그</th><th>처리 방식 및 비고</th></tr></thead>
+          <tbody>
+            <tr data-ri="0"><td><span class="seg-tag st-gray">H</span></td><td>회원가입 완료</td><td><span class="seg-tag st-amber">G</span></td><td>즉시 이동. 뉴스레터 대상 유지.</td></tr>
+            <tr data-ri="1"><td><span class="seg-tag st-amber">G</span></td><td>본인인증 완료</td><td><span class="seg-tag st-blue">F</span></td><td>즉시 이동.</td></tr>
+            <tr data-ri="2"><td><span class="seg-tag st-blue">F</span></td><td>자녀 등록 완료</td><td><span class="seg-tag st-blue">E</span></td><td>즉시 이동. 큐브 100개 자동 지급.</td></tr>
+            <tr data-ri="3"><td><span class="seg-tag st-blue">E</span></td><td>영상 1편 이상 시청 완료</td><td><span class="seg-tag st-blue">C</span></td><td>즉시 이동. 이케아 추첨 이벤트 자동 응모. 뉴스레터 발송 중단.</td></tr>
+            <tr data-ri="4"><td><span class="seg-tag st-blue">C</span></td><td>가입 후 7일 경과 (미결제)</td><td><span class="seg-tag st-blue">D</span></td><td>자정 배치 처리. 2차 특별 혜택 쿠폰 신규 발급 후 D+8 메시지 발송.</td></tr>
+            <tr data-ri="5"><td><span class="seg-tag st-blue">C</span></td><td>결제 완료 (월결제)</td><td><span class="seg-tag st-green">B</span></td><td>즉시 이동. 쿠폰 만료 처리. 학습지원팀 연결제 전환 콜 큐 등록.</td></tr>
+            <tr data-ri="6"><td><span class="seg-tag st-blue">C</span></td><td>결제 완료 (연결제)</td><td><span class="seg-tag st-green">A</span></td><td>즉시 이동. 웰컴 메시지 즉시 발송.</td></tr>
+            <tr data-ri="7"><td><span class="seg-tag st-blue">D</span></td><td>결제 완료 (월결제)</td><td><span class="seg-tag st-green">B</span></td><td>즉시 이동. 학습지원팀 연결제 전환 콜 큐 등록.</td></tr>
+            <tr data-ri="8"><td><span class="seg-tag st-blue">D</span></td><td>결제 완료 (연결제)</td><td><span class="seg-tag st-green">A</span></td><td>즉시 이동. 웰컴 메시지 즉시 발송.</td></tr>
+            <tr data-ri="9"><td><span class="seg-tag st-blue">D</span></td><td>쿠폰 만료 후 30일 미결제</td><td><span class="seg-tag st-red">휴면</span></td><td>CRM 발송 전면 중단. 휴면 재활성 시나리오로 이관. <span style="font-size:11px;color:var(--text3)">※ D 진입 후 30일 이상 미결제·미접속</span></td></tr>
+            <tr data-ri="10"><td><span class="seg-tag st-green">B</span></td><td>연결제 전환 완료</td><td><span class="seg-tag st-green">A</span></td><td>즉시 이동. 웰컴 메시지 즉시 발송.</td></tr>
+            <tr data-ri="11"><td><span class="seg-tag st-green">B</span></td><td>월결제 해지</td><td><span class="seg-tag st-blue">D</span></td><td>즉시 이동. 해지 후 복귀 유도 메시지 별도 설계 권장.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="ops-block">
+        <div class="ops-title">발송 시간대 기준</div>
+        <div class="ops-desc">학부모 생활 패턴 기반 3개 시간대 운영.</div>
+        <div class="time-grid">
+          <div class="time-card tc-morning">
+            <div class="time-card-label">Morning — 긴급</div>
+            <div class="time-card-time">오전 9 – 11시</div>
+            <div class="time-card-desc">D-day 알림, 쿠폰 만료, 체험 마지막 날.</div>
+            <div class="time-card-segs">
+              <span class="seg-tag st-blue" style="font-size:10px">C D+5·6</span>
+              <span class="seg-tag st-blue" style="font-size:10px">D D+8·9·14</span>
+              <span class="seg-tag st-blue" style="font-size:10px">E·F D+6·8·9</span>
+              <span class="seg-tag st-amber" style="font-size:10px">G 뉴스레터</span>
+              <span class="seg-tag st-gray" style="font-size:10px">H 앱푸시</span>
+              <span class="seg-tag st-green" style="font-size:10px">B 전화</span>
+            </div>
+          </div>
+          <div class="time-card tc-afternoon">
+            <div class="time-card-label">Afternoon — 일반 넛지</div>
+            <div class="time-card-time">오후 1 – 3시</div>
+            <div class="time-card-desc">콘텐츠 추천, 일반 넛지, 보완 발송.</div>
+            <div class="time-card-segs">
+              <span class="seg-tag st-blue" style="font-size:10px">C D+1</span>
+              <span class="seg-tag st-blue" style="font-size:10px">E D+1·3</span>
+              <span class="seg-tag st-blue" style="font-size:10px">F D+1·3</span>
+              <span class="seg-tag st-green" style="font-size:10px">A 정기</span>
+              <span class="seg-tag st-green" style="font-size:10px">B 알림톡 보완</span>
+            </div>
+          </div>
+          <div class="time-card tc-evening">
+            <div class="time-card-label">Evening — 쿠폰 한정</div>
+            <div class="time-card-time">저녁 8 – 9시</div>
+            <div class="time-card-desc">쿠폰 만료 당일 리마인드. 미사용자 조건 발송.</div>
+            <div class="time-card-segs">
+              <span class="seg-tag st-blue" style="font-size:10px">C D+6 쿠폰</span>
+              <span class="seg-tag st-blue" style="font-size:10px">D D+14 쿠폰</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-block">
+        <div class="ops-title">채널 우선순위 &amp; 수신거부 대체 규칙</div>
+        <div class="ops-desc">수신거부 발생 시 아래 순서로 자동 대체. 모든 채널 차단 시 타겟 영구 삭제.</div>
+        <div class="channel-flow">
+          <span class="ch-flow-tag ch-flow-kakao">카카오 알림톡</span>
+          <span class="ch-flow-arrow">→</span><span class="ch-flow-cond">거부 시</span><span class="ch-flow-arrow">→</span>
+          <span class="ch-flow-tag ch-flow-sms">SMS / 문자</span>
+          <span class="ch-flow-arrow">→</span><span class="ch-flow-cond">거부 시</span><span class="ch-flow-arrow">→</span>
+          <span class="ch-flow-tag ch-flow-push">앱푸시</span>
+          <span class="ch-flow-arrow">→</span><span class="ch-flow-cond">모두 거부 시</span><span class="ch-flow-arrow">→</span>
+          <span class="ch-flow-tag ch-flow-del">타겟 영구 삭제</span>
+        </div>
+      </div>
+      <div class="ops-block" id="opsBlock-rules">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div class="ops-title">운영 규칙</div>
+          <div style="display:flex;gap:6px;" id="rulesBtns">
+            <button class="btn" onclick="editOps('rules')">수정</button>
+          </div>
+        </div>
+        <div class="rule-grid">
+          <div class="rule-card"><div class="rule-card-title"><span class="rule-icon">01</span> 중복 세그먼트</div><div class="rule-body" data-ri="0"><ul><li>유저는 하나의 세그먼트에만 속함.</li><li>트리거 발생 즉시 현재 해제 → 다음 배정.</li><li>동시 다중 트리거 시 퍼널 상 더 앞선 세그먼트 우선.</li></ul></div><textarea class="rule-card-edit" data-ri="0" placeholder="규칙 내용 (줄바꿈으로 항목 구분)">유저는 하나의 세그먼트에만 속함.
+트리거 발생 즉시 현재 해제 → 다음 배정.
+동시 다중 트리거 시 퍼널 상 더 앞선 세그먼트 우선.</textarea></div>
+          <div class="rule-card"><div class="rule-card-title"><span class="rule-icon">02</span> 야간 발송 제한</div><div class="rule-body" data-ri="1"><ul><li>알림톡·SMS: 오후 9시 ~ 오전 8시 금지 (법적 기준).</li><li>앱푸시: 오후 10시 ~ 오전 8시 금지 (내부 기준).</li><li>저녁 8~9시 쿠폰 만료 알림은 발송 가능.</li></ul></div><textarea class="rule-card-edit" data-ri="1" placeholder="규칙 내용 (줄바꿈으로 항목 구분)">알림톡·SMS: 오후 9시 ~ 오전 8시 금지 (법적 기준).
+앱푸시: 오후 10시 ~ 오전 8시 금지 (내부 기준).
+저녁 8~9시 쿠폰 만료 알림은 발송 가능.</textarea></div>
+          <div class="rule-card"><div class="rule-card-title"><span class="rule-icon">03</span> 발송 빈도 상한</div><div class="rule-body" data-ri="2"><ul><li>동일 유저 하루 최대 2건 (채널 합산).</li><li>예외: 쿠폰 만료 당일 오전+저녁 2회 허용.</li><li>연속 2일 발송 후 반드시 1일 이상 휴지.</li></ul></div><textarea class="rule-card-edit" data-ri="2" placeholder="규칙 내용 (줄바꿈으로 항목 구분)">동일 유저 하루 최대 2건 (채널 합산).
+예외: 쿠폰 만료 당일 오전+저녁 2회 허용.
+연속 2일 발송 후 반드시 1일 이상 휴지.</textarea></div>
+          <div class="rule-card"><div class="rule-card-title"><span class="rule-icon">04</span> CRM 종료 조건</div><div class="rule-body" data-ri="3"><ul><li>설계된 회차 메시지 모두 소진.</li><li>다음 세그먼트로 전환.</li><li>수신거부로 모든 채널 차단.</li><li>D 진입 후 30일 이상 미결제·미접속 → 휴면.</li></ul></div><textarea class="rule-card-edit" data-ri="3" placeholder="규칙 내용 (줄바꿈으로 항목 구분)">설계된 회차 메시지 모두 소진.
+다음 세그먼트로 전환.
+수신거부로 모든 채널 차단.
+D 진입 후 30일 이상 미결제·미접속 → 휴면.</textarea></div>
+          <div class="rule-card"><div class="rule-card-title"><span class="rule-icon">05</span> 쿠폰 운영</div><div class="rule-body" data-ri="4"><ul><li>C 쿠폰: 가입일 기준 발급, 7일 체험 종료 시 만료.</li><li>D 쿠폰: D+8 발송 시 신규 발급, 유효기간 7일.</li><li>사용 완료 즉시 만료 알림 대상 제외.</li><li>세그먼트별 1인 1쿠폰 원칙.</li></ul></div><textarea class="rule-card-edit" data-ri="4" placeholder="규칙 내용 (줄바꿈으로 항목 구분)">C 쿠폰: 가입일 기준 발급, 7일 체험 종료 시 만료.
+D 쿠폰: D+8 발송 시 신규 발급, 유효기간 7일.
+사용 완료 즉시 만료 알림 대상 제외.
+세그먼트별 1인 1쿠폰 원칙.</textarea></div>
+          <div class="rule-card"><div class="rule-card-title"><span class="rule-icon">06</span> 전화 상담</div><div class="rule-body" data-ri="5"><ul><li>콜 시도 오전 9~11시 1회 한정.</li><li>미응답 시 익일 알림톡 보완 발송으로 대체.</li><li>통화 결과 CRM 시스템에 수동 기록.</li><li>거절 명시 시 콜 큐에서 영구 삭제.</li></ul></div><textarea class="rule-card-edit" data-ri="5" placeholder="규칙 내용 (줄바꿈으로 항목 구분)">콜 시도 오전 9~11시 1회 한정.
+미응답 시 익일 알림톡 보완 발송으로 대체.
+통화 결과 CRM 시스템에 수동 기록.
+거절 명시 시 콜 큐에서 영구 삭제.</textarea></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════
+const CHANNELS = ['알림톡', '문자', '채널메시지', '앱푸시', '이메일'];
+const CH_CLASS = { '알림톡':'ch-kakao', '문자':'ch-sms', '채널메시지':'ch-channel', '앱푸시':'ch-push', '이메일':'ch-email' };
+
+let segments = [
+  {
+    id:'A', group:'green', title:'연결제 완료 유저', subId:'Segment A · Group 1',
+    desc:'가장 이상적인 상태. 리텐션 유지·충성도 강화·바이럴 유도가 목표.',
+    stats:[{label:'발송 주기',val:'월 1~2회'},{label:'핵심 액션',val:'리뷰 / 지인 추천'},{label:'혜택',val:'네이버페이 2,000원'},{label:'발송 시간',val:'오후 1~3시'}],
+    messages:[
+      {timing:'D+0 · 결제 완료 직후',step:'웰컴 + 사용 팁',channels:['앱푸시','채널메시지'],body:'🎉 아이큐브 프리미엄 멤버가 되셨어요!\n\n3,000권 무제한 이용이 시작됩니다.\n이비가 [아이 이름]를 기다리고 있어요.\n\n👉 오늘의 책 보러 가기',tip:'자녀 이름 개인화 필수. 첫 감동 포인트.'},
+      {timing:'D+7 · 오후 1~3시',step:'독서 리포트 + 리뷰 유도',channels:['채널메시지'],body:'[아이 이름]의 첫 1주일 독서 리포트 📖\n\n이번 주 읽은 책: N권\n이비와 나눈 대화: N번\n\n리뷰 작성 시 네이버페이 2,000원을 드립니다.\n\n👉 리뷰 작성하기',tip:'리포트 수치는 앱 데이터 연동 권장.'},
+      {timing:'매월 정기 · 오후 1~3시',step:'신규 콘텐츠 + 이달의 추천',channels:['앱푸시'],body:'이번 달 새로 나온 책이 있어요 📚\n\n[자녀 연령]에 딱 맞는 이달의 추천:\n• [책 제목 1]\n• [책 제목 2]\n\n👉 바로가기',tip:''}
+    ]
+  },
+  {
+    id:'B', group:'green', title:'월결제 유저', subId:'Segment B · Group 1',
+    desc:'결제 의사는 있으나 연결제 부담. 혜택 제시를 통해 연간 결제 전환이 목표.',
+    stats:[{label:'주 채널',val:'전화 아웃바운드'},{label:'핵심 타이밍',val:'결제 후 D+1~3'},{label:'혜택',val:'1개월 연장 + 선물'},{label:'발송 시간',val:'전화 오전 / 보완 오후'}],
+    messages:[
+      {timing:'D+1~3 · 오전 9~11시',step:'학습지원팀 아웃바운드 전화',channels:['전화'],body:'안녕하세요, 아이큐브 학습지원팀입니다.\n[아이 이름] 어머니/아버님 맞으시죠?\n\n연간 결제로 전환하시면 1개월을 추가로 드리고\n[선물]도 함께 보내드리고 있거든요.\n\n한 번 안내해 드려도 될까요?',tip:'강압적 영업 지양. 아이 케어 확인 먼저.'},
+      {timing:'D+2~4 · 전화 미응답 시 / 오후 1~3시',step:'카카오채널 보완 발송',channels:['알림톡'],body:'안녕하세요, 아이큐브입니다 😊\n\n연간 결제로 전환 시:\n✔ 1개월 무료 연장\n✔ [선물] 증정\n\n[상담 신청하기]',tip:''},
+      {timing:'매월 결제일 D-3 / 오후 1~3시',step:'매월 정기 넛지',channels:['알림톡'],body:'아이큐브 이용 [N]개월이 됐어요 🎉\n\n연간 결제로 전환하면 앞으로도 더 알뜰하게!\n\n👉 연간 전환 혜택 보기',tip:''}
+    ]
+  },
+  {
+    id:'C', group:'blue', title:'시청O / 미결제 7일 이내', subId:'Segment C · Group 2',
+    desc:'서비스 경험 있음. 결제 부담이 장벽. 체험 기간 내 할인 쿠폰으로 전환 집중 공략.',
+    stats:[{label:'핵심 혜택',val:'특별 할인 혜택'},{label:'전략 포인트',val:'연간 상품 유도'},{label:'발송 회차',val:'D+1 / D+5 / D+6'},{label:'발송 시간',val:'D+1 오후 / D+5·6 오전 + D+6 저녁'}],
+    messages:[
+      {timing:'D+1 · 오후 1~3시',step:'1차 — 쿠폰 안내',channels:['알림톡'],body:'[아이 이름]만의 특별한 할인 쿠폰 발급 안내😊\n\n사고력이 자라는 생각 습관을 평생 습관으로 만들어줄\n특별 할인 쿠폰을 보내드렸어요!\n\n사용 가능 기간: 발급일로부터 7일\n\n👉 [특별 쿠폰 확인하기]',tip:'정해진 할인 가격으로 결제할 수 있는 페이지로 이동.'},
+      {timing:'D+5 · 오전 9~11시',step:'2차 — 긴급성 강조',channels:['알림톡','문자'],body:'특별 쿠폰 유효기간이 끝나가요 ⏰\n\n7일 이후엔 쿠폰 유효기간이 종료되어\n다시는 같은 가격을 만날 수 없게 돼요.\n\n👉 특별 가격 확인하기',tip:''},
+      {timing:'D+6 · 오전 9~11시 + 저녁 8~9시',step:'3차 — 마지막 알림 (2회 발송)',channels:['문자','알림톡'],body:'[오전 문자]\n[아이 이름]에게 발급된 쿠폰이 사라져요.\n쿠폰 유효기간: 오늘 23시 59분까지\n\n👉 쿠폰 확인하기\n\n──────────────\n[저녁 알림톡 — 쿠폰 미사용자만]\n[아이 이름] 부모님, 특별 쿠폰이 곧 사라져요! ⏰\n\n👉 특별 가격 확인하기',tip:'저녁 발송은 쿠폰 미사용자에게만 조건 발송.'}
+    ]
+  },
+  {
+    id:'D', group:'blue', title:'시청O / 미결제 7일 이후', subId:'Segment D · Group 2',
+    desc:'7일 내 CRM 진행했으나 미전환. 첫 달 할인 → 전화 상담 → 연간 전환 2단계 전략.',
+    stats:[{label:'1단계 혜택',val:'2차 특별 혜택'},{label:'발송 회차',val:'D+8·9·11·14·30'},{label:'쿠폰 유효',val:'D+8~D+14'},{label:'발송 시간',val:'D+8·9 오전 / D+14 오전+저녁'}],
+    messages:[
+      {timing:'D+8 · 오전 9~11시',step:'1차 — 복귀 유도 + 쿠폰',channels:['알림톡'],body:'[아이 이름]에게 신규 쿠폰 발급 안내\n\n특별 혜택은 끝났지만 아이의 성장은 멈출 수 없기에,\n다시 한번 할인 혜택을 제공합니다.\n\n👉 할인 받고 시작하기',tip:'아이 성장 중심의 감성적 접근으로 재유입 유도.'},
+      {timing:'D+8 · 오전 9~11시 (병행)',step:'2차 — 하루 3편 이벤트 종료 예고',channels:['알림톡'],body:'하루 3편 시청 이벤트 종료 임박!\n\n내일이면 매일 3편 무료 이벤트가 종료돼요.\n내일까지는 3편 모두 볼 수 있으니 지금 바로!\n\n👉 특별 혜택 확인하기',tip:''},
+      {timing:'D+9 · 오전 9~11시',step:'3차 — 하루 3편 이벤트 종료 당일',channels:['알림톡','앱푸시'],body:'오늘로 하루 3편 무료 이벤트가 끝나요 ⏰\n\n내일부터는 하루 1편만 볼 수 있어요.\n특별 혜택 가격 놓치지 마시고 사고력 성장을 이어주세요.\n\n👉 특별 혜택 확인하기',tip:''},
+      {timing:'D+11 · 쿠폰 미사용 시 / 오전 9~11시',step:'4차 — 학습지원팀 아웃바운드 전화',channels:['전화'],body:'안녕하세요, 아이큐브 학습지원팀입니다.\n[아이 이름] 어머니/아버님 맞으시죠?\n\n결제가 부담되셨다면,\n첫 달 할인 쿠폰이랑 함께 연간 결제 혜택도 안내해 드려도 될까요?',tip:''},
+      {timing:'D+14 · 오전 9~11시 + 저녁 8~9시',step:'5차 — 만료 마감 알림 (2회 발송)',channels:['문자','알림톡'],body:'[오전 문자]\n아이큐브 마지막 할인 혜택이 오늘 만료돼요.\n\n👉 지금 시작하기\n\n──────────────\n[저녁 알림톡 — 쿠폰 미사용자만]\n오늘 자정 할인 혜택이 사라져요 ⏰\n\n👉 할인 혜택 확인하기',tip:'저녁 발송은 쿠폰 미사용자에게만 조건 발송.'},
+      {timing:'D+30 · 오전 9~11시 (가입 후 한 달 미결제 시)',step:'6차 — 5일 3편 이벤트 오픈',channels:['알림톡','앱푸시'],body:'[아이 이름] 부모님, 오랜만이에요 😊\n\n특별히, 하루 3편 무료 이벤트를 한 번 더 열었어요.\n5일 동안 매일 3편씩 무료로 이용하실 수 있어요.\n\n👉 다시 시작하기',tip:'트리거: 가입 후 30일 경과 & 미결제. 1회 한정 오픈.'}
+    ]
+  },
+  {
+    id:'E', group:'blue', title:'가입O / 시청X', subId:'Segment E · Group 2',
+    desc:'가입은 했지만 콘텐츠 시청을 하지 않음. 콘텐츠 추천 + 이벤트로 첫 시청 유도가 최우선.',
+    stats:[{label:'핵심 전략',val:'자녀 맞춤 추천'},{label:'발송 기간',val:'가입 후 7일 집중'},{label:'발송 회차',val:'D+1/D+3/D+6/D+8/D+9/D+30'},{label:'발송 시간',val:'D+1·3 오후 / D+6 오전 / 뉴스레터 주 1회'}],
+    messages:[
+      {timing:'D+1 · 오후 1~3시',step:'1차 — 맞춤 첫 책 추천',channels:['앱푸시','알림톡'],body:'지금 전국 유치원에서 난리난 그 책, 아이큐브에 등장!\n\n[아이 이름]의 [발달 영역]을 발달시켜 줄\n\'[책 제목]\' ([출판사], [정가원])이 업데이트 되었어요.\n\n지금 첫 동화를 시청하면\n이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 지금 바로 읽기',tip:'개인화 변수: 자녀명·발달영역·책 제목·출판사·정가.'},
+      {timing:'D+3 · 오후 1~3시',step:'2차 — 전두엽 메시지 + 이벤트',channels:['알림톡'],body:'똑똑, 아직 [아이 이름]에게 유튜브만 보여주시나요?\n\n이비와 대화하며 책을 읽으면\n아이 스스로 생각하고 말하는 힘이 길러져요.\n\n이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 첫 시청 시작하기',tip:''},
+      {timing:'D+6 · 오전 9~11시 (긴급)',step:'3차 — 마지막 체험 알림',channels:['앱푸시','문자'],body:'20만원 혜택이 사라지기 일보직전 ⏰\n\n3분이면 충분해요.\n지금 첫 동화를 시청하면 이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 지금 만나러 가기',tip:'D+6 마지막 알림은 긴급성 높으므로 오전 발송.'},
+      {timing:'D+8 · 오전 9~11시',step:'4차 — 하루 3편 이벤트 종료 예고',channels:['알림톡','앱푸시'],body:'내일이면 30편 동화책이 사라져요 😭\n\n10일간 매일 3편씩 무료로 볼 수 있는 이벤트,\n내일이면 종료돼요.\n\n내일까지 동화책 한 편만 시청해도\n이케아 20만원 상품권 이벤트에 자동으로 응모돼요!\n\n👉 지금 보러가기',tip:''},
+      {timing:'D+9 · 오전 9~11시',step:'5차 — 하루 3편 이벤트 종료 당일',channels:['알림톡','앱푸시'],body:'오늘로 하루 3편 무료 이벤트가 끝나요 ⏰\n\n오늘 안에 첫 동화를 시청하면\n이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 지금 시청하기',tip:''},
+      {timing:'D+30 · 오전 9~11시 (한 달 미결제 시)',step:'6차 — 5일 3편 이벤트 재오픈',channels:['알림톡','앱푸시'],body:'[아이 이름] 부모님, 오랜만이에요 😊\n\n특별히 하루 3편 이벤트를 다시 한번 제공해드려요.\n5일 동안 매일 3편씩 무료로 이용하실 수 있어요.\n\n👉 이벤트 다시 시작하기',tip:''},
+      {timing:'D+3부터 주 1회 · 오전 9~11시',step:'정기 뉴스레터',channels:['이메일','알림톡','앱푸시'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 현재 진행 중인 이벤트 1건 메인 노출\n② 신규 콘텐츠 — [아이 이름]의 [발달 영역]을 발달시켜 줄 \'[책 제목]\' 업데이트\n③ 이번 주 추천 — [자녀 나이]살 또래 인기 도서 2~3권\n\nCTA: [지금 무료로 읽기]',tip:'주 1회 고정 발송. 첫 시청 전환 시 C로 이동하며 뉴스레터 중단.'}
+    ]
+  },
+  {
+    id:'F', group:'blue', title:'자녀등록X', subId:'Segment F · Group 2',
+    desc:'온보딩 완료 후 자녀를 등록하지 않음. E 메시지에서 개인화를 제거한 버전으로 첫 시청 및 자녀 등록 유도.',
+    stats:[{label:'핵심 전략',val:'시청 유도 + 자녀 등록'},{label:'발송 기간',val:'가입 후 7일 집중'},{label:'발송 회차',val:'D+1/D+3/D+6/D+8/D+9/D+30'},{label:'발송 시간',val:'D+1·3 오후 / D+6 오전 / 뉴스레터 주 1회'}],
+    messages:[
+      {timing:'D+1 · 오후 1~3시',step:'1차 — 오늘의 추천 책 안내',channels:['앱푸시','알림톡'],body:'지금 전국 유치원에서 난리난 그 책, 아이큐브에 등장!\n\n아이의 사고력과 언어 발달을 도와줄 오늘의 추천 동화가 업데이트 되었어요.\n\n자녀 정보를 등록하면 이비가 아이 이름을 직접 불러줘요. 딱 1분이면 등록 완료!\n\n이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 지금 바로 읽기',tip:'개인화 없이 일반 추천. 자녀 등록 유도 문구 포함.'},
+      {timing:'D+3 · 오후 1~3시',step:'2차 — 전두엽 메시지 + 이벤트',channels:['알림톡'],body:'똑똑, 아직 유튜브만 보여주시나요?\n\n이비와 대화하며 책을 읽으면 아이 스스로 생각하고 말하는 힘이 길러져요.\n자녀 정보를 등록하면 이비가 아이 이름을 직접 불러줘요!\n\n이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 첫 시청 시작하기',tip:''},
+      {timing:'D+6 · 오전 9~11시 (긴급)',step:'3차 — 마지막 체험 알림',channels:['앱푸시','문자'],body:'20만원 혜택이 사라지기 일보직전 ⏰\n\n3분이면 충분해요.\n지금 첫 동화를 시청하면 이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 지금 만나러 가기',tip:''},
+      {timing:'D+8 · 오전 9~11시',step:'4차 — 하루 3편 이벤트 종료 예고',channels:['알림톡','앱푸시'],body:'내일이면 30편 동화책이 사라져요 😭\n\n10일간 매일 3편씩 무료로 볼 수 있는 이벤트, 내일이면 종료돼요.\n내일까지 동화책 한 편만 시청해도 이케아 20만원 상품권 이벤트에 자동으로 응모돼요!\n\n👉 지금 보러가기',tip:''},
+      {timing:'D+9 · 오전 9~11시',step:'5차 — 하루 3편 이벤트 종료 당일',channels:['알림톡','앱푸시'],body:'오늘로 하루 3편 무료 이벤트가 끝나요 ⏰\n\n오늘 안에 첫 동화를 시청하면 이케아 20만원권 추첨 이벤트에 자동 응모돼요 🎁\n\n👉 지금 시청하기',tip:''},
+      {timing:'D+30 · 오전 9~11시 (한 달 미결제 시)',step:'6차 — 5일 3편 이벤트 재오픈',channels:['알림톡','앱푸시'],body:'아이큐브입니다. 오랜만이에요 😊\n\n특별히 하루 3편 이벤트를 다시 한번 제공해드려요.\n5일 동안 매일 3편씩 무료로 이용하실 수 있어요.\n자녀 정보를 등록하면 이비가 아이 이름을 직접 불러줘요 📖\n\n👉 이벤트 다시 시작하기',tip:''},
+      {timing:'D+3부터 주 1회 · 오전 9~11시',step:'정기 뉴스레터',channels:['이메일','앱푸시'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 이케아 20만원권 추첨 · 자녀 등록 시 큐브 100개\n② 신규 콘텐츠 — 오늘 업데이트된 추천 도서 (연령대 일반 추천)\n③ 이번 주 추천 — 연령대별 인기 도서 2~3권\n\nCTA: [지금 무료로 읽기]',tip:'자녀 등록 완료 시 E로 이동하며 개인화 메시지 수신.'}
+    ]
+  },
+  {
+    id:'G', group:'amber', title:'가입O / 본인인증X', subId:'Segment G · Group 3',
+    desc:'회원가입 후 본인인증에서 이탈. 이벤트 혜택으로 인증 완료 유도.',
+    stats:[{label:'1차 발송',val:'설치 후 D+3'},{label:'이후 주기',val:'주 1회'},{label:'포맷',val:'뉴스레터'},{label:'발송 시간',val:'오전 9~11시'}],
+    messages:[
+      {timing:'D+3 · 오전 9~11시',step:'1차 — 브랜드 소개 뉴스레터',channels:['이메일'],body:'제목: 유튜브 대신 이걸 보여주면 우리 아이 집중력이 1.7배 상승합니다.\n\n안녕하세요. 아이큐브입니다.\n\n아이큐브는 그 시간을 생각하는 시간으로 바꿔요.\n콘텐츠 시청 중 아이 이름을 부르며 질문을 하면,\n아이의 잠든 뇌가 깨어나고 생각이 자라기 시작합니다.\n\n▶ 이비와 아이의 첫 대화 보기 (영상)\n▶ 7일 무료로 시작하기\n\n아이큐브 드림',tip:'가입 강요 X. 콘텐츠 → 영상 → 자연스러운 가입 흐름 유도.'},
+      {timing:'D+10, D+17, D+24 · 주 1회',step:'정기 뉴스레터 — 콘텐츠 중심',channels:['이메일'],body:'구성 3개 블록:\n\n① 이벤트 안내 — 현재 진행 중인 이벤트 1건\n② 신규 콘텐츠 — 오늘 업데이트된 추천 도서\n③ 이번 주 추천 — 연령대별 인기 도서 2~3권\n\nCTA: [아이큐브 바로가기]',tip:'뉴스레터는 읽을 가치가 먼저. 판매 냄새 나면 즉시 수신거부.'}
+    ]
+  },
+  {
+    id:'H', group:'amber', title:'앱설치O / 회원가입X', subId:'Segment H · Group 3',
+    desc:'설치 후 회원가입하지 않음. 앱푸시 + 리타겟팅 광고로 7일간 집중 공략.',
+    stats:[{label:'주 채널',val:'앱푸시 + 리타겟팅'},{label:'광고 유지',val:'설치 후 7일'},{label:'목표 액션',val:'앱 오픈 → 회원가입'},{label:'발송 시간',val:'오전 9~11시'}],
+    messages:[
+      {timing:'D+1 · 오전 9~11시',step:'1차 앱푸시 — 효능 강조',channels:['앱푸시'],body:'유튜브만 보는 아이의 뇌는 멈춰있어요 👋\n아이의 뇌를 깨우는 아이큐브를 시작해보세요.',tip:'대상: 설치 후 앱 미실행 / 타깃: 회원가입 페이지'},
+      {timing:'D+3 · 오전 9~11시',step:'2차 앱푸시 — 혜택 안내',channels:['앱푸시'],body:'이케아 20만원 상품권 증정.\n한 편만 봐도 이벤트 참여 가능 📖',tip:''},
+      {timing:'D+1 ~ D+7 · 상시 병행',step:'리타겟팅 광고 (Meta/Google)',channels:['광고'],body:'광고 소재 방향:\n• "우리아이의 뇌, 아직 잠자고 있나요?"\n• 한정 이벤트 "10일 3편 동화 제공" 마감 전 시청하기\n• CTA: "지금 바로 시작하기"\n\n타겟: Install 완료, 앱 미실행 유저\n유지 기간: 설치 후 7일\n이후 미전환 → 세그먼트 G로 이동',tip:'광고 피로도 방지 위해 소재 3종 이상 로테이션.'},
+      {timing:'D+7 · 오전 9~11시',step:'최종 앱푸시',channels:['앱푸시'],body:'아이큐브, 3편 제공 선착순 마감 임박.\n이벤트 종료 전 빠르게 참여하세요 😊',tip:''}
+    ]
+  }
+];
+
+// ═══════════════════════════════════════════
+// GROUP DATA
+// ═══════════════════════════════════════════
+let groups = [
+  {key:'green', label:'GROUP 1 · 결제 유저', title:'유지 & 업셀', desc:'이미 결제한 유저. 리텐션 강화와 월결제 → 연결제 업셀이 목표.'},
+  {key:'blue',  label:'GROUP 2 · 온보딩 완료 / 결제 미전환', title:'시청 유도 & 결제 전환', desc:'온보딩은 완료했으나 결제로 이어지지 않은 그룹. 10일 체험/7일 혜택 기간이 골든타임.'},
+  {key:'amber', label:'GROUP 3 · 초기 이탈', title:'재유입 & 온보딩', desc:'앱 설치 후 온보딩 단계에서 이탈. 다음 퍼널 단계 완료를 유도하는 넛지 중심.'}
+];
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let currentSeg = 'A';
+let editingId = null;
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function groupColor(g) { return {green:'#1a8a5a',blue:'#1a6aaa',amber:'#a06010'}[g] || '#888'; }
+function groupNum(g) { return {green:'1',blue:'2',amber:'3'}[g] || '?'; }
+function groupLabel(g) { const grp = groups.find(x => x.key === g); return grp ? grp.label : g; }
+function groupBadgeClass(g) { return {green:'badge-green',blue:'badge-blue',amber:'badge-amber'}[g] || 'badge-gray'; }
+function fsFunnelClass(g) { return {green:'fs-green',blue:'fs-blue',amber:'fs-amber',gray:'fs-gray'}[g] || 'fs-gray'; }
+
+function renderSidebar() {
+  let html = '';
+  groups.forEach(grp => {
+    const segs = segments.filter(s => s.group === grp.key);
+    if (!segs.length) return;
+    html += `<div class="sidebar-section" data-group="${grp.key}">
+      <div class="sidebar-group-label" style="display:flex;align-items:center;justify-content:space-between;padding-right:10px;">
+        <span>${grp.label}</span>
+        <button class="seg-action-btn" style="opacity:0.6;" onclick="openEditGroupModal('${grp.key}')" title="그룹 수정">✎</button>
+      </div>`;
+    segs.forEach(s => {
+      const active = currentSeg === s.id ? ' active grp-'+s.group : '';
+      html += `<div class="sidebar-item${active}" draggable="true" data-id="${s.id}" data-group="${grp.key}"
+        ondragstart="onDragStart(event,'${s.id}')"
+        ondragover="onDragOver(event)"
+        ondragleave="onDragLeave(event)"
+        ondrop="onDrop(event,'${s.id}')"
+        ondragend="onDragEnd(event)">
+        <span class="drag-handle" title="드래그로 순서 변경">⠿</span>
+        <span class="seg-badge ${groupBadgeClass(s.group)}">${s.id}</span>
+        <span onclick="selectSeg('${s.id}')" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</span>
+        <div class="seg-item-actions">
+          <button class="seg-action-btn" onclick="event.stopPropagation();openEditSegModal('${s.id}')" title="수정">✎</button>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  document.getElementById('sidebarContent').innerHTML = html;
+}
+
+function renderOverview() {
+  // Funnel
+  const funnelOrder = ['H','G','F','E','C','D','B','A'];
+  let fHtml = '';
+  funnelOrder.forEach((id, i) => {
+    const s = segments.find(x => x.id === id);
+    if (!s) return;
+    const cls = id === 'H' ? 'fs-gray' : fsFunnelClass(s.group);
+    const label = id === 'H' ? `${id} 설치` :
+                  id === 'G' ? `${id} 가입` :
+                  id === 'F' ? `${id} 자녀등록` :
+                  id === 'E' ? `${id} 로그인` :
+                  id === 'C' ? `${id} 시청(7일내)` :
+                  id === 'D' ? `${id} 시청(7일후)` :
+                  id === 'B' ? `${id} 월결제` : `${id} 연결제 ✓`;
+    fHtml += `<span class="funnel-step ${cls}">${label}</span>`;
+    if (i < funnelOrder.filter(x => segments.find(y => y.id===x)).length - 1)
+      fHtml += '<span class="funnel-arrow">→</span>';
+  });
+  document.getElementById('funnelFlow').innerHTML = fHtml;
+
+  // Groups
+  let gHtml = '';
+  groups.forEach(grp => {
+    const segs = segments.filter(s => s.group === grp.key);
+    gHtml += `<div class="group-card gc-${grp.key}">
+      <div class="gc-label">${grp.label}</div>
+      <div class="gc-title">${grp.title}</div>
+      <div class="gc-desc">${grp.desc}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;">
+        ${segs.map(s => `<span class="seg-badge ${groupBadgeClass(s.group)}" style="cursor:pointer;padding:3px 8px;font-size:11px;" onclick="selectSeg('${s.id}')">${s.id} — ${s.title}</span>`).join('')}
+      </div>
+    </div>`;
+  });
+  document.getElementById('groupGrid').innerHTML = gHtml;
+}
+
+function renderSegment(id) {
+  const s = segments.find(x => x.id === id);
+  if (!s) return;
+  const isEdit = editingId === id;
+  const modeClass = isEdit ? 'edit-mode' : 'view-mode';
+  const accentColor = groupColor(s.group);
+
+  let statsHtml = s.stats.map((st, si) => `
+    <div class="stat-box">
+      <div class="stat-label">${st.label}</div>
+      <div class="stat-val"><input class="editable" data-field="stats.${si}.val" value="${esc(st.val)}" readonly></div>
+    </div>`).join('');
+
+  let msgsHtml = s.messages.map((m, mi) => {
+    const chTagsHtml = m.channels.map(c => `<span class="channel-tag ${CH_CLASS[c]||'ch-channel'}">${c}</span>`).join('');
+    const chSelectHtml = CHANNELS.map(c => {
+      const checked = m.channels.includes(c) ? ' checked' : '';
+      return `<label class="ch-checkbox${checked ? ' checked' : ''}" data-msg="${mi}" data-ch="${c}">
+        <input type="checkbox"${checked} onchange="toggleChannel(${mi},'${c}',this.checked,'${id}')"> ${c}
+      </label>`;
+    }).join('');
+    return `<div class="msg-item" data-mi="${mi}">
+      <div class="msg-item-header">
+        <div class="msg-timing-wrap">
+          <div class="msg-timing-label">발송 타이밍</div>
+          <input class="editable msg-step-title" data-field="messages.${mi}.timing" value="${esc(m.timing)}" readonly style="font-size:11px;color:var(--text3);font-family:var(--mono);">
+          <input class="editable msg-step-title" data-field="messages.${mi}.step" value="${esc(m.step)}" readonly style="font-weight:500;">
+        </div>
+        <button class="msg-remove-btn" onclick="removeMessage(${mi},'${id}')">삭제</button>
+      </div>
+      <div class="msg-channel-row">
+        <div class="channel-tags-display">${chTagsHtml || '<span style="font-size:11px;color:var(--text3)">채널 미선택</span>'}</div>
+        <div class="channel-select">${chSelectHtml}</div>
+      </div>
+      <textarea class="editable msg-body-text" data-field="messages.${mi}.body" rows="${m.body.split('\n').length + 1}" readonly>${esc(m.body)}</textarea>
+      ${m.tip ? `<div class="msg-tip-text"><input class="editable" data-field="messages.${mi}.tip" value="${esc(m.tip)}" readonly placeholder="운영 팁" style="font-size:11px;color:var(--text3);width:100%;"></div>` : `<div class="msg-tip-text" style="display:${isEdit?'block':'none'}"><input class="editable" data-field="messages.${mi}.tip" value="" readonly placeholder="운영 팁" style="font-size:11px;color:var(--text3);width:100%;"></div>`}
+    </div>`;
+  }).join('');
+
+  const html = `<div class="${modeClass}" id="panel-${id}">
+    <div class="panel-header-row">
+      <div class="panel-meta">
+        <div class="panel-seg-id" style="color:${accentColor}">Segment ${s.id} · ${groupLabel(s.group)}</div>
+        <div class="panel-title-text"><input class="editable" data-field="title" value="${esc(s.title)}" readonly style="font-size:22px;font-weight:700;width:100%;"></div>
+        <div class="panel-desc-text"><input class="editable" data-field="desc" value="${esc(s.desc)}" readonly style="font-size:13px;color:var(--text2);width:100%;"></div>
+      </div>
+      <div class="panel-actions">
+        ${isEdit
+          ? `<button class="btn btn-primary" onclick="saveSegment('${id}')">저장</button>
+             <button class="btn" onclick="cancelEdit('${id}')">취소</button>
+             <button class="btn btn-danger" onclick="deleteSegment('${id}')">삭제</button>`
+          : `<button class="btn" onclick="startEdit('${id}')">수정</button>`
+        }
+      </div>
+    </div>
+    <div class="stats-row">${statsHtml}</div>
+    <div class="messages-header">
+      <div class="messages-title">메시지 스크립트</div>
+    </div>
+    <div class="msg-list">${msgsHtml}</div>
+    <button class="add-msg-btn" onclick="addMessage('${id}')">+ 메시지 추가</button>
+  </div>`;
+
+  document.getElementById('segmentPanelContainer').innerHTML = html;
+
+  // activate edit inputs
+  if (isEdit) {
+    document.querySelectorAll(`#panel-${id} .editable`).forEach(el => {
+      el.removeAttribute('readonly');
+    });
+  }
+}
+
+function esc(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════
+function selectSeg(id) {
+  currentSeg = id;
+  editingId = null;
+  renderSidebar();
+  switchMainTab('segment');
+  renderSegment(id);
+}
+
+function switchMainTab(tab) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+tab).classList.add('active');
+}
+
+function startEdit(id) {
+  editingId = id;
+  renderSegment(id);
+}
+
+function cancelEdit(id) {
+  editingId = null;
+  renderSegment(id);
+}
+
+function saveSegment(id) {
+  const s = segments.find(x => x.id === id);
+  const panel = document.getElementById('panel-'+id);
+
+  panel.querySelectorAll('.editable').forEach(el => {
+    const field = el.dataset.field;
+    if (!field) return;
+    const val = el.tagName === 'TEXTAREA' ? el.value : el.value;
+    const parts = field.split('.');
+    if (parts.length === 1) {
+      s[parts[0]] = val;
+    } else if (parts.length === 2) {
+      s[parts[0]][parseInt(parts[1])] = val;
+    } else if (parts.length === 3) {
+      s[parts[0]][parseInt(parts[1])][parts[2]] = val;
+    }
+  });
+
+  editingId = null;
+  renderSidebar();
+  renderOverview();
+  renderSegment(id);
+  showToast('저장됐어요 ✓');
+}
+
+function toggleChannel(mi, ch, checked, id) {
+  const s = segments.find(x => x.id === id);
+  if (!s) return;
+  if (checked && !s.messages[mi].channels.includes(ch)) {
+    s.messages[mi].channels.push(ch);
+  } else if (!checked) {
+    s.messages[mi].channels = s.messages[mi].channels.filter(c => c !== ch);
+  }
+  // update visual
+  const label = document.querySelector(`[data-msg="${mi}"][data-ch="${ch}"]`);
+  if (label) label.classList.toggle('checked', checked);
+}
+
+function addMessage(id) {
+  const s = segments.find(x => x.id === id);
+  s.messages.push({ timing: 'D+N · 오전 9~11시', step: '새 메시지', channels: ['알림톡'], body: '메시지 내용을 입력하세요.', tip: '' });
+  renderSegment(id);
+  showToast('메시지가 추가됐어요');
+}
+
+function removeMessage(mi, id) {
+  const s = segments.find(x => x.id === id);
+  if (s.messages.length <= 1) { showToast('마지막 메시지는 삭제할 수 없어요'); return; }
+  s.messages.splice(mi, 1);
+  renderSegment(id);
+}
+
+function deleteSegment(id) {
+  if (!confirm(`세그먼트 ${id}를 삭제할까요?`)) return;
+  segments = segments.filter(s => s.id !== id);
+  editingId = null;
+  currentSeg = segments[0]?.id || null;
+  renderSidebar();
+  renderOverview();
+  if (currentSeg) renderSegment(currentSeg);
+  else document.getElementById('segmentPanelContainer').innerHTML = '';
+  showToast('삭제됐어요');
+}
+
+function openModal() { document.getElementById('addModal').classList.add('open'); }
+function closeModal() { document.getElementById('addModal').classList.remove('open'); }
+
+function addSegment() {
+  const id = document.getElementById('newId').value.trim().toUpperCase();
+  const title = document.getElementById('newTitle').value.trim();
+  const desc = document.getElementById('newDesc').value.trim();
+  const group = document.getElementById('newGroup').value;
+  if (!id || !title) { showToast('ID와 타이틀을 입력해주세요'); return; }
+  if (segments.find(s => s.id === id)) { showToast('이미 존재하는 ID예요'); return; }
+  segments.push({
+    id, group, title, subId: `Segment ${id} · Group ${group==='green'?1:group==='blue'?2:3}`,
+    desc: desc || '설명을 입력해주세요.',
+    stats: [{label:'발송 주기',val:'-'},{label:'핵심 액션',val:'-'},{label:'혜택',val:'-'},{label:'발송 시간',val:'-'}],
+    messages: [{ timing:'D+1 · 오전 9~11시', step:'1차 — 메시지', channels:['알림톡'], body:'메시지 내용을 입력하세요.', tip:'' }]
+  });
+  closeModal();
+  document.getElementById('newId').value = '';
+  document.getElementById('newTitle').value = '';
+  document.getElementById('newDesc').value = '';
+  renderSidebar();
+  renderOverview();
+  selectSeg(id);
+  showToast(`세그먼트 ${id} 추가됐어요 ✓`);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('dark');
+  const btn = document.querySelector('.toolbar-right .btn:last-child');
+  btn.textContent = document.body.classList.contains('dark') ? '☀️ 라이트' : '🌙 다크';
+}
+
+// ═══════════════════════════════════════════
+// DRAG AND DROP
+// ═══════════════════════════════════════════
+let dragSrcId = null;
+
+function onDragStart(e, id) {
+  dragSrcId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => {
+    const el = document.querySelector(`[data-id="${id}"]`);
+    if (el) el.classList.add('dragging');
+  }, 0);
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const item = e.currentTarget;
+  item.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (dragSrcId === targetId) return;
+
+  const srcIdx = segments.findIndex(s => s.id === dragSrcId);
+  const tgtIdx = segments.findIndex(s => s.id === targetId);
+  if (srcIdx < 0 || tgtIdx < 0) return;
+
+  // 같은 그룹일 때만 순서 이동, 다른 그룹이면 그룹도 함께 변경
+  const srcSeg = segments[srcIdx];
+  const tgtSeg = segments[tgtIdx];
+  srcSeg.group = tgtSeg.group; // 드롭 위치 그룹으로 이동
+
+  // 배열 재정렬
+  segments.splice(srcIdx, 1);
+  const newTgtIdx = segments.findIndex(s => s.id === targetId);
+  segments.splice(newTgtIdx, 0, srcSeg);
+
+  renderSidebar();
+  renderOverview();
+  if (currentSeg === dragSrcId) renderSegment(currentSeg);
+  showToast('순서가 변경됐어요');
+}
+
+function onDragEnd(e) {
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.classList.remove('dragging', 'drag-over');
+  });
+  dragSrcId = null;
+}
+
+// ═══════════════════════════════════════════
+// SEGMENT QUICK ACTIONS (사이드바)
+// ═══════════════════════════════════════════
+let editingSegOrigId = null;
+
+function quickDeleteSeg(id) {
+  if (!confirm(`세그먼트 ${id}를 삭제할까요?`)) return;
+  segments = segments.filter(s => s.id !== id);
+  if (currentSeg === id) {
+    currentSeg = segments[0]?.id || null;
+    editingId = null;
+  }
+  renderSidebar();
+  renderOverview();
+  if (currentSeg) renderSegment(currentSeg);
+  else document.getElementById('segmentPanelContainer').innerHTML = '';
+  showToast(`세그먼트 ${id} 삭제됐어요`);
+}
+
+function openEditSegModal(id) {
+  const s = segments.find(x => x.id === id);
+  if (!s) return;
+  editingSegOrigId = id;
+  document.getElementById('editSegId').value = s.id;
+  document.getElementById('editSegTitle').value = s.title;
+  document.getElementById('editSegSubId').value = s.subId || '';
+  document.getElementById('editSegDesc').value = s.desc || '';
+  document.getElementById('editSegGroup').value = s.group;
+  document.getElementById('editSegModal').classList.add('open');
+}
+
+function closeEditSegModal() {
+  document.getElementById('editSegModal').classList.remove('open');
+  editingSegOrigId = null;
+}
+
+function saveEditSeg() {
+  const newId = document.getElementById('editSegId').value.trim().toUpperCase();
+  const title = document.getElementById('editSegTitle').value.trim();
+  const subId = document.getElementById('editSegSubId').value.trim();
+  const desc  = document.getElementById('editSegDesc').value.trim();
+  const group = document.getElementById('editSegGroup').value;
+  if (!newId || !title) { showToast('ID와 타이틀을 입력해주세요'); return; }
+  if (newId !== editingSegOrigId && segments.find(s => s.id === newId)) {
+    showToast('이미 존재하는 ID예요'); return;
+  }
+  const s = segments.find(x => x.id === editingSegOrigId);
+  if (!s) return;
+  s.id = newId;
+  s.title = title;
+  s.subId = subId;
+  s.desc = desc;
+  s.group = group;
+  if (currentSeg === editingSegOrigId) currentSeg = newId;
+  closeEditSegModal();
+  renderSidebar();
+  renderOverview();
+  if (currentSeg) renderSegment(currentSeg);
+  showToast('세그먼트가 수정됐어요 ✓');
+}
+
+function deleteFromEditModal() {
+  if (!editingSegOrigId) return;
+  if (!confirm(`세그먼트 ${editingSegOrigId}를 삭제할까요?`)) return;
+  const id = editingSegOrigId;
+  closeEditSegModal();
+  quickDeleteSeg(id);
+}
+
+// ═══════════════════════════════════════════
+// GROUP EDIT
+// ═══════════════════════════════════════════
+let editingGroupKey = null;
+
+function openEditGroupModal(key) {
+  const g = groups.find(x => x.key === key);
+  if (!g) return;
+  editingGroupKey = key;
+  document.getElementById('editGroupLabel').value = g.label;
+  document.getElementById('editGroupTitle').value = g.title;
+  document.getElementById('editGroupDesc').value = g.desc;
+  document.getElementById('editGroupModal').classList.add('open');
+}
+
+function closeEditGroupModal() {
+  document.getElementById('editGroupModal').classList.remove('open');
+  editingGroupKey = null;
+}
+
+function saveEditGroup() {
+  const g = groups.find(x => x.key === editingGroupKey);
+  if (!g) return;
+  g.label = document.getElementById('editGroupLabel').value.trim() || g.label;
+  g.title = document.getElementById('editGroupTitle').value.trim() || g.title;
+  g.desc  = document.getElementById('editGroupDesc').value.trim() || g.desc;
+  closeEditGroupModal();
+  renderSidebar();
+  renderOverview();
+  showToast('그룹이 수정됐어요 ✓');
+}
+
+// ═══════════════════════════════════════════
+// OPS EDIT (전환 분기 + 운영 규칙)
+// ═══════════════════════════════════════════
+let opsEditing = null;
+
+function editOps(type) {
+  opsEditing = type;
+  if (type === 'branch') {
+    const block = document.getElementById('opsBlock-branch');
+    block.classList.add('ops-editing');
+    // desc 편집 가능
+    document.getElementById('ops-branch-desc').setAttribute('contenteditable','true');
+    // td 텍스트 편집 가능
+    block.querySelectorAll('.branch-cell').forEach(el => el.setAttribute('contenteditable','true'));
+    // 행 삭제 버튼 표시 + 추가 버튼
+    document.getElementById('branchBtns').innerHTML =
+      `<button class="btn btn-primary" onclick="saveOps('branch')">저장</button>
+       <button class="btn" onclick="cancelOps('branch')">취소</button>`;
+    // 각 행에 삭제 버튼 추가
+    document.querySelectorAll('#branchTable tbody tr').forEach((tr, i) => {
+      if (!tr.querySelector('.del-row-btn')) {
+        const td = document.createElement('td');
+        td.style.width = '32px';
+        td.innerHTML = `<button class="del-row-btn" onclick="delBranchRow(this)">✕</button>`;
+        tr.appendChild(td);
+      }
+    });
+    // 행 추가 버튼
+    if (!document.getElementById('addBranchRowBtn')) {
+      const btn = document.createElement('button');
+      btn.id = 'addBranchRowBtn';
+      btn.className = 'add-branch-row';
+      btn.textContent = '+ 행 추가';
+      btn.onclick = addBranchRow;
+      document.getElementById('branchTable').after(btn);
+    }
+    document.getElementById('addBranchRowBtn').style.display = 'block';
+  } else if (type === 'rules') {
+    const block = document.getElementById('opsBlock-rules');
+    block.classList.add('ops-editing');
+    block.querySelectorAll('.rule-body').forEach(el => el.style.display = 'none');
+    block.querySelectorAll('.rule-card-edit').forEach(el => el.style.display = 'block');
+    document.getElementById('rulesBtns').innerHTML =
+      `<button class="btn btn-primary" onclick="saveOps('rules')">저장</button>
+       <button class="btn" onclick="cancelOps('rules')">취소</button>`;
+  }
+}
+
+function cancelOps(type) {
+  opsEditing = null;
+  if (type === 'branch') {
+    const block = document.getElementById('opsBlock-branch');
+    block.classList.remove('ops-editing');
+    document.getElementById('ops-branch-desc').setAttribute('contenteditable','false');
+    block.querySelectorAll('.branch-cell').forEach(el => el.setAttribute('contenteditable','false'));
+    block.querySelectorAll('.del-row-btn').forEach(el => el.remove());
+    const addBtn = document.getElementById('addBranchRowBtn');
+    if (addBtn) addBtn.style.display = 'none';
+    document.getElementById('branchBtns').innerHTML = `<button class="btn" onclick="editOps('branch')">수정</button>`;
+  } else if (type === 'rules') {
+    const block = document.getElementById('opsBlock-rules');
+    block.classList.remove('ops-editing');
+    block.querySelectorAll('.rule-body').forEach(el => el.style.display = '');
+    block.querySelectorAll('.rule-card-edit').forEach(el => el.style.display = 'none');
+    document.getElementById('rulesBtns').innerHTML = `<button class="btn" onclick="editOps('rules')">수정</button>`;
+  }
+}
+
+function saveOps(type) {
+  if (type === 'branch') {
+    // 그냥 편집 상태 확정 (DOM에 반영된 상태가 저장)
+    cancelOps('branch');
+    showToast('전환 분기 로직이 저장됐어요 ✓');
+  } else if (type === 'rules') {
+    // textarea → ul 업데이트
+    document.querySelectorAll('.rule-card-edit').forEach(ta => {
+      const ri = ta.dataset.ri;
+      const ul = document.querySelector(`.rule-body[data-ri="${ri}"] ul`);
+      if (!ul) return;
+      const lines = ta.value.split('\n').filter(l => l.trim());
+      ul.innerHTML = lines.map(l => `<li>${l.trim()}</li>`).join('');
+    });
+    cancelOps('rules');
+    showToast('운영 규칙이 저장됐어요 ✓');
+  }
+}
+
+function addBranchRow() {
+  const tbody = document.querySelector('#branchTable tbody');
+  const ri = tbody.querySelectorAll('tr').length;
+  const tr = document.createElement('tr');
+  tr.dataset.ri = ri;
+  tr.innerHTML = `
+    <td><span class="branch-cell" contenteditable="true">세그</span></td>
+    <td><span class="branch-cell" contenteditable="true">트리거 조건</span></td>
+    <td><span class="branch-cell" contenteditable="true">이동 세그</span></td>
+    <td><span class="branch-cell" contenteditable="true">처리 방식</span></td>
+    <td style="width:32px"><button class="del-row-btn" onclick="delBranchRow(this)">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function delBranchRow(btn) {
+  btn.closest('tr').remove();
+}
+
+// ═══════════════════════════════════════════
+// OVERVIEW EDIT (퍼널 + 그룹 카드)
+// ═══════════════════════════════════════════
+let overviewEditing = false;
+
+function editOverview() {
+  overviewEditing = !overviewEditing;
+  const btn = document.getElementById('overviewBtns');
+  if (overviewEditing) {
+    renderGroupGridEditable();
+    btn.innerHTML = `<button class="btn btn-primary" onclick="saveOverview()">저장</button>
+                     <button class="btn" onclick="cancelOverview()">취소</button>`;
+  } else {
+    saveOverview();
+  }
+}
+
+function renderGroupGridEditable() {
+  let gHtml = '';
+  groups.forEach((grp, gi) => {
+    const segs = segments.filter(s => s.group === grp.key);
+    gHtml += `<div class="group-card gc-${grp.key}">
+      <div class="gc-label" style="margin-bottom:6px;">
+        <input style="width:100%;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;background:var(--bg2);border:1px solid var(--line2);border-radius:4px;padding:3px 6px;color:inherit;outline:none;" value="${grp.label}" onchange="groups[${gi}].label=this.value;renderSidebar();" placeholder="그룹 레이블">
+      </div>
+      <div class="gc-title" style="margin-bottom:6px;">
+        <input style="width:100%;font-size:14px;font-weight:700;background:var(--bg2);border:1px solid var(--line2);border-radius:4px;padding:4px 6px;color:var(--text);outline:none;" value="${grp.title}" onchange="groups[${gi}].title=this.value;" placeholder="타이틀">
+      </div>
+      <div class="gc-desc">
+        <textarea style="width:100%;font-size:12px;background:var(--bg2);border:1px solid var(--line2);border-radius:4px;padding:4px 6px;color:var(--text2);outline:none;resize:vertical;line-height:1.6;" rows="3" onchange="groups[${gi}].desc=this.value;" placeholder="설명">${grp.desc}</textarea>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;">
+        ${segs.map(s => `<span class="seg-badge ${groupBadgeClass(s.group)}" style="padding:3px 8px;font-size:11px;">${s.id} — ${s.title}</span>`).join('')}
+      </div>
+    </div>`;
+  });
+  document.getElementById('groupGrid').innerHTML = gHtml;
+}
+
+function saveOverview() {
+  overviewEditing = false;
+  document.getElementById('overviewBtns').innerHTML = `<button class="btn" onclick="editOverview()">수정</button>`;
+  renderOverview();
+  renderSidebar();
+  showToast('퍼널 개요가 저장됐어요 ✓');
+}
+
+function cancelOverview() {
+  overviewEditing = false;
+  document.getElementById('overviewBtns').innerHTML = `<button class="btn" onclick="editOverview()">수정</button>`;
+  renderOverview();
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+renderSidebar();
+renderOverview();
+selectSeg('A');
+</script>
+</body>
+</html>
