@@ -268,6 +268,32 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; }
 <style>
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+/* ── 메시지 활성화 토글 */
+.msg-active-toggle { display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none; flex-shrink:0; }
+.msg-active-switch { width:34px; height:19px; border-radius:10px; background:var(--line2); position:relative; transition:background 0.2s; flex-shrink:0; }
+.msg-active-switch::after { content:''; position:absolute; left:3px; top:3px; width:13px; height:13px; border-radius:50%; background:#fff; transition:transform 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+.msg-active-label { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:0.5px; }
+.msg-item.is-active { border-color:var(--accent-a); box-shadow:0 0 0 2px rgba(26,138,90,0.15); }
+.msg-item.is-active .msg-active-switch { background:var(--accent-a); }
+.msg-item.is-active .msg-active-switch::after { transform:translateX(15px); }
+.msg-item.is-active .msg-active-label { color:var(--accent-a); }
+.msg-item.is-inactive { opacity:0.55; }
+
+/* ── 댓글 영역 */
+.comment-section { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
+.comment-list { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+.comment-item { display:flex; gap:8px; align-items:flex-start; }
+.comment-dot { width:6px; height:6px; border-radius:50%; background:var(--accent-b); margin-top:6px; flex-shrink:0; }
+.comment-body { font-size:12px; color:var(--text2); line-height:1.5; flex:1; }
+.comment-del { font-size:10px; color:var(--text3); background:none; border:none; cursor:pointer; padding:2px 4px; border-radius:3px; opacity:0; transition:opacity 0.15s; flex-shrink:0; }
+.comment-item:hover .comment-del { opacity:1; }
+.comment-del:hover { color:var(--accent-d); }
+.comment-input-row { display:flex; gap:6px; align-items:center; }
+.comment-input { flex:1; font-family:var(--sans); font-size:12px; padding:6px 10px; border-radius:6px; border:1px solid var(--line2); background:var(--bg2); color:var(--text); outline:none; transition:border-color 0.15s; }
+.comment-input:focus { border-color:var(--accent-b); }
+.comment-submit { font-family:var(--mono); font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid var(--accent-b); background:transparent; color:var(--accent-b); cursor:pointer; white-space:nowrap; transition:all 0.15s; flex-shrink:0; }
+.comment-submit:hover { background:var(--accent-b); color:#fff; }
 </style></style>
 </head>
 <body>
@@ -886,23 +912,41 @@ function renderSegment(id) {
         <input type="checkbox"${checked} onchange="toggleChannel(${mi},'${c}',this.checked,'${id}')"> ${c}
       </label>`;
     }).join('');
-    const hasCta = m.cta || false;
-    const ctaLabel = m.ctaLabel || '';
-    const ctaUrl = m.ctaUrl || '';
-    const ctaViewHtml = hasCta ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
-      <span class="cta-preview">👉 ${ctaLabel || 'CTA 버튼'} ${ctaUrl ? '— '+ctaUrl : ''}</span>
-    </div>` : '';
+
+    const hasCta    = m.cta     || false;
+    const isActive  = m.active  || false;
+    const ctaLabel  = m.ctaLabel || '';
+    const ctaUrl    = m.ctaUrl   || '';
+    const comments  = m.comments || [];
+
+    // CTA 뷰
+    const ctaViewHtml = hasCta
+      ? `<div class="cta-preview" style="margin-top:8px;margin-bottom:2px;">👉 ${esc(ctaLabel)||'CTA 버튼'}${ctaUrl ? ' <span style="font-size:10px;opacity:0.6;">— '+esc(ctaUrl)+'</span>' : ''}</div>`
+      : '';
+
+    // CTA 편집
     const ctaEditHtml = `<div class="cta-row">
       <div class="cta-toggle${hasCta?' on':''}" id="ctaToggle-${id}-${mi}" onclick="toggleCta('${id}',${mi},this)" style="cursor:pointer;">
-        <div class="cta-switch"></div>
-        CTA 버튼
+        <div class="cta-switch"></div>CTA 버튼
       </div>
       <div class="cta-fields" id="ctaFields-${id}-${mi}">
-        <input class="cta-input" id="ctaLabel-${id}-${mi}" placeholder="버튼 텍스트 (예: 지금 시작하기)" value="${esc(ctaLabel)}" oninput="updateCta('${id}',${mi},'label',this.value)">
-        <input class="cta-input" id="ctaUrl-${id}-${mi}" placeholder="URL (예: https://...)" value="${esc(ctaUrl)}" oninput="updateCta('${id}',${mi},'url',this.value)">
+        <input class="cta-input" placeholder="버튼 텍스트" value="${esc(ctaLabel)}" oninput="updateCta('${id}',${mi},'label',this.value)">
+        <input class="cta-input" placeholder="URL (https://...)" value="${esc(ctaUrl)}" oninput="updateCta('${id}',${mi},'url',this.value)">
       </div>
     </div>`;
-    return `<div class="msg-item" data-mi="${mi}">
+
+    // 댓글
+    const commentsHtml = comments.map((c,ci) =>
+      `<div class="comment-item">
+        <div class="comment-dot"></div>
+        <div class="comment-body">${esc(c)}</div>
+        <button class="comment-del" onclick="deleteComment('${id}',${mi},${ci})">✕</button>
+      </div>`
+    ).join('');
+
+    const activeClass = isActive ? ' is-active' : ' is-inactive';
+
+    return `<div class="msg-item${activeClass}" data-mi="${mi}">
       <div class="msg-item-header">
         <div class="msg-timing-wrap">
           <div class="msg-section-label">발송 타이밍</div>
@@ -910,7 +954,13 @@ function renderSegment(id) {
           <div class="msg-section-label" style="margin-top:6px;">메시지 제목</div>
           <input class="editable msg-step-title" data-field="messages.${mi}.step" value="${esc(m.step)}" readonly style="font-weight:500;width:100%;">
         </div>
-        <button class="msg-remove-btn" onclick="removeMessage(${mi},'${id}')">삭제</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;">
+          <div class="msg-active-toggle" onclick="toggleActive('${id}',${mi},this)">
+            <div class="msg-active-switch"></div>
+            <span class="msg-active-label">${isActive?'적용중':'미적용'}</span>
+          </div>
+          <button class="msg-remove-btn" onclick="removeMessage(${mi},'${id}')">삭제</button>
+        </div>
       </div>
       <div class="msg-section-label">발송 채널</div>
       <div class="msg-channel-row">
@@ -919,11 +969,18 @@ function renderSegment(id) {
       </div>
       <div class="msg-section-label" style="margin-top:10px;">메시지 본문</div>
       <textarea class="editable msg-body-text" data-field="messages.${mi}.body" rows="${m.body.split('\n').length + 1}" readonly>${esc(m.body)}</textarea>
-      <div class="msg-tip-text" style="${(m.tip||'')?'':`display:none`}"><input class="editable" data-field="messages.${mi}.tip" value="${esc(m.tip||'')}" readonly placeholder="💡 운영 팁을 입력하세요" style="font-size:11px;color:var(--text3);width:100%;"></div>
-      <div class="view-mode-cta">${ctaViewHtml}</div>
+      ${ctaViewHtml}
       <div class="edit-mode-cta" style="display:none;">${ctaEditHtml}</div>
+      <div class="msg-tip-text" style="${m.tip?'':'display:none'}"><input class="editable" data-field="messages.${mi}.tip" value="${esc(m.tip||'')}" readonly placeholder="💡 운영 팁" style="font-size:11px;color:var(--text3);width:100%;"></div>
+      <div class="comment-section">
+        <div class="comment-list" id="comments-${id}-${mi}">${commentsHtml}</div>
+        <div class="comment-input-row">
+          <input class="comment-input" id="commentInput-${id}-${mi}" placeholder="의견을 남겨주세요..." onkeydown="if(event.key==='Enter')addComment('${id}',${mi})">
+          <button class="comment-submit" onclick="addComment('${id}',${mi})">확인</button>
+        </div>
+      </div>
     </div>`;
-  }).join('');
+  }).join('')
 
   const html = `<div class="${modeClass}" id="panel-${id}">
     <div class="panel-header-row">
@@ -1044,7 +1101,7 @@ function toggleChannel(mi, ch, checked, id) {
 
 function addMessage(id) {
   const s = segments.find(x => x.id === id);
-  s.messages.push({ timing: 'D+N · 오전 9~11시', step: '새 메시지', channels: ['알림톡'], body: '메시지 내용을 입력하세요.', tip: '', cta: false, ctaLabel: '', ctaUrl: '' });
+  s.messages.push({ timing: 'D+N · 오전 9~11시', step: '새 메시지', channels: ['알림톡'], body: '메시지 내용을 입력하세요.', tip: '', cta: false, ctaLabel: '', ctaUrl: '', active: false, comments: [] });
   renderSegment(id);
   showToast('메시지가 추가됐어요');
 }
@@ -1106,6 +1163,60 @@ function toggleTheme() {
   document.body.classList.toggle('dark');
   const btn = document.querySelector('.toolbar-right .btn:last-child');
   btn.textContent = document.body.classList.contains('dark') ? '☀️ 라이트' : '🌙 다크';
+}
+
+// ═══════════════════════════════════════════
+// MESSAGE ACTIVE TOGGLE
+// ═══════════════════════════════════════════
+function toggleActive(segId, mi, el) {
+  const s = segments.find(x => x.id === segId);
+  if (!s || !s.messages[mi]) return;
+  s.messages[mi].active = !s.messages[mi].active;
+  const msgItem = el.closest('.msg-item');
+  const isActive = s.messages[mi].active;
+  msgItem.classList.toggle('is-active', isActive);
+  msgItem.classList.toggle('is-inactive', !isActive);
+  const sw = el.querySelector('.msg-active-switch');
+  const lbl = el.querySelector('.msg-active-label');
+  if (lbl) lbl.textContent = isActive ? '적용중' : '미적용';
+}
+
+// ═══════════════════════════════════════════
+// COMMENTS
+// ═══════════════════════════════════════════
+function addComment(segId, mi) {
+  const s = segments.find(x => x.id === segId);
+  if (!s || !s.messages[mi]) return;
+  const input = document.getElementById(`commentInput-${segId}-${mi}`);
+  const text = input.value.trim();
+  if (!text) return;
+  if (!s.messages[mi].comments) s.messages[mi].comments = [];
+  s.messages[mi].comments.push(text);
+  input.value = '';
+  // DOM 즉시 업데이트
+  const list = document.getElementById(`comments-${segId}-${mi}`);
+  const ci = s.messages[mi].comments.length - 1;
+  const div = document.createElement('div');
+  div.className = 'comment-item';
+  div.innerHTML = `<div class="comment-dot"></div>
+    <div class="comment-body">${esc(text)}</div>
+    <button class="comment-del" onclick="deleteComment('${segId}',${mi},${ci})" title="삭제">✕</button>`;
+  list.appendChild(div);
+  input.focus();
+}
+
+function deleteComment(segId, mi, ci) {
+  const s = segments.find(x => x.id === segId);
+  if (!s || !s.messages[mi] || !s.messages[mi].comments) return;
+  s.messages[mi].comments.splice(ci, 1);
+  // 댓글 목록 다시 렌더
+  const list = document.getElementById(`comments-${segId}-${mi}`);
+  list.innerHTML = s.messages[mi].comments.map((c, i) => `
+    <div class="comment-item">
+      <div class="comment-dot"></div>
+      <div class="comment-body">${esc(c)}</div>
+      <button class="comment-del" onclick="deleteComment('${segId}',${mi},${i})" title="삭제">✕</button>
+    </div>`).join('');
 }
 
 // ═══════════════════════════════════════════
