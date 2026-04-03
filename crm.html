@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>iQUVE CRM 전략</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -35,6 +36,23 @@ body.dark .btn-primary { color: #0d0d0f; }
 .btn-primary:hover { opacity: 0.85; color: #fff; }
 .btn-danger { background: rgba(192,32,58,0.1); color: var(--accent-d); border-color: rgba(192,32,58,0.25); }
 .btn-danger:hover { background: rgba(192,32,58,0.2); }
+.btn-edit { border-color: var(--accent-b); color: var(--accent-b); }
+.btn-edit:hover { background: rgba(26,106,170,0.08); }
+/* ── FLOATING ACTION BAR ── */
+.floating-bar { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 200; align-items: flex-end; pointer-events: none; opacity: 0; transform: translateY(8px); transition: all 0.25s; }
+.floating-bar.visible { opacity: 1; transform: translateY(0); pointer-events: all; }
+.floating-btn { font-family: var(--mono); font-size: 12px; padding: 10px 18px; border-radius: 24px; border: none; cursor: pointer; transition: all 0.15s; white-space: nowrap; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+.floating-btn-save { background: var(--accent-a); color: #fff; }
+body.dark .floating-btn-save { color: #0d0d0f; }
+.floating-btn-save:hover { opacity: 0.9; transform: scale(1.03); }
+.floating-btn-cancel { background: var(--bg3); color: var(--text2); border: 1px solid var(--line2); }
+.floating-btn-cancel:hover { background: var(--bg2); }
+.floating-btn-del { background: rgba(192,32,58,0.9); color: #fff; }
+.floating-btn-del:hover { background: var(--accent-d); }
+.floating-btn-sync { background: var(--accent-b); color: #fff; }
+.floating-btn-sync:hover { opacity: 0.9; }
+/* 상단 패널 액션 숨김 (플로팅으로 대체) */
+.panel-actions { display: none !important; }
 
 /* ── LAYOUT ── */
 .page-wrap { padding-top: 56px; display: flex; min-height: 100vh; }
@@ -142,14 +160,40 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 .channel-select { display: none; }
 .edit-mode .channel-select { display: flex; flex-wrap: wrap; gap: 5px; }
 .edit-mode .channel-tags-display { display: none !important; }
-.ch-checkbox { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; cursor: pointer; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line2); color: var(--text2); transition: all 0.12s; user-select: none; }
+.ch-checkbox { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; cursor: pointer; padding: 4px 10px; border-radius: 20px; border: 1.5px dashed var(--line2); color: var(--text3); background: transparent; transition: all 0.15s; user-select: none; }
+.ch-checkbox:hover { border-color: var(--text3); color: var(--text2); }
 .ch-checkbox input { display: none; }
+.ch-checkbox.checked { border-style: solid; font-weight: 500; }
+.ch-checkbox.checked[data-ch="알림톡"] { background: rgba(255,180,0,0.12); border-color: #c8a000; color: #8a6a00; }
+.ch-checkbox.checked[data-ch="문자"] { background: rgba(26,106,170,0.12); border-color: var(--accent-b); color: var(--accent-b); }
+.ch-checkbox.checked[data-ch="채널메시지"] { background: rgba(90,90,106,0.1); border-color: var(--text3); color: var(--text2); }
+.ch-checkbox.checked[data-ch="앱푸시"] { background: rgba(26,138,90,0.12); border-color: var(--accent-a); color: var(--accent-a); }
+.ch-checkbox.checked[data-ch="이메일"] { background: rgba(160,96,16,0.12); border-color: var(--accent-c); color: var(--accent-c); }
+.ch-checkbox.checked[data-ch="광고"] { background: rgba(192,32,58,0.1); border-color: var(--accent-d); color: var(--accent-d); }
 .ch-checkbox.checked { background: var(--bg2); border-color: var(--text3); color: var(--text); }
 .msg-body-text { font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; word-break: keep-all; border-left: 2px solid var(--line2); padding-left: 12px; margin-bottom: 8px; }
 .msg-tip-text { font-size: 11px; color: var(--text3); padding-top: 8px; border-top: 1px solid var(--line); }
 .add-msg-btn { width: 100%; padding: 10px; border: 1px dashed var(--line2); border-radius: var(--radius); background: transparent; color: var(--text3); font-family: var(--mono); font-size: 11px; cursor: pointer; transition: all 0.15s; display: none; margin-top: 10px; }
 .edit-mode .add-msg-btn { display: block; }
 .add-msg-btn:hover { border-color: var(--accent-b); color: var(--accent-b); background: rgba(26,106,170,0.04); }
+/* CTA */
+.cta-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.cta-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.cta-toggle input { display: none; }
+.cta-switch { width: 32px; height: 18px; border-radius: 9px; background: var(--line2); position: relative; transition: background 0.2s; flex-shrink: 0; }
+.cta-switch::after { content: ''; position: absolute; left: 3px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.cta-toggle.on .cta-switch { background: var(--accent-b); }
+.cta-toggle.on .cta-switch::after { transform: translateX(14px); }
+.cta-toggle.on { color: var(--accent-b); }
+.cta-fields { display: none; flex: 1; gap: 6px; min-width: 200px; }
+.cta-toggle.on ~ .cta-fields { display: flex; }
+.cta-input { font-family: var(--sans); font-size: 12px; padding: 5px 8px; border-radius: 5px; border: 1px solid var(--line2); background: var(--bg2); color: var(--text); outline: none; flex: 1; min-width: 80px; }
+.cta-input:focus { border-color: var(--accent-b); }
+.cta-preview { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 4px; background: rgba(26,106,170,0.1); color: var(--accent-b); border: 1px solid rgba(26,106,170,0.25); margin-top: 4px; }
+/* 편집 모드 UX 강화 */
+.edit-mode .msg-item { border-color: var(--line2); box-shadow: 0 0 0 2px rgba(26,106,170,0.06); }
+.edit-mode .editable:hover { background: var(--bg2); }
+.msg-section-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
 
 /* ── OPS VIEW ── */
 .ops-block { margin-bottom: 36px; }
@@ -234,6 +278,7 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
   <div class="toolbar-right">
     <button class="btn" onclick="switchMainTab('ops')">전환 분기 &amp; 운영 기준</button>
     <button class="btn" onclick="switchMainTab('overview')">퍼널 개요</button>
+    <button class="btn" onclick="switchMainTab('segment')">메시지 스크립트</button>
     <button class="btn" onclick="toggleTheme()">🌙 다크</button>
   </div>
 </div>
@@ -330,6 +375,15 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 
 <!-- TOAST -->
 <div class="toast" id="toast">저장됐어요</div>
+
+<!-- FLOATING ACTION BAR -->
+<div class="floating-bar" id="floatingBar">
+  <button class="floating-btn floating-btn-del" id="floatDel" onclick="floatDelete()" style="display:none;">🗑 삭제</button>
+  <button class="floating-btn floating-btn-cancel" id="floatCancel" onclick="floatCancel()" style="display:none;">취소</button>
+  <button class="floating-btn floating-btn-save" id="floatSave" onclick="floatSave()" style="display:none;">✓ 저장</button>
+  <button class="floating-btn floating-btn-sync" id="floatSync" onclick="syncToCloud()">☁ 동기화</button>
+  <button class="floating-btn floating-btn-cancel" id="floatEdit" onclick="floatEdit()">✎ 수정하기</button>
+</div>
 
 <div class="page-wrap">
   <!-- SIDEBAR -->
@@ -580,6 +634,57 @@ let segments = [
 ];
 
 // ═══════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════
+const SUPABASE_URL = 'https://emgsqnzfdvvbtooouaap.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function loadData() {
+  try {
+    showToast('데이터 불러오는 중...');
+    const { data, error } = await sb
+      .from('crm_storage')
+      .select('segments, groups')
+      .eq('id', 1)
+      .single();
+    if (error) throw error;
+    if (data) {
+      segments = data.segments;
+      groups = data.groups;
+      renderSidebar();
+      renderOverview();
+      if (segments.length > 0) selectSeg(segments[0].id);
+      showToast('불러오기 완료 ☁️');
+    }
+  } catch (e) {
+    console.warn('클라우드 로드 실패, 로컬 데이터 사용:', e.message);
+    renderSidebar();
+    renderOverview();
+    if (segments.length > 0) selectSeg(segments[0].id);
+    showToast('로컬 데이터로 시작합니다');
+  }
+}
+
+async function syncToCloud() {
+  const syncBtn = document.getElementById('floatSync');
+  syncBtn.textContent = '저장 중...';
+  syncBtn.disabled = true;
+  try {
+    const { error } = await sb
+      .from('crm_storage')
+      .upsert({ id: 1, segments, groups, updated_at: new Date().toISOString() });
+    if (error) throw error;
+    showToast('클라우드에 동기화됐어요 ☁️');
+  } catch (e) {
+    alert('저장 실패: ' + e.message);
+  } finally {
+    syncBtn.textContent = '☁ 동기화';
+    syncBtn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════
 // GROUP DATA
 // ═══════════════════════════════════════════
 let groups = [
@@ -692,21 +797,42 @@ function renderSegment(id) {
         <input type="checkbox"${checked} onchange="toggleChannel(${mi},'${c}',this.checked,'${id}')"> ${c}
       </label>`;
     }).join('');
+    const hasCta = m.cta || false;
+    const ctaLabel = m.ctaLabel || '';
+    const ctaUrl = m.ctaUrl || '';
+    const ctaViewHtml = hasCta ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
+      <span class="cta-preview">👉 ${ctaLabel || 'CTA 버튼'} ${ctaUrl ? '— '+ctaUrl : ''}</span>
+    </div>` : '';
+    const ctaEditHtml = `<div class="cta-row">
+      <div class="cta-toggle${hasCta?' on':''}" id="ctaToggle-${id}-${mi}" onclick="toggleCta('${id}',${mi},this)" style="cursor:pointer;">
+        <div class="cta-switch"></div>
+        CTA 버튼
+      </div>
+      <div class="cta-fields" id="ctaFields-${id}-${mi}">
+        <input class="cta-input" id="ctaLabel-${id}-${mi}" placeholder="버튼 텍스트 (예: 지금 시작하기)" value="${esc(ctaLabel)}" oninput="updateCta('${id}',${mi},'label',this.value)">
+        <input class="cta-input" id="ctaUrl-${id}-${mi}" placeholder="URL (예: https://...)" value="${esc(ctaUrl)}" oninput="updateCta('${id}',${mi},'url',this.value)">
+      </div>
+    </div>`;
     return `<div class="msg-item" data-mi="${mi}">
       <div class="msg-item-header">
         <div class="msg-timing-wrap">
-          <div class="msg-timing-label">발송 타이밍</div>
-          <input class="editable msg-step-title" data-field="messages.${mi}.timing" value="${esc(m.timing)}" readonly style="font-size:11px;color:var(--text3);font-family:var(--mono);">
-          <input class="editable msg-step-title" data-field="messages.${mi}.step" value="${esc(m.step)}" readonly style="font-weight:500;">
+          <div class="msg-section-label">발송 타이밍</div>
+          <input class="editable" data-field="messages.${mi}.timing" value="${esc(m.timing)}" readonly style="font-size:11px;color:var(--text3);font-family:var(--mono);width:100%;">
+          <div class="msg-section-label" style="margin-top:6px;">메시지 제목</div>
+          <input class="editable msg-step-title" data-field="messages.${mi}.step" value="${esc(m.step)}" readonly style="font-weight:500;width:100%;">
         </div>
         <button class="msg-remove-btn" onclick="removeMessage(${mi},'${id}')">삭제</button>
       </div>
+      <div class="msg-section-label">발송 채널</div>
       <div class="msg-channel-row">
         <div class="channel-tags-display">${chTagsHtml || '<span style="font-size:11px;color:var(--text3)">채널 미선택</span>'}</div>
         <div class="channel-select">${chSelectHtml}</div>
       </div>
+      <div class="msg-section-label" style="margin-top:10px;">메시지 본문</div>
       <textarea class="editable msg-body-text" data-field="messages.${mi}.body" rows="${m.body.split('\n').length + 1}" readonly>${esc(m.body)}</textarea>
-      ${m.tip ? `<div class="msg-tip-text"><input class="editable" data-field="messages.${mi}.tip" value="${esc(m.tip)}" readonly placeholder="운영 팁" style="font-size:11px;color:var(--text3);width:100%;"></div>` : `<div class="msg-tip-text" style="display:${isEdit?'block':'none'}"><input class="editable" data-field="messages.${mi}.tip" value="" readonly placeholder="운영 팁" style="font-size:11px;color:var(--text3);width:100%;"></div>`}
+      <div class="msg-tip-text" style="${(m.tip||'')?'':`display:none`}"><input class="editable" data-field="messages.${mi}.tip" value="${esc(m.tip||'')}" readonly placeholder="💡 운영 팁을 입력하세요" style="font-size:11px;color:var(--text3);width:100%;"></div>
+      <div class="view-mode-cta">${ctaViewHtml}</div>
+      <div class="edit-mode-cta" style="display:none;">${ctaEditHtml}</div>
     </div>`;
   }).join('');
 
@@ -719,10 +845,10 @@ function renderSegment(id) {
       </div>
       <div class="panel-actions">
         ${isEdit
-          ? `<button class="btn btn-primary" onclick="saveSegment('${id}')">저장</button>
+          ? `<button class="btn btn-primary" onclick="saveSegment('${id}')">✓ 저장</button>
              <button class="btn" onclick="cancelEdit('${id}')">취소</button>
-             <button class="btn btn-danger" onclick="deleteSegment('${id}')">삭제</button>`
-          : `<button class="btn" onclick="startEdit('${id}')">수정</button>`
+             <button class="btn btn-danger" onclick="deleteSegment('${id}')">🗑 삭제</button>`
+          : `<button class="btn btn-edit" onclick="startEdit('${id}')">✎ 수정하기</button>`
         }
       </div>
     </div>
@@ -741,6 +867,16 @@ function renderSegment(id) {
     document.querySelectorAll(`#panel-${id} .editable`).forEach(el => {
       el.removeAttribute('readonly');
     });
+    // tip 항상 표시
+    document.querySelectorAll(`#panel-${id} .msg-tip-text`).forEach(el => el.style.display = 'block');
+    // CTA 편집 영역 표시
+    document.querySelectorAll(`#panel-${id} .edit-mode-cta`).forEach(el => el.style.display = 'block');
+    document.querySelectorAll(`#panel-${id} .view-mode-cta`).forEach(el => el.style.display = 'none');
+    // 초기 cta fields 상태
+    document.querySelectorAll(`#panel-${id} .cta-toggle`).forEach(toggle => {
+      const fields = toggle.nextElementSibling;
+      if (fields) fields.style.display = toggle.classList.contains('on') ? 'flex' : 'none';
+    });
   }
 }
 
@@ -757,6 +893,7 @@ function selectSeg(id) {
   renderSidebar();
   switchMainTab('segment');
   renderSegment(id);
+  updateFloatingBar();
 }
 
 function switchMainTab(tab) {
@@ -767,11 +904,13 @@ function switchMainTab(tab) {
 function startEdit(id) {
   editingId = id;
   renderSegment(id);
+  updateFloatingBar();
 }
 
 function cancelEdit(id) {
   editingId = null;
   renderSegment(id);
+  updateFloatingBar();
 }
 
 function saveSegment(id) {
@@ -791,11 +930,13 @@ function saveSegment(id) {
       s[parts[0]][parseInt(parts[1])][parts[2]] = val;
     }
   });
+  // CTA 필드 저장 (cta, ctaLabel, ctaUrl은 이미 실시간 반영됨)
 
   editingId = null;
   renderSidebar();
   renderOverview();
   renderSegment(id);
+  updateFloatingBar();
   showToast('저장됐어요 ✓');
 }
 
@@ -814,7 +955,7 @@ function toggleChannel(mi, ch, checked, id) {
 
 function addMessage(id) {
   const s = segments.find(x => x.id === id);
-  s.messages.push({ timing: 'D+N · 오전 9~11시', step: '새 메시지', channels: ['알림톡'], body: '메시지 내용을 입력하세요.', tip: '' });
+  s.messages.push({ timing: 'D+N · 오전 9~11시', step: '새 메시지', channels: ['알림톡'], body: '메시지 내용을 입력하세요.', tip: '', cta: false, ctaLabel: '', ctaUrl: '' });
   renderSegment(id);
   showToast('메시지가 추가됐어요');
 }
@@ -835,6 +976,7 @@ function deleteSegment(id) {
   renderOverview();
   if (currentSeg) renderSegment(currentSeg);
   else document.getElementById('segmentPanelContainer').innerHTML = '';
+  updateFloatingBar();
   showToast('삭제됐어요');
 }
 
@@ -875,6 +1017,26 @@ function toggleTheme() {
   document.body.classList.toggle('dark');
   const btn = document.querySelector('.toolbar-right .btn:last-child');
   btn.textContent = document.body.classList.contains('dark') ? '☀️ 라이트' : '🌙 다크';
+}
+
+// ═══════════════════════════════════════════
+// CTA FUNCTIONS
+// ═══════════════════════════════════════════
+function toggleCta(segId, mi, labelEl) {
+  const s = segments.find(x => x.id === segId);
+  if (!s) return;
+  const isOn = !labelEl.classList.contains('on');
+  labelEl.classList.toggle('on', isOn);
+  s.messages[mi].cta = isOn;
+  const fields = document.getElementById(`ctaFields-${segId}-${mi}`);
+  if (fields) fields.style.display = isOn ? 'flex' : 'none';
+}
+
+function updateCta(segId, mi, field, val) {
+  const s = segments.find(x => x.id === segId);
+  if (!s) return;
+  if (field === 'label') s.messages[mi].ctaLabel = val;
+  if (field === 'url') s.messages[mi].ctaUrl = val;
 }
 
 // ═══════════════════════════════════════════
@@ -1194,11 +1356,59 @@ function cancelOverview() {
 }
 
 // ═══════════════════════════════════════════
+// FLOATING BAR
+// ═══════════════════════════════════════════
+function updateFloatingBar() {
+  const bar = document.getElementById('floatingBar');
+  const isEditing = editingId !== null;
+  bar.classList.add('visible');
+
+  document.getElementById('floatEdit').style.display   = isEditing ? 'none' : 'block';
+  document.getElementById('floatSync').style.display   = isEditing ? 'none' : 'block';
+  document.getElementById('floatSave').style.display   = isEditing ? 'block' : 'none';
+  document.getElementById('floatCancel').style.display = isEditing ? 'block' : 'none';
+  document.getElementById('floatDel').style.display    = isEditing ? 'block' : 'none';
+
+  // 세그먼트 없을 때 edit 버튼 숨김
+  if (!currentSeg) {
+    document.getElementById('floatEdit').style.display = 'none';
+    document.getElementById('floatDel').style.display  = 'none';
+  }
+}
+
+function floatEdit() {
+  if (!currentSeg) return;
+  startEdit(currentSeg);
+}
+
+function floatSave() {
+  if (!editingId) return;
+  saveSegment(editingId);
+}
+
+function floatCancel() {
+  if (!editingId) return;
+  cancelEdit(editingId);
+}
+
+function floatDelete() {
+  if (!editingId) return;
+  deleteSegment(editingId);
+}
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-renderSidebar();
-renderOverview();
-selectSeg('A');
+document.addEventListener('DOMContentLoaded', async function() {
+  // Supabase 라이브러리 로드 대기
+  let retries = 0;
+  while (!window.supabase && retries < 20) {
+    await new Promise(r => setTimeout(r, 100));
+    retries++;
+  }
+  await loadData();
+  updateFloatingBar();
+});
 </script>
 </body>
 </html>
