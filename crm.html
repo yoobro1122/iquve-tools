@@ -649,14 +649,17 @@ async function loadData() {
       .eq('id', 1)
       .single();
     if (error) throw error;
-    if (data) {
+    // 클라우드 데이터가 유효할 때만 덮어쓰기
+    if (data && Array.isArray(data.segments) && data.segments.length > 0) {
       segments = data.segments;
-      groups = data.groups;
-      renderSidebar();
-      renderOverview();
-      if (segments.length > 0) selectSeg(segments[0].id);
-      showToast('불러오기 완료 ☁️');
     }
+    if (data && Array.isArray(data.groups) && data.groups.length > 0) {
+      groups = data.groups;
+    }
+    renderSidebar();
+    renderOverview();
+    if (segments.length > 0) selectSeg(segments[0].id);
+    showToast('불러오기 완료 ☁️');
   } catch (e) {
     console.warn('클라우드 로드 실패, 로컬 데이터 사용:', e.message);
     renderSidebar();
@@ -1360,20 +1363,15 @@ function cancelOverview() {
 // ═══════════════════════════════════════════
 function updateFloatingBar() {
   const bar = document.getElementById('floatingBar');
+  if (!bar) return;
   const isEditing = editingId !== null;
   bar.classList.add('visible');
 
-  document.getElementById('floatEdit').style.display   = isEditing ? 'none' : 'block';
+  document.getElementById('floatEdit').style.display   = (!isEditing && currentSeg) ? 'block' : 'none';
   document.getElementById('floatSync').style.display   = isEditing ? 'none' : 'block';
   document.getElementById('floatSave').style.display   = isEditing ? 'block' : 'none';
   document.getElementById('floatCancel').style.display = isEditing ? 'block' : 'none';
   document.getElementById('floatDel').style.display    = isEditing ? 'block' : 'none';
-
-  // 세그먼트 없을 때 edit 버튼 숨김
-  if (!currentSeg) {
-    document.getElementById('floatEdit').style.display = 'none';
-    document.getElementById('floatDel').style.display  = 'none';
-  }
 }
 
 function floatEdit() {
@@ -1400,7 +1398,13 @@ function floatDelete() {
 // INIT
 // ═══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async function() {
-  // Supabase 라이브러리 로드 대기
+  // 일단 로컬 데이터로 먼저 렌더링
+  renderSidebar();
+  renderOverview();
+  if (segments.length > 0) selectSeg(segments[0].id);
+  updateFloatingBar();
+
+  // Supabase 라이브러리 로드 대기 후 클라우드 데이터로 갱신
   let retries = 0;
   while (!window.supabase && retries < 20) {
     await new Promise(r => setTimeout(r, 100));
