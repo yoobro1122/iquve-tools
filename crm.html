@@ -755,19 +755,39 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 async function loadData() {
   try {
     showToast('데이터 불러오는 중...');
-    const { data, error } = await sb
-      .from('crm_storage')
-      .select('segments, groups')
+
+    // 세그먼트 로드 (crm_segments 테이블 - 세그먼트별 row)
+    const { data: segData, error: segErr } = await sb
+      .from('crm_segments')
+      .select('id, data');
+    if (segErr) throw segErr;
+
+    // 그룹 로드 (crm_groups 테이블)
+    const { data: grpData, error: grpErr } = await sb
+      .from('crm_groups')
+      .select('data')
       .eq('id', 1)
       .single();
-    if (error) throw error;
-    // 클라우드 데이터가 유효할 때만 덮어쓰기
-    if (data && Array.isArray(data.segments) && data.segments.length > 0) {
-      segments = data.segments;
+    if (grpErr && grpErr.code !== 'PGRST116') throw grpErr;
+
+    // 세그먼트 데이터 적용 (클라우드 우선, 없으면 로컬 유지)
+    if (segData && segData.length > 0) {
+      // 클라우드에 있는 세그먼트는 덮어쓰기
+      segData.forEach(row => {
+        const localIdx = segments.findIndex(s => s.id === row.id);
+        if (localIdx >= 0) {
+          segments[localIdx] = { ...segments[localIdx], ...row.data, id: row.id };
+        } else {
+          segments.push({ ...row.data, id: row.id });
+        }
+      });
     }
-    if (data && Array.isArray(data.groups) && data.groups.length > 0) {
-      groups = data.groups;
+
+    // 그룹 데이터 적용
+    if (grpData && Array.isArray(grpData.data) && grpData.data.length > 0) {
+      groups = grpData.data;
     }
+
     renderSidebar();
     renderOverview();
     if (segments.length > 0) selectSeg(segments[0].id);
@@ -781,21 +801,55 @@ async function loadData() {
   }
 }
 
+// 변경된 세그먼트 ID 추적
+const dirtySegments = new Set();
+
+function markDirty(segId) {
+  dirtySegments.add(segId);
+}
+
 async function syncToCloud() {
   const syncBtn = document.getElementById('floatSync');
-  syncBtn.textContent = '저장 중...';
-  syncBtn.disabled = true;
+  if (syncBtn) { syncBtn.textContent = '저장 중...'; syncBtn.disabled = true; }
   try {
-    const { error } = await sb
-      .from('crm_storage')
-      .upsert({ id: 1, segments, groups, updated_at: new Date().toISOString() });
-    if (error) throw error;
-    showToast('클라우드에 동기화됐어요 ☁️');
+    const promises = [];
+
+    // 변경된 세그먼트만 upsert (dirty 없으면 전체)
+    const toSync = dirtySegments.size > 0
+      ? segments.filter(s => dirtySegments.has(s.id))
+      : segments;
+
+    if (toSync.length > 0) {
+      const segRows = toSync.map(s => ({
+        id: s.id,
+        data: s,
+        updated_at: new Date().toISOString()
+      }));
+      promises.push(
+        sb.from('crm_segments').upsert(segRows).then(({ error }) => {
+          if (error) throw error;
+        })
+      );
+    }
+
+    // 그룹은 항상 저장
+    promises.push(
+      sb.from('crm_groups').upsert({
+        id: 1,
+        data: groups,
+        updated_at: new Date().toISOString()
+      }).then(({ error }) => {
+        if (error) throw error;
+      })
+    );
+
+    await Promise.all(promises);
+    dirtySegments.clear();
+    showToast('동기화 완료 ☁️');
   } catch (e) {
     alert('저장 실패: ' + e.message);
   } finally {
-    syncBtn.textContent = '☁ 동기화';
-    syncBtn.disabled = false;
+    if (syncBtn) { syncBtn.textContent = '☁ 동기화'; syncBtn.disabled = false; }
   }
 }
 
@@ -1079,6 +1133,7 @@ function saveSegment(id) {
   // CTA 필드 저장 (cta, ctaLabel, ctaUrl은 이미 실시간 반영됨)
 
   editingId = null;
+  markDirty(id);
   renderSidebar();
   renderOverview();
   renderSegment(id);
@@ -1089,6 +1144,7 @@ function saveSegment(id) {
 function toggleChannel(mi, ch, checked, id) {
   const s = segments.find(x => x.id === id);
   if (!s) return;
+  markDirty(id);
   if (checked && !s.messages[mi].channels.includes(ch)) {
     s.messages[mi].channels.push(ch);
   } else if (!checked) {
@@ -1146,6 +1202,7 @@ function addSegment() {
   document.getElementById('newId').value = '';
   document.getElementById('newTitle').value = '';
   document.getElementById('newDesc').value = '';
+  markDirty(id);
   renderSidebar();
   renderOverview();
   selectSeg(id);
@@ -1172,6 +1229,7 @@ function toggleActive(segId, mi, el) {
   const s = segments.find(x => x.id === segId);
   if (!s || !s.messages[mi]) return;
   s.messages[mi].active = !s.messages[mi].active;
+  markDirty(segId);
   const msgItem = el.closest('.msg-item');
   const isActive = s.messages[mi].active;
   msgItem.classList.toggle('is-active', isActive);
@@ -1192,6 +1250,7 @@ function addComment(segId, mi) {
   if (!text) return;
   if (!s.messages[mi].comments) s.messages[mi].comments = [];
   s.messages[mi].comments.push(text);
+  markDirty(segId);
   input.value = '';
   // DOM 즉시 업데이트
   const list = document.getElementById(`comments-${segId}-${mi}`);
@@ -1209,6 +1268,7 @@ function deleteComment(segId, mi, ci) {
   const s = segments.find(x => x.id === segId);
   if (!s || !s.messages[mi] || !s.messages[mi].comments) return;
   s.messages[mi].comments.splice(ci, 1);
+  markDirty(segId);
   // 댓글 목록 다시 렌더
   const list = document.getElementById(`comments-${segId}-${mi}`);
   list.innerHTML = s.messages[mi].comments.map((c, i) => `
@@ -1225,6 +1285,7 @@ function deleteComment(segId, mi, ci) {
 function toggleCta(segId, mi, labelEl) {
   const s = segments.find(x => x.id === segId);
   if (!s) return;
+  markDirty(segId);
   const isOn = !labelEl.classList.contains('on');
   labelEl.classList.toggle('on', isOn);
   s.messages[mi].cta = isOn;
@@ -1350,6 +1411,7 @@ function saveEditSeg() {
   s.desc = desc;
   s.group = group;
   if (currentSeg === editingSegOrigId) currentSeg = newId;
+  markDirty(newId);
   closeEditSegModal();
   renderSidebar();
   renderOverview();
@@ -1561,6 +1623,14 @@ function cancelOverview() {
 function updateFloatingBar() {
   const bar = document.getElementById('floatingBar');
   if (!bar) return;
+  // dirty 있으면 동기화 버튼 강조
+  const syncWidget = document.getElementById('syncWidget');
+  if (syncWidget) {
+    const syncBox = document.getElementById('syncExpandBox');
+    if (syncBox) {
+      syncBox.style.background = dirtySegments.size > 0 ? '#c0203a' : '#1a6aaa';
+    }
+  }
   const isEditing = editingId !== null;
   bar.classList.add('visible');
 
