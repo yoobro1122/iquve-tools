@@ -1014,6 +1014,11 @@ function renderSegment(id) {
     return `<div class="msg-item${activeClass}" data-mi="${mi}">
       <div class="msg-item-header">
         <div class="msg-timing-wrap">
+          <div class="msg-section-label">발송 채널</div>
+          <div class="msg-channel-row" style="margin-bottom:8px;">
+            <div class="channel-tags-display">${chTagsHtml || '<span style="font-size:11px;color:var(--text3)">채널 미선택</span>'}</div>
+            <div class="channel-select">${chSelectHtml}</div>
+          </div>
           <div class="msg-section-label">발송 타이밍</div>
           <input class="editable" data-field="messages.${mi}.timing" value="${esc(m.timing)}" readonly style="font-size:11px;color:var(--text);font-family:var(--mono);width:100%;">
           <div class="msg-section-label" style="margin-top:6px;">메시지 제목</div>
@@ -1030,11 +1035,6 @@ function renderSegment(id) {
           </div>
           <button class="msg-remove-btn" onclick="removeMessage(${mi},'${id}')">삭제</button>
         </div>
-      </div>
-      <div class="msg-section-label">발송 채널</div>
-      <div class="msg-channel-row">
-        <div class="channel-tags-display">${chTagsHtml || '<span style="font-size:11px;color:var(--text3)">채널 미선택</span>'}</div>
-        <div class="channel-select">${chSelectHtml}</div>
       </div>
       <div class="msg-section-label" style="margin-top:10px;">메시지 본문</div>
       <textarea class="editable msg-body-text" data-field="messages.${mi}.body" rows="${m.body.split('\n').length + 1}" readonly>${esc(m.body)}</textarea>
