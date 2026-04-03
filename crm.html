@@ -327,10 +327,6 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
   <div class="modal">
     <div class="modal-title">새 세그먼트 추가</div>
     <div class="form-row">
-      <div class="form-label">세그먼트 ID (알파벳)</div>
-      <input class="form-input" id="newId" placeholder="예: K" maxlength="2">
-    </div>
-    <div class="form-row">
       <div class="form-label">타이틀</div>
       <input class="form-input" id="newTitle" placeholder="예: 이탈 유저">
     </div>
@@ -381,16 +377,8 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
   <div class="seg-edit-modal">
     <div class="modal-title">세그먼트 수정</div>
     <div class="form-row">
-      <div class="form-label">세그먼트 ID</div>
-      <input class="form-input" id="editSegId" placeholder="예: A" maxlength="2">
-    </div>
-    <div class="form-row">
       <div class="form-label">타이틀</div>
       <input class="form-input" id="editSegTitle" placeholder="예: 연결제 완료 유저">
-    </div>
-    <div class="form-row">
-      <div class="form-label">서브 ID (표시용)</div>
-      <input class="form-input" id="editSegSubId" placeholder="예: Segment A · Group 1">
     </div>
     <div class="form-row">
       <div class="form-label">설명</div>
@@ -463,7 +451,7 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
         <div class="section-label" style="margin-bottom:0;">Funnel Flow</div>
         <div style="display:flex;gap:6px;" id="overviewBtns">
-          <button class="btn" onclick="editOverview()">수정</button>
+          
         </div>
       </div>
       <div class="funnel-flow" id="funnelFlow"></div>
@@ -483,9 +471,7 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
       <div class="ops-block" id="opsBlock-branch">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div class="ops-title">전환 분기 로직</div>
-          <div style="display:flex;gap:6px;" id="branchBtns">
-            <button class="btn" onclick="editOps('branch')">수정</button>
-          </div>
+          <div style="display:flex;gap:6px;" id="branchBtns"></div>
         </div>
         <div class="ops-desc" id="ops-branch-desc" contenteditable="false">실시간 이벤트 트리거 기반. 조건 충족 즉시 현재 세그먼트 CRM 중단 → 다음 세그먼트로 자동 이동.</div>
         <table class="branch-table" id="branchTable">
@@ -562,9 +548,7 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
       <div class="ops-block" id="opsBlock-rules">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div class="ops-title">운영 규칙</div>
-          <div style="display:flex;gap:6px;" id="rulesBtns">
-            <button class="btn" onclick="editOps('rules')">수정</button>
-          </div>
+          <div style="display:flex;gap:6px;" id="rulesBtns"></div>
         </div>
         <div class="rule-grid">
           <div class="rule-card"><div class="rule-card-title"><span class="rule-icon">01</span> 중복 세그먼트</div><div class="rule-body" data-ri="0"><ul><li>유저는 하나의 세그먼트에만 속함.</li><li>트리거 발생 즉시 현재 해제 → 다음 배정.</li><li>동시 다중 트리거 시 퍼널 상 더 앞선 세그먼트 우선.</li></ul></div><textarea class="rule-card-edit" data-ri="0" placeholder="규칙 내용 (줄바꿈으로 항목 구분)">유저는 하나의 세그먼트에만 속함.
@@ -775,7 +759,7 @@ async function loadData() {
     // 그룹 로드 (crm_groups 테이블)
     const { data: grpData, error: grpErr } = await sb
       .from('crm_groups')
-      .select('data')
+      .select('data, funnel_steps')
       .eq('id', 1)
       .single();
     if (grpErr && grpErr.code !== 'PGRST116') throw grpErr;
@@ -796,6 +780,9 @@ async function loadData() {
     // 그룹 데이터 적용
     if (grpData && Array.isArray(grpData.data) && grpData.data.length > 0) {
       groups = grpData.data;
+    }
+    if (grpData && Array.isArray(grpData.funnel_steps) && grpData.funnel_steps.length > 0) {
+      funnelSteps = grpData.funnel_steps;
     }
 
     renderSidebar();
@@ -842,11 +829,12 @@ async function syncToCloud() {
       );
     }
 
-    // 그룹은 항상 저장
+    // 그룹 + 퍼널 스텝 저장
     promises.push(
       sb.from('crm_groups').upsert({
         id: 1,
         data: groups,
+        funnel_steps: funnelSteps,
         updated_at: new Date().toISOString()
       }).then(({ error }) => {
         if (error) throw error;
@@ -863,6 +851,20 @@ async function syncToCloud() {
     if (syncBtn) { syncBtn.textContent = '☁ 동기화'; syncBtn.disabled = false; }
   }
 }
+
+// ═══════════════════════════════════════════
+// FUNNEL STEPS DATA
+// ═══════════════════════════════════════════
+let funnelSteps = [
+  {id:'H', label:'설치', color:'gray'},
+  {id:'G', label:'가입', color:'amber'},
+  {id:'F', label:'자녀등록', color:'amber'},
+  {id:'E', label:'로그인', color:'blue'},
+  {id:'C', label:'시청(7일내)', color:'blue'},
+  {id:'D', label:'시청(7일후)', color:'blue'},
+  {id:'B', label:'월결제', color:'green'},
+  {id:'A', label:'연결제 ✓', color:'green'}
+];
 
 // ═══════════════════════════════════════════
 // GROUP DATA
@@ -883,6 +885,18 @@ let editingId = null;
 // RENDER
 // ═══════════════════════════════════════════
 function groupColor(g) { return {green:'#1a8a5a',blue:'#1a6aaa',amber:'#a06010'}[g] || '#888'; }
+function getDisplayId(segId) {
+  const idx = segments.findIndex(s => s.id === segId);
+  if (idx < 0) return segId;
+  // A=0, B=1 ... Z=25, AA=26 ...
+  let n = idx;
+  let result = '';
+  do {
+    result = String.fromCharCode(65 + (n % 26)) + result;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return result;
+}
 function groupNum(g) { return {green:'1',blue:'2',amber:'3'}[g] || '?'; }
 function groupLabel(g) { const grp = groups.find(x => x.key === g); return grp ? grp.label : g; }
 function groupBadgeClass(g) { return {green:'badge-green',blue:'badge-blue',amber:'badge-amber'}[g] || 'badge-gray'; }
@@ -907,7 +921,7 @@ function renderSidebar() {
         ondrop="onDrop(event,'${s.id}')"
         ondragend="onDragEnd(event)">
         <span class="drag-handle" title="드래그로 순서 변경">⠿</span>
-        <span class="seg-badge ${groupBadgeClass(s.group)}">${s.id}</span>
+        <span class="seg-badge ${groupBadgeClass(s.group)}">${getDisplayId(s.id)}</span>
         <span onclick="selectSeg('${s.id}')" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</span>
         <div class="seg-item-actions">
           <button class="seg-action-btn" onclick="event.stopPropagation();openEditSegModal('${s.id}')" title="수정">✎</button>
@@ -920,22 +934,13 @@ function renderSidebar() {
 }
 
 function renderOverview() {
-  // Funnel
-  const funnelOrder = ['H','G','F','E','C','D','B','A'];
+  // Funnel - funnelSteps 데이터 기반 렌더
   let fHtml = '';
-  funnelOrder.forEach((id, i) => {
-    const s = segments.find(x => x.id === id);
-    if (!s) return;
-    const cls = id === 'H' ? 'fs-gray' : fsFunnelClass(s.group);
-    const label = id === 'H' ? `${id} 설치` :
-                  id === 'G' ? `${id} 가입` :
-                  id === 'F' ? `${id} 자녀등록` :
-                  id === 'E' ? `${id} 로그인` :
-                  id === 'C' ? `${id} 시청(7일내)` :
-                  id === 'D' ? `${id} 시청(7일후)` :
-                  id === 'B' ? `${id} 월결제` : `${id} 연결제 ✓`;
-    fHtml += `<span class="funnel-step ${cls}">${label}</span>`;
-    if (i < funnelOrder.filter(x => segments.find(y => y.id===x)).length - 1)
+  funnelSteps.forEach((step, i) => {
+    const cls = 'fs-' + (step.color || 'gray');
+    const did = getDisplayId(step.id);
+    fHtml += `<span class="funnel-step ${cls}">${did} ${step.label}</span>`;
+    if (i < funnelSteps.length - 1)
       fHtml += '<span class="funnel-arrow">→</span>';
   });
   document.getElementById('funnelFlow').innerHTML = fHtml;
@@ -949,7 +954,7 @@ function renderOverview() {
       <div class="gc-title">${grp.title}</div>
       <div class="gc-desc">${grp.desc}</div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;">
-        ${segs.map(s => `<span class="seg-badge ${groupBadgeClass(s.group)}" style="cursor:pointer;padding:3px 8px;font-size:11px;" onclick="selectSeg('${s.id}')">${s.id} — ${s.title}</span>`).join('')}
+        ${segs.map(s => `<span class="seg-badge ${groupBadgeClass(s.group)}" style="cursor:pointer;padding:3px 8px;font-size:11px;" onclick="selectSeg('${s.id}')">${getDisplayId(s.id)} — ${s.title}</span>`).join('')}
       </div>
     </div>`;
   });
@@ -1055,7 +1060,7 @@ function renderSegment(id) {
   const html = `<div class="${modeClass}" id="panel-${id}">
     <div class="panel-header-row">
       <div class="panel-meta">
-        <div class="panel-seg-id" style="color:${accentColor}">Segment ${s.id} · ${groupLabel(s.group)}</div>
+        <div class="panel-seg-id" style="color:${accentColor}">Segment ${getDisplayId(id)} · ${groupLabel(s.group)}</div>
         <div class="panel-title-text"><input class="editable" data-field="title" value="${esc(s.title)}" readonly style="font-size:22px;font-weight:700;width:100%;"></div>
         <div class="panel-desc-text"><input class="editable" data-field="desc" value="${esc(s.desc)}" readonly style="font-size:13px;color:var(--text2);width:100%;"></div>
       </div>
@@ -1126,9 +1131,16 @@ function selectSeg(id) {
   updateFloatingBar();
 }
 
+let currentTab = 'segment';
+
 function switchMainTab(tab) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-'+tab).classList.add('active');
+  currentTab = tab;
+  // ops 편집 중이었으면 취소
+  if (opsEditing) cancelOps(opsEditing);
+  if (overviewEditing) cancelOverview();
+  updateFloatingBar();
 }
 
 function startEdit(id) {
@@ -1255,28 +1267,30 @@ function deleteSegment(id) {
 function openModal() { document.getElementById('addModal').classList.add('open'); }
 function closeModal() { document.getElementById('addModal').classList.remove('open'); }
 
+function generateUniqueId() {
+  return 'seg_' + Date.now().toString(36);
+}
+
 function addSegment() {
-  const id = document.getElementById('newId').value.trim().toUpperCase();
   const title = document.getElementById('newTitle').value.trim();
   const desc = document.getElementById('newDesc').value.trim();
   const group = document.getElementById('newGroup').value;
-  if (!id || !title) { showToast('ID와 타이틀을 입력해주세요'); return; }
-  if (segments.find(s => s.id === id)) { showToast('이미 존재하는 ID예요'); return; }
+  if (!title) { showToast('타이틀을 입력해주세요'); return; }
+  const id = generateUniqueId();
   segments.push({
-    id, group, title, subId: `Segment ${id} · Group ${group==='green'?1:group==='blue'?2:3}`,
+    id, group, title,
     desc: desc || '설명을 입력해주세요.',
-    stats: [{label:'발송 주기',val:'-'},{label:'핵심 액션',val:'-'},{label:'혜택',val:'-'},{label:'발송 시간',val:'-'}],
-    messages: [{ timing:'D+1 · 오전 9~11시', step:'1차 — 메시지', channels:['알림톡'], body:'메시지 내용을 입력하세요.', tip:'' }]
+    stats: [{label:'핵심 전략',val:'-'},{label:'핵심 혜택',val:'-'},{label:'핵심 채널',val:'-'},{label:'발송 주기',val:'-'}],
+    messages: [{ timing:'D+1 · 오전 9~11시', step:'1차 — 메시지', channels:['알림톡'], body:'메시지 내용을 입력하세요.', tip:'', cta:false, ctaLabel:'', ctaUrl:'', active:false, comments:[] }]
   });
   closeModal();
-  document.getElementById('newId').value = '';
   document.getElementById('newTitle').value = '';
   document.getElementById('newDesc').value = '';
   markDirty(id);
   renderSidebar();
   renderOverview();
   selectSeg(id);
-  showToast(`세그먼트 ${id} 추가됐어요 ✓`);
+  showToast('세그먼트가 추가됐어요 ✓');
 }
 
 function showToast(msg) {
@@ -1470,9 +1484,7 @@ function openEditSegModal(id) {
   const s = segments.find(x => x.id === id);
   if (!s) return;
   editingSegOrigId = id;
-  document.getElementById('editSegId').value = s.id;
   document.getElementById('editSegTitle').value = s.title;
-  document.getElementById('editSegSubId').value = s.subId || '';
   document.getElementById('editSegDesc').value = s.desc || '';
   document.getElementById('editSegGroup').value = s.group;
   document.getElementById('editSegModal').classList.add('open');
@@ -1553,6 +1565,11 @@ function saveEditGroup() {
 // OPS EDIT (전환 분기 + 운영 규칙)
 // ═══════════════════════════════════════════
 let opsEditing = null;
+let opsData = {
+  branchDesc: document.getElementById('ops-branch-desc')?.textContent || '',
+  branchRows: [],
+  rules: []
+};
 
 function editOps(type) {
   opsEditing = type;
@@ -1565,7 +1582,7 @@ function editOps(type) {
     block.querySelectorAll('.branch-cell').forEach(el => el.setAttribute('contenteditable','true'));
     // 행 삭제 버튼 표시 + 추가 버튼
     document.getElementById('branchBtns').innerHTML =
-      `<button class="btn btn-primary" onclick="saveOps('branch')">저장</button>
+      `<button class="btn btn-primary" onclick="saveOps('branch')">✓ 저장</button>
        <button class="btn" onclick="cancelOps('branch')">취소</button>`;
     // 각 행에 삭제 버튼 추가
     document.querySelectorAll('#branchTable tbody tr').forEach((tr, i) => {
@@ -1592,7 +1609,7 @@ function editOps(type) {
     block.querySelectorAll('.rule-body').forEach(el => el.style.display = 'none');
     block.querySelectorAll('.rule-card-edit').forEach(el => el.style.display = 'block');
     document.getElementById('rulesBtns').innerHTML =
-      `<button class="btn btn-primary" onclick="saveOps('rules')">저장</button>
+      `<button class="btn btn-primary" onclick="saveOps('rules')">✓ 저장</button>
        <button class="btn" onclick="cancelOps('rules')">취소</button>`;
   }
 }
@@ -1607,20 +1624,31 @@ function cancelOps(type) {
     block.querySelectorAll('.del-row-btn').forEach(el => el.remove());
     const addBtn = document.getElementById('addBranchRowBtn');
     if (addBtn) addBtn.style.display = 'none';
-    document.getElementById('branchBtns').innerHTML = `<button class="btn" onclick="editOps('branch')">수정</button>`;
+    document.getElementById('branchBtns').innerHTML = '';
+    opsEditing = null;
   } else if (type === 'rules') {
     const block = document.getElementById('opsBlock-rules');
     block.classList.remove('ops-editing');
     block.querySelectorAll('.rule-body').forEach(el => el.style.display = '');
     block.querySelectorAll('.rule-card-edit').forEach(el => el.style.display = 'none');
-    document.getElementById('rulesBtns').innerHTML = `<button class="btn" onclick="editOps('rules')">수정</button>`;
+    document.getElementById('rulesBtns').innerHTML = '';
+    opsEditing = null;
   }
 }
 
 function saveOps(type) {
   if (type === 'branch') {
-    // 그냥 편집 상태 확정 (DOM에 반영된 상태가 저장)
+    // DOM에서 데이터 수집
+    opsData.branchDesc = document.getElementById('ops-branch-desc')?.textContent || '';
+    opsData.branchRows = [];
+    document.querySelectorAll('#branchTable tbody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('.branch-cell');
+      if (cells.length >= 4) {
+        opsData.branchRows.push([...cells].slice(0,4).map(c => c.textContent));
+      }
+    });
     cancelOps('branch');
+    updateFloatingBar();
     showToast('전환 분기 로직이 저장됐어요 ✓');
   } else if (type === 'rules') {
     // textarea → ul 업데이트
@@ -1632,6 +1660,7 @@ function saveOps(type) {
       ul.innerHTML = lines.map(l => `<li>${l.trim()}</li>`).join('');
     });
     cancelOps('rules');
+    updateFloatingBar();
     showToast('운영 규칙이 저장됐어요 ✓');
   }
 }
@@ -1660,15 +1689,40 @@ function delBranchRow(btn) {
 let overviewEditing = false;
 
 function editOverview() {
-  overviewEditing = !overviewEditing;
-  const btn = document.getElementById('overviewBtns');
-  if (overviewEditing) {
-    renderGroupGridEditable();
-    btn.innerHTML = `<button class="btn btn-primary" onclick="saveOverview()">저장</button>
-                     <button class="btn" onclick="cancelOverview()">취소</button>`;
-  } else {
-    saveOverview();
-  }
+  overviewEditing = true;
+  renderFunnelEditable();
+  renderGroupGridEditable();
+  updateFloatingBar();
+}
+
+function renderFunnelEditable() {
+  const colors = ['gray','amber','blue','green'];
+  const colorLabels = {gray:'회색', amber:'주황', blue:'파랑', green:'초록'};
+  let html = '';
+  funnelSteps.forEach((step, i) => {
+    html += `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;margin-bottom:4px;">
+      <span class="funnel-step fs-${step.color}" style="cursor:default;">${getDisplayId(step.id)}</span>
+      <input value="${step.label}" style="flex:1;font-family:var(--mono);font-size:11px;background:var(--bg3);border:1px solid var(--line2);border-radius:4px;padding:3px 6px;color:var(--text);outline:none;"
+        oninput="funnelSteps[${i}].label=this.value;renderOverview();">
+      <select style="font-family:var(--mono);font-size:11px;background:var(--bg3);border:1px solid var(--line2);border-radius:4px;padding:3px 6px;color:var(--text);outline:none;"
+        onchange="funnelSteps[${i}].color=this.value;renderOverview();renderFunnelEditable();">
+        ${colors.map(c => `<option value="${c}"${step.color===c?' selected':''}>${colorLabels[c]}</option>`).join('')}
+      </select>
+      <button onclick="moveFunnelStep(${i},-1)" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--line2);background:transparent;cursor:pointer;color:var(--text2);" ${i===0?'disabled':''}>▲</button>
+      <button onclick="moveFunnelStep(${i},1)" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--line2);background:transparent;cursor:pointer;color:var(--text2);" ${i===funnelSteps.length-1?'disabled':''}>▼</button>
+    </div>`;
+  });
+  document.getElementById('funnelFlow').innerHTML = html;
+}
+
+function moveFunnelStep(i, dir) {
+  const ni = i + dir;
+  if (ni < 0 || ni >= funnelSteps.length) return;
+  const tmp = funnelSteps[i];
+  funnelSteps[i] = funnelSteps[ni];
+  funnelSteps[ni] = tmp;
+  renderFunnelEditable();
+  renderOverview();
 }
 
 function renderGroupGridEditable() {
@@ -1677,7 +1731,7 @@ function renderGroupGridEditable() {
     const segs = segments.filter(s => s.group === grp.key);
     gHtml += `<div class="group-card gc-${grp.key}">
       <div class="gc-label" style="margin-bottom:6px;">
-        <input style="width:100%;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;background:var(--bg2);border:1px solid var(--line2);border-radius:4px;padding:3px 6px;color:inherit;outline:none;" value="${grp.label}" onchange="groups[${gi}].label=this.value;renderSidebar();" placeholder="그룹 레이블">
+        <input style="width:100%;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;background:var(--bg2);border:1.5px solid var(--accent-b);border-radius:4px;padding:3px 6px;color:inherit;outline:none;" value="${grp.label}" onchange="groups[${gi}].label=this.value;renderSidebar();" placeholder="그룹 레이블">
       </div>
       <div class="gc-title" style="margin-bottom:6px;">
         <input style="width:100%;font-size:14px;font-weight:700;background:var(--bg2);border:1px solid var(--line2);border-radius:4px;padding:4px 6px;color:var(--text);outline:none;" value="${grp.title}" onchange="groups[${gi}].title=this.value;" placeholder="타이틀">
@@ -1686,7 +1740,7 @@ function renderGroupGridEditable() {
         <textarea style="width:100%;font-size:12px;background:var(--bg2);border:1px solid var(--line2);border-radius:4px;padding:4px 6px;color:var(--text2);outline:none;resize:vertical;line-height:1.6;" rows="3" onchange="groups[${gi}].desc=this.value;" placeholder="설명">${grp.desc}</textarea>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;">
-        ${segs.map(s => `<span class="seg-badge ${groupBadgeClass(s.group)}" style="padding:3px 8px;font-size:11px;">${s.id} — ${s.title}</span>`).join('')}
+        ${segs.map(s => `<span class="seg-badge ${groupBadgeClass(s.group)}" style="padding:3px 8px;font-size:11px;">${getDisplayId(s.id)} — ${s.title}</span>`).join('')}
       </div>
     </div>`;
   });
@@ -1695,7 +1749,7 @@ function renderGroupGridEditable() {
 
 function saveOverview() {
   overviewEditing = false;
-  document.getElementById('overviewBtns').innerHTML = `<button class="btn" onclick="editOverview()">수정</button>`;
+  document.getElementById('overviewBtns').innerHTML = ``;
   renderOverview();
   renderSidebar();
   showToast('퍼널 개요가 저장됐어요 ✓');
@@ -1703,7 +1757,7 @@ function saveOverview() {
 
 function cancelOverview() {
   overviewEditing = false;
-  document.getElementById('overviewBtns').innerHTML = `<button class="btn" onclick="editOverview()">수정</button>`;
+  document.getElementById('overviewBtns').innerHTML = ``;
   renderOverview();
 }
 
@@ -1713,38 +1767,90 @@ function cancelOverview() {
 function updateFloatingBar() {
   const bar = document.getElementById('floatingBar');
   if (!bar) return;
-  // dirty 있으면 동기화 버튼 강조
-  const syncWidget = document.getElementById('syncWidget');
-  if (syncWidget) {
-    const syncBox = document.getElementById('syncExpandBox');
-    if (syncBox) {
-      syncBox.style.background = dirtySegments.size > 0 ? '#c0203a' : '#1a6aaa';
-    }
-  }
-  const isEditing = editingId !== null;
   bar.classList.add('visible');
 
-  document.getElementById('floatEdit').style.display   = (!isEditing && currentSeg) ? 'block' : 'none';
-  const sw = document.getElementById('syncWidget'); if(sw) sw.style.display = isEditing ? 'none' : 'flex';
-  document.getElementById('floatSave').style.display   = isEditing ? 'block' : 'none';
-  document.getElementById('floatCancel').style.display = isEditing ? 'block' : 'none';
-  document.getElementById('floatDel').style.display    = isEditing ? 'block' : 'none';
+  // dirty 동기화 버튼 색상
+  const syncBox = document.getElementById('syncExpandBox');
+  if (syncBox) syncBox.style.background = dirtySegments.size > 0 ? '#c0203a' : '#1a6aaa';
+
+  const floatEdit   = document.getElementById('floatEdit');
+  const floatSave   = document.getElementById('floatSave');
+  const floatCancel = document.getElementById('floatCancel');
+  const floatDel    = document.getElementById('floatDel');
+  const sw          = document.getElementById('syncWidget');
+
+  // 탭별 플로팅 바 상태
+  if (currentTab === 'segment') {
+    const isEditing = editingId !== null;
+    floatEdit.textContent   = '✎ 수정하기';
+    floatEdit.onclick       = floatEditFn;
+    floatSave.onclick       = () => floatSave_fn();
+    floatCancel.onclick     = () => floatCancel_fn();
+    floatDel.onclick        = () => floatDelete();
+    floatEdit.style.display   = (!isEditing && currentSeg) ? 'block' : 'none';
+    if (sw) sw.style.display  = isEditing ? 'none' : 'flex';
+    floatSave.style.display   = isEditing ? 'block' : 'none';
+    floatCancel.style.display = isEditing ? 'block' : 'none';
+    floatDel.style.display    = isEditing ? 'block' : 'none';
+
+  } else if (currentTab === 'ops') {
+    const isEditingOps = opsEditing !== null;
+    floatEdit.textContent   = '✎ 수정하기';
+    floatEdit.onclick       = () => startOpsEdit();
+    floatSave.onclick       = () => saveCurrentOps();
+    floatCancel.onclick     = () => cancelCurrentOps();
+    floatDel.style.display    = 'none';
+    floatEdit.style.display   = isEditingOps ? 'none' : 'block';
+    if (sw) sw.style.display  = isEditingOps ? 'none' : 'flex';
+    floatSave.style.display   = isEditingOps ? 'block' : 'none';
+    floatCancel.style.display = isEditingOps ? 'block' : 'none';
+
+  } else if (currentTab === 'overview') {
+    const isEditingOv = overviewEditing;
+    floatEdit.textContent   = '✎ 수정하기';
+    floatEdit.onclick       = () => editOverview();
+    floatSave.onclick       = () => saveOverview();
+    floatCancel.onclick     = () => cancelOverview();
+    floatDel.style.display    = 'none';
+    floatEdit.style.display   = isEditingOv ? 'none' : 'block';
+    if (sw) sw.style.display  = isEditingOv ? 'none' : 'flex';
+    floatSave.style.display   = isEditingOv ? 'block' : 'none';
+    floatCancel.style.display = isEditingOv ? 'block' : 'none';
+
+  } else {
+    floatEdit.style.display   = 'none';
+    floatSave.style.display   = 'none';
+    floatCancel.style.display = 'none';
+    floatDel.style.display    = 'none';
+    if (sw) sw.style.display  = 'flex';
+  }
 }
 
-function floatEdit() {
-  if (!currentSeg) return;
-  startEdit(currentSeg);
+// segment 탭 편집 헬퍼
+function floatEditFn() { if (currentSeg) startEdit(currentSeg); }
+function floatSave_fn() { if (editingId) saveSegment(editingId); }
+function floatCancel_fn() { if (editingId) cancelEdit(editingId); }
+
+// ops 탭 편집 - 두 섹션 모두 토글
+let currentOpsSection = 'branch';
+function startOpsEdit() {
+  // 현재 스크롤 위치에 따라 branch/rules 결정
+  const rulesBlock = document.getElementById('opsBlock-rules');
+  const rulesTop = rulesBlock ? rulesBlock.getBoundingClientRect().top : 9999;
+  currentOpsSection = rulesTop < 300 ? 'rules' : 'branch';
+  editOps(currentOpsSection);
+  updateFloatingBar();
+}
+function saveCurrentOps() {
+  saveOps(opsEditing || currentOpsSection);
+  updateFloatingBar();
+}
+function cancelCurrentOps() {
+  cancelOps(opsEditing || currentOpsSection);
+  updateFloatingBar();
 }
 
-function floatSave() {
-  if (!editingId) return;
-  saveSegment(editingId);
-}
-
-function floatCancel() {
-  if (!editingId) return;
-  cancelEdit(editingId);
-}
+// floatEdit/Save/Cancel은 updateFloatingBar에서 동적으로 연결됨
 
 function floatDelete() {
   if (!editingId) return;
