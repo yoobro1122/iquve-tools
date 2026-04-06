@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
 
     const text = await file.text()
     // 기본 유효성 검사
-    if (text.length > 500_000) {
-      return NextResponse.json({ error: 'HTML 파일이 너무 큽니다. (최대 500KB)' }, { status: 400 })
+    if (text.length > 5_000_000) {
+      return NextResponse.json({ error: 'HTML 파일이 너무 큽니다. (최대 5MB)' }, { status: 400 })
     }
 
     return NextResponse.json({ html: text })
