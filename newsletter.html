@@ -782,6 +782,9 @@ function removeNewBook(id) {
   if (card) card.remove();
   refreshNewBookHeaders();
 }
+function handleEventImg(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{eventImgs[id]=ev.target.result;document.getElementById('evt_imgel_'+id).src=ev.target.result;document.getElementById('evt_imgprev_'+id).style.display='block';document.getElementById('evt_imgupload_'+id).style.display='none';document.getElementById('evt_imgname_'+id).textContent=f.name;};r.readAsDataURL(f);}
+function removeEventImg(id){eventImgs[id]=null;document.getElementById('evt_imgel_'+id).src='';document.getElementById('evt_imgprev_'+id).style.display='none';document.getElementById('evt_imgupload_'+id).style.display='flex';document.getElementById('evt_imgname_'+id).textContent='';document.getElementById('evt_imgfile_'+id).value='';}
+
 function handleNewBookImg(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{newbookImgs[id]=ev.target.result;document.getElementById('nb_imgel_'+id).src=ev.target.result;document.getElementById('nb_imgprev_'+id).style.display='block';document.getElementById('nb_imgupload_'+id).style.display='none';document.getElementById('nb_imgname_'+id).textContent=f.name;};r.readAsDataURL(f);}
 function removeNewBookImg(id){newbookImgs[id]=null;document.getElementById('nb_imgel_'+id).src='';document.getElementById('nb_imgprev_'+id).style.display='none';document.getElementById('nb_imgupload_'+id).style.display='flex';document.getElementById('nb_imgname_'+id).textContent='';document.getElementById('nb_imgfile_'+id).value='';}
 function handleImg(e,key){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{imgStore[key]=ev.target.result;document.getElementById(key+'-img-el').src=ev.target.result;document.getElementById(key+'-img-preview').style.display='block';document.getElementById(key+'-img-upload').style.display='none';};r.readAsDataURL(f);}
