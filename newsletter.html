@@ -286,6 +286,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
             <div class="field"><label>발송일</label><input type="text" id="SEND_DATE" placeholder="2025년 4월 2일"/></div>
             <div class="field"><label>CTA 버튼 텍스트</label><input type="text" id="CTA_TEXT" placeholder="지금 바로 읽기"/></div>
           </div>
+          <div class="field"><label>헤더 배지 텍스트</label><input type="text" id="HERO_BADGE" placeholder="이번 주 아이큐브"/></div>
           <div class="field"><label>헤드라인 메인</label><input type="text" id="HEADLINE_MAIN" placeholder="이번 주 이비가 준비했어요"/></div>
           <div class="field"><label>헤드라인 서브</label><input type="text" id="HEADLINE_SUB" placeholder="새 동화책이 도착했어요!"/></div>
           <div class="field"><label>히어로 본문 카피</label><textarea id="HERO_BODY_COPY" placeholder="이번 주도 이비가 새로운 동화책을 들고 왔어요."></textarea></div>
@@ -359,6 +360,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
               </div>
             </div>
           </div>
+          <div class="field" style="margin-top:4px;"><label>도서 카드 버튼 텍스트</label><input type="text" id="REC_BTN_TEXT" placeholder="읽기"/></div>
           <button class="btn-save" onclick="saveBlock('rec')">저장 — 미리보기 반영</button>
         </div>
       </div>
@@ -541,7 +543,7 @@ let saved = {
     bannerBtn: '#fab400',
     bannerBtnText: '#a402f9',
   },
-  hero: {SEND_DATE:'',HEADLINE_MAIN:'',HEADLINE_SUB:'',HERO_BODY_COPY:'',CTA_TEXT:'',CTA_URL:'',headerLogo:null,headerLogoSize:36},
+  hero: {SEND_DATE:'',HEADLINE_MAIN:'',HEADLINE_SUB:'',HERO_BODY_COPY:'',CTA_TEXT:'',CTA_URL:'',heroBadge:'',headerLogo:null,headerLogoSize:36},
   events: [],
   newbooks: [],
   rec: {books:[{title:'',age:'',oneline:'',url:'',img:null},{title:'',age:'',oneline:'',url:'',img:null},{title:'',age:'',oneline:'',url:'',img:null}]},
@@ -657,18 +659,28 @@ function saveBlock(block) {
   else if(block==='hero') saved.hero={
     SEND_DATE:gv('SEND_DATE'),HEADLINE_MAIN:gv('HEADLINE_MAIN'),HEADLINE_SUB:gv('HEADLINE_SUB'),
     HERO_BODY_COPY:gv('HERO_BODY_COPY'),CTA_TEXT:gv('CTA_TEXT'),CTA_URL:gv('CTA_URL'),
+    heroBadge:gv('HERO_BADGE'),
     headerLogo:imgStore.headerLogo,
     headerLogoSize:parseInt(document.getElementById('header-logo-size').value)||36
   };
-  else if(block==='events') saved.events=events.map(e=>({title:gv('evt_title_'+e.id),period:gv('evt_period_'+e.id),desc:gv('evt_desc_'+e.id),url:gv('evt_url_'+e.id),img:eventImgs[e.id]||null}));
-  else if(block==='newbooks') saved.newbooks=newbooks.map(b=>({title:gv('nb_title_'+b.id),age:gv('nb_age_'+b.id),pub:gv('nb_pub_'+b.id),desc:gv('nb_desc_'+b.id),url:gv('nb_url_'+b.id),tag1:gv('nb_tag1_'+b.id),tag2:gv('nb_tag2_'+b.id),img:newbookImgs[b.id]||null}));
+  else if(block==='events') saved.events={
+    btnText:gv('EVENT_BTN_TEXT'),
+    items:events.map(e=>({title:gv('evt_title_'+e.id),period:gv('evt_period_'+e.id),desc:gv('evt_desc_'+e.id),btnText:gv('evt_btn_'+e.id),url:gv('evt_url_'+e.id),img:eventImgs[e.id]||null}))
+  };
+  else if(block==='newbooks') saved.newbooks={
+    btnText:gv('NEWBOOK_BTN_TEXT'),
+    items:newbooks.map(b=>({title:gv('nb_title_'+b.id),age:gv('nb_age_'+b.id),pub:gv('nb_pub_'+b.id),desc:gv('nb_desc_'+b.id),btnText:gv('nb_btn_'+b.id),url:gv('nb_url_'+b.id),tag1:gv('nb_tag1_'+b.id),tag2:gv('nb_tag2_'+b.id),img:newbookImgs[b.id]||null}))
+  };
   else if(block==='cta') saved.cta={
     bannerTitle:gv('CTA_BANNER_TITLE')||'지금 이비랑 읽으러 가볼까요?',
     bannerSub:gv('CTA_BANNER_SUB')||'하루 한 편, 아이의 전두엽을 깨우는 대화',
     bannerBtnText:gv('CTA_BANNER_BTN_TEXT')||'앱에서 읽기',
     bannerUrl:gv('CTA_BANNER_URL')||''
   };
-  else if(block==='rec') saved.rec.books=[1,2,3].map(n=>({title:gv('REC_BOOK'+n+'_TITLE'),age:gv('REC_BOOK'+n+'_AGE'),oneline:gv('REC_BOOK'+n+'_ONE_LINE'),url:gv('REC_BOOK'+n+'_URL'),img:imgStore['rec'+n]||null}));
+  else if(block==='rec') saved.rec={
+    btnText:gv('REC_BTN_TEXT'),
+    books:[1,2,3].map(n=>({title:gv('REC_BOOK'+n+'_TITLE'),age:gv('REC_BOOK'+n+'_AGE'),oneline:gv('REC_BOOK'+n+'_ONE_LINE'),url:gv('REC_BOOK'+n+'_URL'),img:imgStore['rec'+n]||null}))
+  };
   else if(block==='footer') saved.footer={
     USER_EMAIL:gv('USER_EMAIL'),UNSUBSCRIBE_URL:gv('UNSUBSCRIBE_URL'),PRIVACY_URL:gv('PRIVACY_URL'),
     APP_STORE_URL:gv('APP_STORE_URL'),APP_OPEN_URL:gv('APP_OPEN_URL'),
@@ -690,6 +702,7 @@ function makeEventCard(id) {
 <div id="evt_imgprev_${id}" style="display:none;" class="img-preview-wrap"><img id="evt_imgel_${id}" src="" alt=""/><button class="img-remove" onclick="removeEventImg(${id})">x</button></div>
 <div id="evt_imgupload_${id}" class="upload-btn" onclick="document.getElementById('evt_imgfile_${id}').click()"><input type="file" id="evt_imgfile_${id}" accept="image/*" style="display:none" onchange="handleEventImg(event,${id})"/>이미지 업로드</div>
 <span class="img-name" id="evt_imgname_${id}"></span></div>
+<div class="field"><label>버튼 텍스트</label><input type="text" id="evt_btn_${id}" placeholder="이벤트 참여하기"/></div>
 <div class="field"><label>링크 URL</label><input type="url" id="evt_url_${id}" placeholder="https://"/></div>`;
   return d;
 }
@@ -737,13 +750,15 @@ function makeNewBookCard(id) {
   d.id = 'nb-card-' + id;
   d.innerHTML = `<div class="item-card-header" id="nb-header-${id}"><span class="item-card-num" id="nb-num-${id}"></span></div>
 <div class="row2"><div class="field"><label>도서명</label><input type="text" id="nb_title_${id}" placeholder="구름빵"/></div><div class="field"><label>대상 연령</label><input type="text" id="nb_age_${id}" placeholder="4~7세"/></div></div>
-<div class="row2"><div class="field"><label>출판사</label><input type="text" id="nb_pub_${id}" placeholder="한솔수북"/></div><div class="field"><label>도서 링크</label><input type="url" id="nb_url_${id}" placeholder="https://"/></div></div>
+<div class="field"><label>출판사</label><input type="text" id="nb_pub_${id}" placeholder="한솔수북"/></div>
 <div class="field"><label>도서 소개</label><textarea id="nb_desc_${id}" placeholder="도서 소개"></textarea></div>
 <div class="row2"><div class="field"><label>발달영역 태그 1</label><input type="text" id="nb_tag1_${id}" placeholder="상상력"/></div><div class="field"><label>발달영역 태그 2</label><input type="text" id="nb_tag2_${id}" placeholder="창의력"/></div></div>
 <div class="field"><label>표지 이미지</label>
 <div id="nb_imgprev_${id}" style="display:none;" class="img-preview-wrap"><img id="nb_imgel_${id}" src="" alt="" style="max-height:120px;object-fit:contain;"/><button class="img-remove" onclick="removeNewBookImg(${id})">x</button></div>
 <div id="nb_imgupload_${id}" class="upload-btn" onclick="document.getElementById('nb_imgfile_${id}').click()"><input type="file" id="nb_imgfile_${id}" accept="image/*" style="display:none" onchange="handleNewBookImg(event,${id})"/>표지 이미지 업로드</div>
-<span class="img-name" id="nb_imgname_${id}"></span></div>`;
+<span class="img-name" id="nb_imgname_${id}"></span></div>
+<div class="field"><label>버튼 텍스트</label><input type="text" id="nb_btn_${id}" placeholder="이비랑 읽어보기"/></div>
+<div class="field"><label>링크 URL</label><input type="url" id="nb_url_${id}" placeholder="https://"/></div>`;
   return d;
 }
 
@@ -823,7 +838,7 @@ function buildHTML(isMobile) {
     : `<span style="font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:900;color:#111827;">i<span style="color:${d.eventAccent};">Q</span>UVE</span>`;
 
   // 이벤트
-  const evList = s.events.length ? s.events : [{title:'이벤트 제목',period:'기간 미정',desc:'이벤트 설명을 입력하세요.',url:'#',img:null}];
+  const evList = (s.events.items||[]).length ? s.events.items : [{title:'이벤트 제목',period:'기간 미정',desc:'이벤트 설명을 입력하세요.',url:'#',img:null}];
   const eventsHtml = evList.map((ev,i,arr)=>{
     const imgHtml = ev.img
       ? `<img src="${ev.img}" alt="이벤트" style="${isMobile?'width:100%;max-height:160px;border-radius:12px 12px 0 0;':'width:100px;height:100px;border-radius:12px;'}display:block;object-fit:cover;"/>`
@@ -832,13 +847,13 @@ function buildHTML(isMobile) {
 <div style="display:inline-block;background:${d.eventAccent};border-radius:100px;padding:3px 12px;margin-bottom:10px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:10px;font-weight:700;color:#fff;">${ev.period||'기간 미정'}</span></div>
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:${isMobile?'15px':'16px'};font-weight:900;color:#111827;line-height:24px;margin-bottom:6px;">${ev.title||'이벤트 제목'}</div>
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:13px;color:#555;line-height:20px;margin-bottom:14px;">${ev.desc||''}</div>
-<table role="presentation" ${isMobile?'width="100%"':''} border="0" cellpadding="0" cellspacing="0"><tr><td style="background:${d.eventAccent};border-radius:8px;${isMobile?'text-align:center;':''}"><a href="${ev.url||'#'}" style="display:${isMobile?'block':'inline-block'};font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;color:#fff;text-decoration:none;padding:9px 20px;">이벤트 참여하기 →</a></td></tr></table>`;
+<table role="presentation" ${isMobile?'width="100%"':''} border="0" cellpadding="0" cellspacing="0"><tr><td style="background:${d.eventAccent};border-radius:8px;${isMobile?'text-align:center;':''}"><a href="${ev.url||'#'}" style="display:${isMobile?'block':'inline-block'};font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;color:#fff;text-decoration:none;padding:9px 20px;">${ev.btnText||s.events.btnText||'이벤트 참여하기'} →</a></td></tr></table>`;
     if(isMobile) return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:${i<arr.length-1?'16px':'0'};"><tr><td style="background:#fff9ff;border-radius:16px;border:2px solid ${d.eventAccent};overflow:hidden;">${imgHtml}<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding:16px;">${inner}</td></tr></table></td></tr></table>`;
     return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:${i<arr.length-1?'16px':'0'};"><tr><td style="background:#fff9ff;border-radius:16px;border:2px solid ${d.eventAccent};overflow:hidden;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td width="130" style="vertical-align:top;padding:20px 0 20px 20px;">${imgHtml}</td><td style="padding:20px;vertical-align:top;">${inner}</td></tr></table></td></tr></table>`;
   }).join('');
 
   // 신규 도서
-  const nbList = s.newbooks.length ? s.newbooks : [{title:'도서명',age:'연령',pub:'출판사',desc:'도서 소개를 입력하세요.',url:'#',tag1:'태그1',tag2:'태그2',img:null}];
+  const nbList = (s.newbooks.items||[]).length ? s.newbooks.items : [{title:'도서명',age:'연령',pub:'출판사',desc:'도서 소개를 입력하세요.',url:'#',tag1:'태그1',tag2:'태그2',img:null}];
   const newbooksHtml = nbList.map((b,i,arr)=>{
     const imgHtml = b.img
       ? `<img src="${b.img}" alt="${b.title}" style="${isMobile?'width:100%;max-height:180px;object-fit:cover;border-radius:12px 12px 0 0;display:block;':'width:90px;height:120px;border-radius:8px;display:block;object-fit:cover;'}"/>`
@@ -848,7 +863,7 @@ function buildHTML(isMobile) {
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:${isMobile?'16px':'17px'};font-weight:900;color:#111827;line-height:26px;margin-bottom:8px;">《${b.title||'도서명'}》</div>
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:13px;color:#4B5563;line-height:20px;margin-bottom:14px;">${b.desc||''}</div>
 <div style="margin-bottom:14px;"><span style="display:inline-block;background:#fdf0ff;border-radius:6px;padding:3px 10px;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;color:${d.eventAccent};margin-right:6px;border:1px solid #e8c0ff;">${b.tag1||'태그1'}</span><span style="display:inline-block;background:#fffbea;border-radius:6px;padding:3px 10px;font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;color:#92600a;border:1px solid #fde68a;">${b.tag2||'태그2'}</span></div>
-<table role="presentation" ${isMobile?'width="100%"':''} border="0" cellpadding="0" cellspacing="0"><tr><td style="background:${d.bookAccent};border-radius:8px;${isMobile?'text-align:center;':''}"><a href="${b.url||'#'}" style="display:${isMobile?'block':'inline-block'};font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;color:#fff;text-decoration:none;padding:9px 20px;">이비랑 읽어보기 →</a></td></tr></table>`;
+<table role="presentation" ${isMobile?'width="100%"':''} border="0" cellpadding="0" cellspacing="0"><tr><td style="background:${d.bookAccent};border-radius:8px;${isMobile?'text-align:center;':''}"><a href="${b.url||'#'}" style="display:${isMobile?'block':'inline-block'};font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;color:#fff;text-decoration:none;padding:9px 20px;">${b.btnText||s.newbooks.btnText||'이비랑 읽어보기'} →</a></td></tr></table>`;
     if(isMobile) return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:${i<arr.length-1?'16px':'0'};"><tr><td style="border-radius:16px;border:1.5px solid #e5e7eb;overflow:hidden;">${imgHtml}<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding:16px;background:#fff;">${info}</td></tr></table></td></tr></table>`;
     return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:${i<arr.length-1?'16px':'0'};"><tr><td style="border-radius:16px;border:1.5px solid #e5e7eb;overflow:hidden;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td width="130" style="vertical-align:top;background:#fdf8ff;padding:20px;">${imgHtml}</td><td style="padding:20px;vertical-align:top;background:#fff;">${info}</td></tr></table></td></tr></table>`;
   }).join('');
@@ -864,10 +879,10 @@ function buildHTML(isMobile) {
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:10px;color:${d.recAccent};font-weight:700;margin-bottom:4px;">${bk.age||'연령'}</div>
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:${mob?14:13}px;font-weight:900;color:#111827;line-height:19px;margin-bottom:6px;">${bk.title||'도서명'}</div>
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:${mob?12:11}px;color:#6B7280;line-height:16px;margin-bottom:10px;">${bk.oneline||'한줄 소개'}</div>
-<a href="${bk.url||'#'}" style="display:block;text-align:center;background:#fdf0ff;border-radius:6px;padding:${mob?9:7}px;font-family:'Noto Sans KR',sans-serif;font-size:${mob?12:11}px;font-weight:700;color:${d.recAccent};text-decoration:none;border:1px solid #e8c0ff;">읽기 →</a>
+<a href="${bk.url||'#'}" style="display:block;text-align:center;background:#fdf0ff;border-radius:6px;padding:${mob?9:7}px;font-family:'Noto Sans KR',sans-serif;font-size:${mob?12:11}px;font-weight:700;color:${d.recAccent};text-decoration:none;border:1px solid #e8c0ff;">${s.rec.btnText||'읽기'} →</a>
 </td></tr></table>`;
   }
-  const [r1,r2,r3] = s.rec.books;
+  const [r1,r2,r3] = s.rec.books || [{},{},{}];
   const recHtml = isMobile
     ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding-bottom:10px;">${recCard(r1,true)}</td></tr><tr><td style="padding-bottom:10px;">${recCard(r2,true)}</td></tr><tr><td>${recCard(r3,true)}</td></tr></table>`
     : `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td valign="top" style="width:33.33%;padding-right:8px;">${recCard(r1,false)}</td><td valign="top" style="width:33.33%;padding:0 4px;">${recCard(r2,false)}</td><td valign="top" style="width:33.33%;padding-left:8px;">${recCard(r3,false)}</td></tr></table>`;
@@ -899,7 +914,7 @@ body{margin:0!important;padding:0!important;background-color:#fdf5ff;}
 </tr></table></td></tr>
 <tr><td style="padding:${isMobile?'22px 20px 0':cPad};">
 <div style="display:inline-block;border-radius:100px;padding:5px 16px;margin-bottom:16px;background:${d.ctaBg};">
-<span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:900;color:${d.ctaText};letter-spacing:0.5px;">이번 주 아이큐브</span>
+<span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:900;color:${d.ctaText};letter-spacing:0.5px;">${h.heroBadge||'이번 주 아이큐브'}</span>
 </div>
 <h1 style="font-family:'Noto Sans KR',sans-serif;font-size:${heroFS};font-weight:900;color:#fff;line-height:${heroLH};margin:0 0 10px;letter-spacing:-0.5px;">
 ${h.HEADLINE_MAIN||'헤드라인을 입력하세요'}<br/>
@@ -1216,6 +1231,7 @@ async function loadSave(id) {
 
     const h=saved.hero||{}, f=saved.footer||{}, c=saved.cta||{};
     const setVal=(elId,v)=>{ const el=document.getElementById(elId); if(el)el.value=v||''; };
+    setVal('HERO_BADGE',h.heroBadge); setVal('EVENT_BTN_TEXT',(saved.events||{}).btnText); setVal('NEWBOOK_BTN_TEXT',(saved.newbooks||{}).btnText); setVal('REC_BTN_TEXT',(saved.rec||{}).btnText);
     setVal('SEND_DATE',h.SEND_DATE); setVal('HEADLINE_MAIN',h.HEADLINE_MAIN);
     setVal('HEADLINE_SUB',h.HEADLINE_SUB); setVal('HERO_BODY_COPY',h.HERO_BODY_COPY);
     setVal('CTA_TEXT',h.CTA_TEXT); setVal('CTA_URL',h.CTA_URL);
