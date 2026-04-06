@@ -141,23 +141,29 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 /* ── MESSAGES ── */
 .messages-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .messages-title { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; }
-.msg-list { display: flex; flex-direction: column; gap: 14px; }
-.msg-item { background: var(--bg3); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; position: relative; }
-.msg-item-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+/* 가로 슬라이드 메시지 레이아웃 */
+.msg-slider-wrap { position: relative; }
+.msg-list { display: flex; flex-direction: row; gap: 12px; overflow-x: auto; padding-bottom: 12px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+.msg-list::-webkit-scrollbar { height: 4px; }
+.msg-list::-webkit-scrollbar-track { background: transparent; }
+.msg-list::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; }
+.msg-item { background: var(--bg3); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; position: relative; flex: 0 0 340px; width: 340px; scroll-snap-align: start; display: flex; flex-direction: column; }
+/* 메시지 인덱스 배지 */
+.msg-index-badge { font-family: var(--mono); font-size: 10px; color: var(--text3); background: var(--bg2); border: 1px solid var(--line2); border-radius: 4px; padding: 2px 7px; letter-spacing: 0.5px; }
+.msg-item-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
 .msg-timing-wrap { flex: 1; }
 .msg-timing-label { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-bottom: 3px; }
 .msg-step-title { font-size: 14px; font-weight: 500; color: var(--text); }
 .msg-remove-btn { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line2); background: transparent; color: var(--text3); cursor: pointer; opacity: 0; transition: opacity 0.15s; white-space: nowrap; }
-.msg-order-btns { display:none; flex-direction:column; gap:2px; }
-.edit-mode .msg-order-btns { display:flex; }
-.edit-mode .msg-remove-btn { opacity: 1; }
+.msg-order-btns { display:flex; flex-direction:row; gap:2px; }
+.msg-item-editing .msg-remove-btn { opacity: 1; }
 .msg-order-btn { font-size:11px; padding:2px 5px; border-radius:4px; border:1px solid var(--line2); background:transparent; color:var(--text3); cursor:pointer; line-height:1; transition:all 0.12s; }
 .msg-order-btn:hover { background:var(--bg2); color:var(--text); border-color:var(--text3); }
 .msg-order-btn:disabled { opacity:0.2; cursor:default; }
 .msg-var-text { font-size: 12px; color: var(--text2); width: 100%; resize: none; overflow: hidden; background: transparent; border: none; outline: none; font-family: var(--sans); line-height: 1.6; padding: 0; box-sizing: border-box; }
-.edit-mode .msg-var-text { background: var(--bg2); border: 1px solid var(--line2); border-radius: 5px; padding: 6px 8px; resize: vertical; overflow: auto; }
-.edit-mode .msg-var-text:focus { border-color: var(--accent-b); }
-.edit-mode .msg-remove-btn { opacity: 1; }
+..msg-item-editing .msg-var-text { background: var(--bg2); border: 1px solid var(--line2); border-radius: 5px; padding: 6px 8px; resize: vertical; overflow: auto; }
+..msg-item-editing .msg-var-text:focus { border-color: var(--accent-b); }
+.msg-item-editing .msg-remove-btn { opacity: 1; }
 .msg-remove-btn:hover { background: rgba(192,32,58,0.1); color: var(--accent-d); border-color: rgba(192,32,58,0.2); }
 .msg-channel-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
 .channel-tag { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; cursor: default; border: 1px solid transparent; }
@@ -169,7 +175,7 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 .ch-phone { background: rgba(192,32,58,0.08); color: var(--accent-d); border-color: rgba(192,32,58,0.2); }
 .channel-select { display: none; }
 .edit-mode .channel-select { display: flex; flex-wrap: wrap; gap: 5px; }
-.edit-mode .channel-tags-display { display: none !important; }
+..msg-item-editing .channel-tags-display { display: none !important; }
 .ch-checkbox { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; cursor: pointer; padding: 4px 10px; border-radius: 20px; border: 1.5px dashed var(--line2); color: var(--text3); background: transparent; transition: all 0.15s; user-select: none; }
 .ch-checkbox:hover { border-color: var(--text3); color: var(--text2); }
 .ch-checkbox input { display: none; }
@@ -182,11 +188,10 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 .ch-checkbox.checked[data-ch="전화상담"] { background: rgba(192,32,58,0.12); border-color: var(--accent-d); color: var(--accent-d); }
 .ch-checkbox.checked[data-ch="광고"] { background: rgba(192,32,58,0.1); border-color: var(--accent-d); color: var(--accent-d); }
 .ch-checkbox.checked { background: var(--bg2); border-color: var(--text3); color: var(--text); }
-.msg-body-text { font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; word-break: keep-all; border-left: 2px solid var(--line2); padding-left: 12px; margin-bottom: 8px; }
+.msg-body-text { font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; word-break: keep-all; background: var(--bg2); border-radius: 6px; padding: 10px 12px; border: 1px solid var(--line); width: 100%; resize: none; outline: none; margin-bottom: 0; box-sizing: border-box; }
 .msg-var-text { font-size: 11px; color: var(--text3); padding-top: 8px; border-top: 1px solid var(--line); }
-.msg-var-label { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; margin-top:10px; }
 .add-msg-btn { width: 100%; padding: 10px; border: 1px dashed var(--line2); border-radius: var(--radius); background: transparent; color: var(--text3); font-family: var(--mono); font-size: 11px; cursor: pointer; transition: all 0.15s; display: none; margin-top: 10px; }
-.edit-mode .add-msg-btn { display: block; }
+.add-msg-btn { display: block !important; }
 .add-msg-btn:hover { border-color: var(--accent-b); color: var(--accent-b); background: rgba(26,106,170,0.04); }
 /* CTA */
 .cta-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); flex-wrap: wrap; }
@@ -204,8 +209,9 @@ input.editable, textarea.editable { font-family: inherit; font-size: inherit; co
 .cta-preview { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 4px; background: rgba(26,106,170,0.1); color: var(--accent-b); border: 1px solid rgba(26,106,170,0.25); margin-top: 4px; }
 /* 편집 모드 UX 강화 */
 .edit-mode .msg-item { border-color: var(--line2); box-shadow: 0 0 0 2px rgba(26,106,170,0.06); }
-.edit-mode .editable:hover { background: var(--bg2); }
-.msg-section-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+.
+.msg-section-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; margin-top: 10px; }
+.msg-section-label:first-of-type { margin-top: 0; }
 
 /* ── OPS VIEW ── */
 .ops-block { margin-bottom: 36px; }
@@ -1002,6 +1008,7 @@ function renderSegment(id) {
   const isEdit = editingId === id;
   const modeClass = isEdit ? 'edit-mode' : 'view-mode';
   const accentColor = groupColor(s.group);
+  // 메시지 개별 편집은 editingMsgId로 관리
 
   let statsHtml = s.stats.map((st, si) => `
     <div class="stat-box">
@@ -1012,9 +1019,9 @@ function renderSegment(id) {
   let msgsHtml = s.messages.map((m, mi) => {
     const chTagsHtml = m.channels.map(c => `<span class="channel-tag ${CH_CLASS[c]||'ch-channel'}">${c}</span>`).join('');
     const chSelectHtml = CHANNELS.map(c => {
-      const checked = m.channels.includes(c) ? ' checked' : '';
-      return `<label class="ch-checkbox${checked ? ' checked' : ''}" data-msg="${mi}" data-ch="${c}">
-        <input type="checkbox"${checked} onchange="toggleChannel(${mi},'${c}',this.checked,'${id}')"> ${c}
+      const checked = m.channels.includes(c);
+      return `<label class="ch-checkbox${checked ? ' checked' : ''}" data-msg="${mi}" data-ch="${c}" data-seg="${id}">
+        <input type="checkbox"${checked?' checked':''} onchange="toggleChannel(${mi},'${c}',this.checked,'${id}')"> ${c}
       </label>`;
     }).join('');
 
@@ -1050,38 +1057,50 @@ function renderSegment(id) {
     ).join('');
 
     const activeClass = isActive ? ' is-active' : ' is-inactive';
+    const isMsgEdit = (editingMsgId === id + '-' + mi);
+    const msgEditClass = isMsgEdit ? ' msg-item-editing' : '';
 
-    return `<div class="msg-item${activeClass}" data-mi="${mi}">
+    return `<div class="msg-item${activeClass}${msgEditClass}" data-mi="${mi}">
       <div class="msg-item-header">
-        <div class="msg-timing-wrap">
-          <div class="msg-section-label">발송 채널</div>
-          <div class="msg-channel-row" style="margin-bottom:8px;">
-            <div class="channel-tags-display">${chTagsHtml || '<span style="font-size:11px;color:var(--text3)">채널 미선택</span>'}</div>
-            <div class="channel-select">${chSelectHtml}</div>
-          </div>
-          <div class="msg-section-label">발송 타이밍</div>
-          <input class="editable" data-field="messages.${mi}.timing" value="${esc(m.timing)}" readonly style="font-size:11px;color:var(--text);font-family:var(--mono);width:100%;">
-          <div class="msg-section-label" style="margin-top:6px;">메시지 제목</div>
-          <input class="editable msg-step-title" data-field="messages.${mi}.step" value="${esc(m.step)}" readonly style="font-weight:500;width:100%;">
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;">
-          <div class="msg-active-toggle" onclick="toggleActive('${id}',${mi},this)">
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+          <span class="msg-index-badge">${getDisplayId(id)}-${mi+1}</span>
+          ${isMsgEdit ? '' : `
+          <div class="msg-active-toggle" onclick="toggleActive('${id}',${mi},this)" style="margin-left:auto;">
             <div class="msg-active-switch"></div>
             <span class="msg-active-label">${isActive?'적용중':'미적용'}</span>
-          </div>
+          </div>`}
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px;">
+          ${isMsgEdit ? '' : `
           <div class="msg-order-btns">
-            <button class="msg-order-btn" onclick="moveMessage('${id}',${mi},-1)" title="위로">▲</button>
-            <button class="msg-order-btn" onclick="moveMessage('${id}',${mi},1)" title="아래로">▼</button>
-          </div>
-          <button class="msg-remove-btn" onclick="removeMessage(${mi},'${id}')">삭제</button>
+            <button class="msg-order-btn" onclick="moveMessage('${id}',${mi},-1)" title="왼쪽">◀</button>
+            <button class="msg-order-btn" onclick="moveMessage('${id}',${mi},1)" title="오른쪽">▶</button>
+          </div>`}
+          ${isMsgEdit
+            ? `<button class="btn btn-primary" style="font-size:10px;padding:3px 10px;" onclick="saveMsgEdit('${id}',${mi})">✓ 저장</button>
+               <button class="btn" style="font-size:10px;padding:3px 8px;" onclick="cancelMsgEdit('${id}',${mi})">취소</button>
+               <button class="msg-remove-btn" style="opacity:1;" onclick="removeMessage(${mi},'${id}')">삭제</button>`
+            : `<button class="btn btn-edit" style="font-size:10px;padding:3px 10px;" onclick="startMsgEdit('${id}',${mi})">✎</button>`
+          }
         </div>
       </div>
-      <div class="msg-section-label" style="margin-top:10px;">메시지 본문</div>
-      <textarea class="editable msg-body-text" data-field="messages.${mi}.body" rows="${m.body.split('\n').length + 1}" readonly>${esc(m.body)}</textarea>
+      <div class="msg-section-label no-border">발송 채널</div>
+      <div class="msg-channel-row" style="margin-bottom:8px;">
+        ${isMsgEdit
+          ? `<div style="display:flex;flex-wrap:wrap;gap:5px;">${chSelectHtml}</div>`
+          : `<div>${chTagsHtml || '<span style="font-size:11px;color:var(--text3)">채널 미선택</span>'}</div>`
+        }
+      </div>
+      <div class="msg-section-label">발송 타이밍</div>
+      <input class="msg-editable" data-seg="${id}" data-mi="${mi}" data-field="timing" value="${esc(m.timing)}" ${isMsgEdit?'':"readonly"} style="font-size:11px;font-family:var(--mono);width:100%;color:var(--text2);background:var(--bg4);border:1px solid var(--line);border-radius:5px;padding:5px 8px;outline:none;">
+      <div class="msg-section-label">메시지 제목</div>
+      <input class="msg-editable msg-step-title" data-seg="${id}" data-mi="${mi}" data-field="step" value="${esc(m.step)}" ${isMsgEdit?'':"readonly"} style="font-weight:600;font-size:14px;width:100%;color:var(--text);background:var(--bg4);border:1px solid var(--line);border-radius:5px;padding:5px 8px;outline:none;">
+      <div class="msg-section-label">메시지 본문</div>
+      <textarea class="msg-editable msg-body-text" data-seg="${id}" data-mi="${mi}" data-field="body" rows="${m.body.split('\n').length + 1}" ${isMsgEdit?"":"readonly"}>${esc(m.body)}</textarea>
       ${ctaViewHtml}
-      <div class="edit-mode-cta" style="display:none;">${ctaEditHtml}</div>
-      <div class="msg-var-label">변수 정의</div>
-      <textarea class="editable msg-var-text" data-field="messages.${mi}.tip" rows="${Math.max(2,(m.tip||'').split('\n').length)}" readonly placeholder="변수 정의를 입력하세요 (예: [아이 이름] = 자녀명 개인화)">${esc(m.tip||'')}</textarea>
+      <div class="edit-mode-cta" style="display:${isMsgEdit?'block':'none'};">${ctaEditHtml}</div>
+      <div class="msg-section-label">변수 정의</div>
+      <textarea class="msg-editable msg-var-text" data-seg="${id}" data-mi="${mi}" data-field="tip" rows="${Math.max(2,(m.tip||'').split('\n').length)}" ${isMsgEdit?'':"readonly"} placeholder="변수 정의를 입력하세요 (예: [아이 이름] = 자녀명 개인화)" style="width:100%;font-family:var(--sans);font-size:13px;color:var(--text);background:var(--bg4);border:1px solid var(--line);border-radius:5px;padding:5px 8px;outline:none;resize:none;line-height:1.6;">${esc(m.tip||'')}</textarea>
       <div class="comment-section">
         <div class="comment-list" id="comments-${id}-${mi}">${commentsHtml}</div>
         <div class="comment-input-row">
@@ -1131,12 +1150,7 @@ function renderSegment(id) {
     document.querySelectorAll(`#panel-${id} .editable`).forEach(el => {
       el.removeAttribute('readonly');
     });
-    document.querySelectorAll(`#panel-${id} .msg-var-text`).forEach(el => {
-      el.removeAttribute('readonly');
-      // 뷰 모드에서도 내용 전체 높이로 자동 조정
-      el.style.height = 'auto';
-      el.style.height = el.scrollHeight + 'px';
-    });
+    // msg-var-text는 개별 메시지 편집 모드에서 처리
     // tip 항상 표시
     document.querySelectorAll(`#panel-${id} .msg-tip-text`).forEach(el => el.style.display = 'block');
     // CTA 편집 영역 표시
@@ -1399,6 +1413,41 @@ function deleteComment(segId, mi, ci) {
 }
 
 // ═══════════════════════════════════════════
+// MESSAGE INDIVIDUAL EDIT
+// ═══════════════════════════════════════════
+let editingMsgId = null; // 'segId-mi' 형태
+
+function startMsgEdit(segId, mi) {
+  editingMsgId = segId + '-' + mi;
+  renderSegment(segId);
+  // 해당 메시지로 스크롤
+  setTimeout(() => {
+    const el = document.querySelector(`[data-mi="${mi}"]`);
+    if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+  }, 50);
+}
+
+function cancelMsgEdit(segId, mi) {
+  editingMsgId = null;
+  renderSegment(segId);
+}
+
+function saveMsgEdit(segId, mi) {
+  const s = segments.find(x => x.id === segId);
+  if (!s || !s.messages[mi]) return;
+  const m = s.messages[mi];
+  // msg-editable 필드 수집
+  document.querySelectorAll(`.msg-editable[data-seg="${segId}"][data-mi="${mi}"]`).forEach(el => {
+    const field = el.dataset.field;
+    if (field) m[field] = el.value;
+  });
+  markDirty(segId);
+  editingMsgId = null;
+  renderSegment(segId);
+  showToast('메시지가 저장됐어요 ✓');
+}
+
+// ═══════════════════════════════════════════
 // MESSAGE ORDER
 // ═══════════════════════════════════════════
 function moveMessage(segId, mi, dir) {
@@ -1411,11 +1460,14 @@ function moveMessage(segId, mi, dir) {
   const tmp = msgs[mi];
   msgs[mi] = msgs[newMi];
   msgs[newMi] = tmp;
+  editingMsgId = null;
   markDirty(segId);
   renderSegment(segId);
   // 이동한 메시지로 스크롤 유지
-  const movedEl = document.querySelector(`#segmentPanelContainer .msg-item[data-mi="${newMi}"]`);
-  if (movedEl) movedEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => {
+    const movedEl = document.querySelector(`[data-mi="${newMi}"]`);
+    if (movedEl) movedEl.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+  }, 50);
 }
 
 // ═══════════════════════════════════════════
