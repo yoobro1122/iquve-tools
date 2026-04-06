@@ -85,6 +85,27 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .mode-tab{flex:1;padding:6px;font-size:11px;font-weight:700;text-align:center;cursor:pointer;color:var(--muted);border:none;background:transparent;font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
 .mode-tab.active{background:var(--main);color:#fff;}
 
+.btn-primary{background:var(--main);color:#fff;border:none;}
+.btn-primary:hover{opacity:.88;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--surface2);color:var(--text);}
+
+/* ── 모달 ── */
+.modal-open{display:flex!important;}
+.save-row{display:flex;align-items:center;gap:0;padding:11px 14px;border-bottom:1px solid var(--border);transition:background .1s;}
+.save-row:last-child{border-bottom:none;}
+.save-row:hover{background:var(--surface2);}
+.save-row-info{flex:1;min-width:0;}
+.save-row-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.save-row-date{font-size:11px;color:var(--muted);margin-top:2px;}
+.save-row-actions{display:flex;gap:6px;flex-shrink:0;}
+.btn-xs{padding:4px 10px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;border:1px solid var(--border);background:var(--surface2);color:var(--text);transition:all .15s;}
+.btn-xs:hover{background:var(--border);}
+.btn-xs.danger:hover{background:#FEE2E2;border-color:#FCA5A5;color:#DC2626;}
+.btn-xs.accent{background:var(--main);color:#fff;border-color:var(--main);}
+.btn-xs.accent:hover{opacity:.85;}
+.empty-list{padding:32px;text-align:center;color:var(--muted);font-size:13px;}
+
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:10px;}
@@ -96,6 +117,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <div style="display:flex;align-items:center;">
     <span class="logo">i<em>Q</em>UVE</span>
     <span class="logo-sub">뉴스레터 에디터</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span id="sb-status" onclick="openSupabaseModal()" title="Supabase 설정"></span>
   </div>
 </div>
 
@@ -410,6 +434,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
         </div>
       </div>
       <button class="btn btn-dark" onclick="downloadHTML()">HTML 다운로드</button>
+      <button class="btn btn-ghost" onclick="openSaveModal()">저장</button>
+      <button class="btn btn-ghost" onclick="openListModal()">불러오기</button>
     </div>
     <div class="preview-scroll" id="preview-scroll">
       <div id="frame-outer" style="background:#fdf5ff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
@@ -418,6 +444,63 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     </div>
   </div>
 
+</div>
+
+<!-- ===== Supabase 설정 모달 ===== -->
+<div id="modal-supabase" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:420px;box-shadow:0 8px 40px rgba(0,0,0,.2);">
+    <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:6px;">Supabase 연결 설정</div>
+    <p style="font-size:11px;color:#6B7280;margin-bottom:16px;line-height:1.6;">Settings → API에서 Project URL과 anon public 키를 복사해 입력하세요.</p>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Project URL</label>
+      <input type="url" id="sb-url-input" placeholder="https://xxxx.supabase.co" style="width:100%;padding:8px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:'Noto Sans KR',sans-serif;"/>
+    </div>
+    <div class="field" style="margin-bottom:16px;">
+      <label>anon public API Key</label>
+      <input type="text" id="sb-key-input" placeholder="eyJ..." style="width:100%;padding:8px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:'Noto Sans KR',sans-serif;"/>
+    </div>
+    <div style="background:#F3F4F6;border-radius:8px;padding:10px 12px;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:700;color:#374151;margin-bottom:4px;">Supabase 테이블 생성 SQL</div>
+      <pre style="font-size:10px;color:#374151;margin:0;line-height:1.6;white-space:pre-wrap;font-family:monospace;">create table newsletter_saves (
+  id bigint generated always as identity primary key,
+  name text not null,
+  saved_data jsonb not null,
+  img_store jsonb,
+  header_mode text default 'color',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table newsletter_saves disable row level security;</pre>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-supabase')">취소</button>
+      <button class="btn btn-primary" onclick="saveSupabaseConfig()">연결</button>
+    </div>
+  </div>
+</div>
+<div id="modal-save" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.2);">
+    <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:16px;">뉴스레터 저장</div>
+    <div class="field" style="margin-bottom:12px;">
+      <label>저장 이름</label>
+      <input type="text" id="save-name" placeholder="예: 4월 2주차 뉴스레터" style="width:100%;padding:8px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:'Noto Sans KR',sans-serif;"/>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-save')">취소</button>
+      <button class="btn btn-primary" onclick="doSave()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 불러오기 모달 ===== -->
+<div id="modal-list" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:520px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.2);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0;">
+      <div style="font-size:15px;font-weight:700;color:#111827;">저장된 뉴스레터</div>
+      <button class="btn btn-ghost" onclick="closeModal('modal-list')" style="padding:5px 10px;">닫기</button>
+    </div>
+    <div id="save-list-body" style="overflow-y:auto;flex:1;"></div>
+  </div>
 </div>
 
 <script>
@@ -848,7 +931,244 @@ function downloadHTML(){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
-function init(){addEvent();addNewBook();renderPreview();}
+// ── 모달 ──
+function openModal(id){ document.getElementById(id).classList.add('modal-open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('modal-open'); }
+
+function openSaveModal(){
+  // 오늘 날짜 기본값
+  const d=new Date();
+  const ds=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+  document.getElementById('save-name').value=ds+' 뉴스레터';
+  openModal('modal-save');
+  setTimeout(()=>document.getElementById('save-name').select(),50);
+}
+
+// ── Supabase 설정 ──
+let SB_URL = 'https://emgsqnzfdvvbtooouaap.supabase.co';
+let SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
+const SB_TABLE = 'newsletter_saves';
+
+function sbHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'apikey': SB_KEY,
+    'Authorization': 'Bearer ' + SB_KEY,
+    'Prefer': 'return=representation'
+  };
+}
+
+function isSupabaseReady() {
+  return SB_URL && SB_KEY;
+}
+
+function openSupabaseModal() {
+  document.getElementById('sb-url-input').value = SB_URL;
+  document.getElementById('sb-key-input').value = SB_KEY;
+  openModal('modal-supabase');
+}
+
+function saveSupabaseConfig() {
+  const url = document.getElementById('sb-url-input').value.trim().replace(/\/+$/, '');
+  const key = document.getElementById('sb-key-input').value.trim();
+  if (!url || !key) { showToast('URL과 API Key를 모두 입력해주세요'); return; }
+  SB_URL = url;
+  SB_KEY = key;
+  closeModal('modal-supabase');
+  showToast('Supabase 연결 설정 완료');
+  updateSbStatus();
+}
+
+function updateSbStatus() {
+  const badge = document.getElementById('sb-status');
+  if (!badge) return;
+  if (isSupabaseReady()) {
+    badge.textContent = 'DB 연결됨';
+    badge.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:100px;cursor:pointer;';
+  } else {
+    badge.textContent = 'DB 미연결';
+    badge.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#dc2626;background:#fee2e2;padding:3px 8px;border-radius:100px;cursor:pointer;';
+  }
+}
+
+// ── 저장 ──
+async function doSave() {
+  const name = document.getElementById('save-name').value.trim();
+  if (!name) { document.getElementById('save-name').focus(); return; }
+  if (!isSupabaseReady()) { showToast('Supabase 설정이 필요합니다'); openSupabaseModal(); return; }
+
+  const now = new Date();
+  const payload = {
+    name,
+    saved_data: JSON.parse(JSON.stringify(saved)),
+    img_store: JSON.parse(JSON.stringify(imgStore)),
+    header_mode: headerMode,
+    created_at: now.toISOString(),
+    updated_at: now.toISOString()
+  };
+
+  showToast('저장 중...');
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    closeModal('modal-save');
+    showToast(`"${name}" 저장 완료`);
+  } catch(e) {
+    console.error(e);
+    showToast('저장 실패: ' + e.message);
+  }
+}
+
+// ── 목록 불러오기 ──
+async function openListModal() {
+  if (!isSupabaseReady()) { showToast('Supabase 설정이 필요합니다'); openSupabaseModal(); return; }
+  openModal('modal-list');
+  await renderSaveList();
+}
+
+async function renderSaveList() {
+  const body = document.getElementById('save-list-body');
+  body.innerHTML = '<div class="empty-list">불러오는 중...</div>';
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?select=id,name,created_at,updated_at&order=created_at.desc`, {
+      headers: sbHeaders()
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const list = await res.json();
+    if (!list.length) {
+      body.innerHTML = '<div class="empty-list">저장된 뉴스레터가 없습니다.</div>';
+      return;
+    }
+    body.innerHTML = list.map(item => {
+      const dt = new Date(item.created_at);
+      const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      return `<div class="save-row">
+        <div class="save-row-info">
+          <div class="save-row-name">${item.name}</div>
+          <div class="save-row-date">${dateStr}</div>
+        </div>
+        <div class="save-row-actions">
+          <button class="btn-xs accent" onclick="loadSave(${item.id})">불러오기</button>
+          <button class="btn-xs" onclick="renameSave(${item.id},'${item.name.replace(/'/g,'')}')">이름변경</button>
+          <button class="btn-xs danger" onclick="deleteSave(${item.id})">삭제</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = `<div class="empty-list" style="color:#dc2626;">불러오기 실패: ${e.message}</div>`;
+  }
+}
+
+// ── 데이터 불러오기 ──
+async function loadSave(id) {
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?id=eq.${id}&select=*`, {
+      headers: sbHeaders()
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const list = await res.json();
+    if (!list.length) { showToast('데이터를 찾을 수 없습니다'); return; }
+    const item = list[0];
+
+    Object.assign(saved, JSON.parse(JSON.stringify(item.saved_data)));
+    Object.assign(imgStore, JSON.parse(JSON.stringify(item.img_store || {})));
+    headerMode = item.header_mode || 'color';
+    setHeaderMode(headerMode);
+
+    const h=saved.hero||{}, f=saved.footer||{}, c=saved.cta||{};
+    const setVal=(elId,v)=>{ const el=document.getElementById(elId); if(el)el.value=v||''; };
+    setVal('SEND_DATE',h.SEND_DATE); setVal('HEADLINE_MAIN',h.HEADLINE_MAIN);
+    setVal('HEADLINE_SUB',h.HEADLINE_SUB); setVal('HERO_BODY_COPY',h.HERO_BODY_COPY);
+    setVal('CTA_TEXT',h.CTA_TEXT); setVal('CTA_URL',h.CTA_URL);
+    if(h.headerLogoSize){ const el=document.getElementById('header-logo-size'); if(el){ el.value=h.headerLogoSize; document.getElementById('header-logo-size-val').textContent=h.headerLogoSize; }}
+    if(imgStore.headerLogo){ document.getElementById('header-logo-el').src=imgStore.headerLogo; document.getElementById('header-logo-preview').style.display='block'; document.getElementById('header-logo-upload').style.display='none'; }
+    else{ document.getElementById('header-logo-preview').style.display='none'; document.getElementById('header-logo-upload').style.display='flex'; }
+    setVal('USER_EMAIL',f.USER_EMAIL); setVal('UNSUBSCRIBE_URL',f.UNSUBSCRIBE_URL);
+    setVal('PRIVACY_URL',f.PRIVACY_URL); setVal('APP_STORE_URL',f.APP_STORE_URL); setVal('APP_OPEN_URL',f.APP_OPEN_URL);
+    if(f.footerLogoSize){ const el=document.getElementById('footer-logo-size'); if(el){ el.value=f.footerLogoSize; document.getElementById('footer-logo-size-val').textContent=f.footerLogoSize; }}
+    if(imgStore.footerLogo){ document.getElementById('footer-logo-el').src=imgStore.footerLogo; document.getElementById('footer-logo-preview').style.display='block'; document.getElementById('footer-logo-upload').style.display='none'; }
+    else{ document.getElementById('footer-logo-preview').style.display='none'; document.getElementById('footer-logo-upload').style.display='flex'; }
+    setVal('CTA_BANNER_TITLE',c.bannerTitle); setVal('CTA_BANNER_SUB',c.bannerSub);
+    setVal('CTA_BANNER_BTN_TEXT',c.bannerBtnText); setVal('CTA_BANNER_URL',c.bannerUrl);
+
+    const d=saved.design||{};
+    const setColor=(colorId,hexId,v)=>{ if(!v)return; const ci=document.getElementById(colorId); const hi=document.getElementById(hexId); if(ci)ci.value=v; if(hi)hi.value=v; };
+    setColor('color-header-bg','hex-header-bg',d.headerBg);
+    setColor('color-grad-start','hex-grad-start',d.headerGradStart);
+    setColor('color-grad-end','hex-grad-end',d.headerGradEnd);
+    setColor('color-cta-bg','hex-cta-bg',d.ctaBg);
+    setColor('color-cta-text','hex-cta-text',d.ctaText);
+    setColor('color-event-accent','hex-event-accent',d.eventAccent);
+    setColor('color-book-accent','hex-book-accent',d.bookAccent);
+    setColor('color-rec-accent','hex-rec-accent',d.recAccent);
+    setColor('color-banner-bg','hex-banner-bg',d.bannerBg);
+    setColor('color-banner-btn','hex-banner-btn',d.bannerBtn);
+    setColor('color-banner-btn-text','hex-banner-btn-text',d.bannerBtnText);
+
+    closeModal('modal-list');
+    renderPreview();
+    showToast(`"${item.name}" 불러오기 완료`);
+  } catch(e) {
+    showToast('불러오기 실패: ' + e.message);
+  }
+}
+
+// ── 이름 변경 ──
+async function renameSave(id, currentName) {
+  const newName = prompt('새 이름을 입력하세요', currentName);
+  if (!newName || !newName.trim()) return;
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: sbHeaders(),
+      body: JSON.stringify({ name: newName.trim(), updated_at: new Date().toISOString() })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('이름 변경 완료');
+    renderSaveList();
+  } catch(e) { showToast('변경 실패: ' + e.message); }
+}
+
+// ── 삭제 ──
+async function deleteSave(id) {
+  if (!confirm('이 항목을 삭제할까요?')) return;
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: sbHeaders()
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('삭제 완료');
+    renderSaveList();
+  } catch(e) { showToast('삭제 실패: ' + e.message); }
+}
+
+// ── 토스트 ──
+function showToast(msg){
+  let t=document.getElementById('toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='toast';
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 20px;border-radius:100px;font-size:12px;font-weight:700;font-family:"Noto Sans KR",sans-serif;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.style.opacity='0',2000);
+}
+
+// 모달 외부 클릭 닫기
+['modal-save','modal-list','modal-supabase'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(id); });
+});
+
+function init(){addEvent();addNewBook();renderPreview();updateSbStatus();}
 init();
 </script>
 </body>
