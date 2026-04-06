@@ -435,9 +435,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
           </button>
         </div>
       </div>
-      <button class="btn btn-dark" onclick="downloadHTML()">HTML 다운로드</button>
-      <button class="btn btn-ghost" onclick="openSaveModal()">저장</button>
-      <button class="btn btn-ghost" onclick="openListModal()">불러오기</button>
+      <div style="display:flex;gap:10px;align-items:center;margin-left:auto;">
+        <button class="btn btn-ghost" onclick="openSaveModal()">저장</button>
+        <button class="btn btn-ghost" onclick="openListModal()">불러오기</button>
+        <button class="btn btn-dark" onclick="downloadHTML()">HTML 다운로드</button>
+      </div>
     </div>
     <div class="preview-scroll" id="preview-scroll">
       <div id="frame-outer" style="background:#fdf5ff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
@@ -980,8 +982,9 @@ ${recHtml}
 
 <tr><td style="padding:20px 0 0;">
 <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
-<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 8px;">${footerLogoHtml}<span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;margin-left:8px;">대화하는 동화책</span></td></tr>
-<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 6px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;">그로비교육 · 서울특별시</span></td></tr>
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 4px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;">질문하는 쉼표, 말하는 느낌표</span></td></tr>
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 8px;">${footerLogoHtml}</td></tr>
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 6px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;">그로비랩스 · 서울특별시</span></td></tr>
 <tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 14px;">
 <a href="${f.UNSUBSCRIBE_URL||'#'}" style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;text-decoration:underline;">수신거부</a>
 <span style="color:#D1D5DB;margin:0 6px;">|</span>
@@ -990,7 +993,7 @@ ${recHtml}
 <a href="${f.APP_STORE_URL||'#'}" style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:#9CA3AF;text-decoration:underline;">앱 다운로드</a>
 </td></tr>
 <tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 4px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:10px;color:#D1D5DB;">본 메일은 ${f.USER_EMAIL||'{{수신자이메일}}'} 으로 발송되었습니다.</span></td></tr>
-<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 20px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:10px;color:#D1D5DB;">© 2025 그로비교육. All rights reserved.</span></td></tr>
+<tr><td style="text-align:center;padding:0 ${isMobile?'12px':'32px'} 20px;"><span style="font-family:'Noto Sans KR',sans-serif;font-size:10px;color:#D1D5DB;">© 2026 그로비랩스. All rights reserved.</span></td></tr>
 </table></td></tr>
 
 </table></td></tr></table>
