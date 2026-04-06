@@ -478,6 +478,20 @@ alter table newsletter_saves disable row level security;</pre>
     </div>
   </div>
 </div>
+<!-- ===== 중복 이름 확인 모달 ===== -->
+<div id="modal-duplicate" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.2);">
+    <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:8px;">동일한 이름이 있어요</div>
+    <p style="font-size:13px;color:#6B7280;line-height:1.6;margin-bottom:20px;"><span id="duplicate-name-label" style="font-weight:700;color:#111827;"></span> 이름으로 저장된 항목이 이미 있습니다.<br/>어떻게 할까요?</p>
+    <input type="hidden" id="duplicate-id"/>
+    <div style="display:flex;gap:8px;flex-direction:column;">
+      <button class="btn btn-primary" style="justify-content:center;" onclick="confirmOverwrite()">덮어쓰기</button>
+      <button class="btn btn-ghost" style="justify-content:center;" onclick="confirmSaveAsNew()">다른 이름으로 저장</button>
+      <button class="btn btn-ghost" style="justify-content:center;color:#9CA3AF;" onclick="closeModal('modal-duplicate')">취소</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-save" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:24px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.2);">
     <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:16px;">뉴스레터 저장</div>
@@ -665,13 +679,11 @@ function saveBlock(block) {
 }
 
 // ── 이벤트 ──
-function addEvent(){const id=++eventCount;events.push({id});eventImgs[id]=null;renderEventList();}
-function removeEvent(id){events.splice(events.findIndex(e=>e.id===id),1);delete eventImgs[id];renderEventList();}
-function renderEventList(){
-  const c=document.getElementById('event-list');c.innerHTML='';
-  events.forEach((e,i)=>{
-    const id=e.id,d=document.createElement('div');d.className='item-card';
-    d.innerHTML=`<div class="item-card-header"><span class="item-card-num">이벤트 ${i+1}</span>${events.length>1?`<button class="btn-remove" onclick="removeEvent(${id})">x</button>`:''}</div>
+function makeEventCard(id) {
+  const d = document.createElement('div');
+  d.className = 'item-card';
+  d.id = 'evt-card-' + id;
+  d.innerHTML = `<div class="item-card-header" id="evt-header-${id}"><span class="item-card-num" id="evt-num-${id}"></span></div>
 <div class="row2"><div class="field"><label>제목</label><input type="text" id="evt_title_${id}" placeholder="이벤트 제목"/></div><div class="field"><label>기간</label><input type="text" id="evt_period_${id}" placeholder="~4월 15일까지"/></div></div>
 <div class="field"><label>설명</label><textarea id="evt_desc_${id}" placeholder="이벤트 설명"></textarea></div>
 <div class="field"><label>이미지</label>
@@ -679,20 +691,51 @@ function renderEventList(){
 <div id="evt_imgupload_${id}" class="upload-btn" onclick="document.getElementById('evt_imgfile_${id}').click()"><input type="file" id="evt_imgfile_${id}" accept="image/*" style="display:none" onchange="handleEventImg(event,${id})"/>이미지 업로드</div>
 <span class="img-name" id="evt_imgname_${id}"></span></div>
 <div class="field"><label>링크 URL</label><input type="url" id="evt_url_${id}" placeholder="https://"/></div>`;
-    c.appendChild(d);
+  return d;
+}
+
+function refreshEventHeaders() {
+  events.forEach((e, i) => {
+    const numEl = document.getElementById('evt-num-' + e.id);
+    if (numEl) numEl.textContent = '이벤트 ' + (i + 1);
+    const header = document.getElementById('evt-header-' + e.id);
+    if (!header) return;
+    const existing = header.querySelector('.btn-remove');
+    if (events.length > 1 && !existing) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-remove';
+      btn.textContent = 'x';
+      btn.onclick = () => removeEvent(e.id);
+      header.appendChild(btn);
+    } else if (events.length === 1 && existing) {
+      existing.remove();
+    }
   });
 }
-function handleEventImg(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{eventImgs[id]=ev.target.result;document.getElementById('evt_imgel_'+id).src=ev.target.result;document.getElementById('evt_imgprev_'+id).style.display='block';document.getElementById('evt_imgupload_'+id).style.display='none';document.getElementById('evt_imgname_'+id).textContent=f.name;};r.readAsDataURL(f);}
-function removeEventImg(id){eventImgs[id]=null;document.getElementById('evt_imgel_'+id).src='';document.getElementById('evt_imgprev_'+id).style.display='none';document.getElementById('evt_imgupload_'+id).style.display='flex';document.getElementById('evt_imgname_'+id).textContent='';document.getElementById('evt_imgfile_'+id).value='';}
+
+function addEvent() {
+  const id = ++eventCount;
+  events.push({id});
+  eventImgs[id] = null;
+  const c = document.getElementById('event-list');
+  c.appendChild(makeEventCard(id));
+  refreshEventHeaders();
+}
+
+function removeEvent(id) {
+  events.splice(events.findIndex(e => e.id === id), 1);
+  delete eventImgs[id];
+  const card = document.getElementById('evt-card-' + id);
+  if (card) card.remove();
+  refreshEventHeaders();
+}
 
 // ── 신규 도서 ──
-function addNewBook(){const id=++newbookCount;newbooks.push({id});newbookImgs[id]=null;renderNewBookList();}
-function removeNewBook(id){newbooks.splice(newbooks.findIndex(b=>b.id===id),1);delete newbookImgs[id];renderNewBookList();}
-function renderNewBookList(){
-  const c=document.getElementById('newbook-list');c.innerHTML='';
-  newbooks.forEach((b,i)=>{
-    const id=b.id,d=document.createElement('div');d.className='item-card';
-    d.innerHTML=`<div class="item-card-header"><span class="item-card-num">도서 ${i+1}</span>${newbooks.length>1?`<button class="btn-remove" onclick="removeNewBook(${id})">x</button>`:''}</div>
+function makeNewBookCard(id) {
+  const d = document.createElement('div');
+  d.className = 'item-card';
+  d.id = 'nb-card-' + id;
+  d.innerHTML = `<div class="item-card-header" id="nb-header-${id}"><span class="item-card-num" id="nb-num-${id}"></span></div>
 <div class="row2"><div class="field"><label>도서명</label><input type="text" id="nb_title_${id}" placeholder="구름빵"/></div><div class="field"><label>대상 연령</label><input type="text" id="nb_age_${id}" placeholder="4~7세"/></div></div>
 <div class="row2"><div class="field"><label>출판사</label><input type="text" id="nb_pub_${id}" placeholder="한솔수북"/></div><div class="field"><label>도서 링크</label><input type="url" id="nb_url_${id}" placeholder="https://"/></div></div>
 <div class="field"><label>도서 소개</label><textarea id="nb_desc_${id}" placeholder="도서 소개"></textarea></div>
@@ -701,8 +744,43 @@ function renderNewBookList(){
 <div id="nb_imgprev_${id}" style="display:none;" class="img-preview-wrap"><img id="nb_imgel_${id}" src="" alt="" style="max-height:120px;object-fit:contain;"/><button class="img-remove" onclick="removeNewBookImg(${id})">x</button></div>
 <div id="nb_imgupload_${id}" class="upload-btn" onclick="document.getElementById('nb_imgfile_${id}').click()"><input type="file" id="nb_imgfile_${id}" accept="image/*" style="display:none" onchange="handleNewBookImg(event,${id})"/>표지 이미지 업로드</div>
 <span class="img-name" id="nb_imgname_${id}"></span></div>`;
-    c.appendChild(d);
+  return d;
+}
+
+function refreshNewBookHeaders() {
+  newbooks.forEach((b, i) => {
+    const numEl = document.getElementById('nb-num-' + b.id);
+    if (numEl) numEl.textContent = '도서 ' + (i + 1);
+    const header = document.getElementById('nb-header-' + b.id);
+    if (!header) return;
+    const existing = header.querySelector('.btn-remove');
+    if (newbooks.length > 1 && !existing) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-remove';
+      btn.textContent = 'x';
+      btn.onclick = () => removeNewBook(b.id);
+      header.appendChild(btn);
+    } else if (newbooks.length === 1 && existing) {
+      existing.remove();
+    }
   });
+}
+
+function addNewBook() {
+  const id = ++newbookCount;
+  newbooks.push({id});
+  newbookImgs[id] = null;
+  const c = document.getElementById('newbook-list');
+  c.appendChild(makeNewBookCard(id));
+  refreshNewBookHeaders();
+}
+
+function removeNewBook(id) {
+  newbooks.splice(newbooks.findIndex(b => b.id === id), 1);
+  delete newbookImgs[id];
+  const card = document.getElementById('nb-card-' + id);
+  if (card) card.remove();
+  refreshNewBookHeaders();
 }
 function handleNewBookImg(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{newbookImgs[id]=ev.target.result;document.getElementById('nb_imgel_'+id).src=ev.target.result;document.getElementById('nb_imgprev_'+id).style.display='block';document.getElementById('nb_imgupload_'+id).style.display='none';document.getElementById('nb_imgname_'+id).textContent=f.name;};r.readAsDataURL(f);}
 function removeNewBookImg(id){newbookImgs[id]=null;document.getElementById('nb_imgel_'+id).src='';document.getElementById('nb_imgprev_'+id).style.display='none';document.getElementById('nb_imgupload_'+id).style.display='flex';document.getElementById('nb_imgname_'+id).textContent='';document.getElementById('nb_imgfile_'+id).value='';}
@@ -997,30 +1075,84 @@ async function doSave() {
   if (!name) { document.getElementById('save-name').focus(); return; }
   if (!isSupabaseReady()) { showToast('Supabase 설정이 필요합니다'); openSupabaseModal(); return; }
 
+  // 동일 이름 중복 확인
+  showToast('확인 중...');
+  try {
+    const checkRes = await fetch(
+      `${SB_URL}/rest/v1/${SB_TABLE}?name=eq.${encodeURIComponent(name)}&select=id,name`,
+      { headers: sbHeaders() }
+    );
+    if (!checkRes.ok) throw new Error(await checkRes.text());
+    const existing = await checkRes.json();
+
+    if (existing.length > 0) {
+      // 동일 이름 존재 → 확인 모달 표시
+      document.getElementById('duplicate-name-label').textContent = `"${name}"`;
+      document.getElementById('duplicate-id').value = existing[0].id;
+      openModal('modal-duplicate');
+      return;
+    }
+
+    await doActualSave(name, null);
+  } catch(e) {
+    showToast('저장 실패: ' + e.message);
+  }
+}
+
+async function doActualSave(name, overwriteId) {
   const now = new Date();
   const payload = {
     name,
     saved_data: JSON.parse(JSON.stringify(saved)),
     img_store: JSON.parse(JSON.stringify(imgStore)),
     header_mode: headerMode,
-    created_at: now.toISOString(),
     updated_at: now.toISOString()
   };
 
   showToast('저장 중...');
   try {
-    const res = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify(payload)
-    });
+    let res;
+    if (overwriteId) {
+      // 덮어쓰기 — PATCH
+      res = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?id=eq.${overwriteId}`, {
+        method: 'PATCH',
+        headers: sbHeaders(),
+        body: JSON.stringify(payload)
+      });
+    } else {
+      // 신규 저장 — POST
+      payload.created_at = now.toISOString();
+      res = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify(payload)
+      });
+    }
     if (!res.ok) throw new Error(await res.text());
     closeModal('modal-save');
-    showToast(`"${name}" 저장 완료`);
+    closeModal('modal-duplicate');
+    showToast(`"${name}" ${overwriteId ? '덮어쓰기' : '저장'} 완료`);
   } catch(e) {
-    console.error(e);
     showToast('저장 실패: ' + e.message);
   }
+}
+
+function confirmOverwrite() {
+  const id = document.getElementById('duplicate-id').value;
+  const name = document.getElementById('save-name').value.trim();
+  closeModal('modal-duplicate');
+  doActualSave(name, id);
+}
+
+function confirmSaveAsNew() {
+  closeModal('modal-duplicate');
+  // 이름 뒤에 날짜 붙여서 새 이름 제안
+  const orig = document.getElementById('save-name').value.trim();
+  const d = new Date();
+  const suffix = ` (${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')})`;
+  document.getElementById('save-name').value = orig + suffix;
+  // 저장 모달에서 이름 수정 후 다시 저장하도록 포커스
+  document.getElementById('save-name').select();
 }
 
 // ── 목록 불러오기 ──
@@ -1163,7 +1295,7 @@ function showToast(msg){
 }
 
 // 모달 외부 클릭 닫기
-['modal-save','modal-list','modal-supabase'].forEach(id=>{
+['modal-save','modal-list','modal-supabase','modal-duplicate'].forEach(id=>{
   const el=document.getElementById(id);
   if(el) el.addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(id); });
 });
