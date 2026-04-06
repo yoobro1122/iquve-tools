@@ -1033,7 +1033,10 @@ function renderSegment(id) {
 
     // CTA 뷰
     const ctaViewHtml = hasCta
-      ? `<div class="cta-preview" style="margin-top:8px;margin-bottom:2px;">👉 ${esc(ctaLabel)||'CTA 버튼'}${ctaUrl ? ' <span style="font-size:10px;opacity:0.6;">— '+esc(ctaUrl)+'</span>' : ''}</div>`
+      ? `<div class="cta-preview" style="margin-top:8px;margin-bottom:2px;display:flex;flex-direction:column;gap:3px;">
+          <span style="font-size:13px;">👉 ${esc(ctaLabel)||'CTA 버튼'}</span>
+          ${ctaUrl ? `<span style="font-size:13px;color:var(--text3);word-break:break-all;">${esc(ctaUrl)}</span>` : ''}
+        </div>`
       : '';
 
     // CTA 편집
