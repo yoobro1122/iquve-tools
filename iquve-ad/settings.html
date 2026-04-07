@@ -202,7 +202,7 @@ async function saveAll() {
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON_KEY,
     'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    'Prefer': 'resolution=merge-duplicates',
+    'Prefer': 'return=minimal,resolution=merge-duplicates',
   };
 
   const entries = [
@@ -212,24 +212,26 @@ async function saveAll() {
   ].filter(e => e.key_value);
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/api_config?on_conflict=key_name`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(entries),
-    });
-    if (res.ok || res.status === 201) {
-      btn.innerHTML = '✅ 저장됐어요!';
-      btn.style.background = '#10b981';
-      entries.forEach(e => {
-        if (e.key_name === 'figma_token') showSaved('figmaTokenSaved');
-        if (e.key_name === 'figma_file_key') showSaved('figmaFileSaved');
-        if (e.key_name === 'gemini_key') showSaved('geminiKeySaved');
+    // 키 하나씩 개별 upsert
+    for (const entry of entries) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/api_config?on_conflict=key_name`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(entry),
       });
-      setTimeout(() => { btn.innerHTML = '💾 Supabase에 저장하기'; btn.style.background = ''; btn.disabled = false; }, 2500);
-    } else {
-      const err = await res.text();
-      throw new Error(err);
+      if (!res.ok && res.status !== 201) {
+        const err = await res.text();
+        throw new Error(err);
+      }
     }
+    btn.innerHTML = '✅ 저장됐어요!';
+    btn.style.background = '#10b981';
+    entries.forEach(e => {
+      if (e.key_name === 'figma_token') showSaved('figmaTokenSaved');
+      if (e.key_name === 'figma_file_key') showSaved('figmaFileSaved');
+      if (e.key_name === 'gemini_key') showSaved('geminiKeySaved');
+    });
+    setTimeout(() => { btn.innerHTML = '💾 Supabase에 저장하기'; btn.style.background = ''; btn.disabled = false; }, 2500);
   } catch(e) {
     alert('저장 실패: ' + e.message);
     btn.innerHTML = '💾 Supabase에 저장하기';
