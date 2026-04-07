@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     campaignId = body.campaignId ?? ''
+    const extraEmails: string[] = body.extraEmails ?? []
     if (!campaignId) return NextResponse.json({ error: 'campaignId 필요' }, { status: 400 })
 
     const db = supabaseAdmin()
@@ -38,19 +39,20 @@ export async function POST(req: NextRequest) {
 
     await db.from('campaigns').update({ status: 'sending' }).eq('id', campaignId)
 
-    // DB 그룹 + 수기 입력 이메일 합산
-    const groups: Category[] = campaign.groups
-    const extraEmails: string[] = campaign.extra_emails ?? []
+    // DB 그룹에서 회원 조회 (그룹이 없으면 스킵)
+    const groups: Category[] = campaign.groups ?? []
+    let groupEmails: string[] = []
+    if (groups.length > 0) {
+      const { data: members, error: mErr } = await db
+        .from('members')
+        .select('email')
+        .in('category', groups)
+      if (mErr) throw new Error('회원 조회 실패: ' + mErr.message)
+      groupEmails = (members ?? []).map((m: { email: string }) => m.email)
+    }
 
-    const { data: members, error: mErr } = await db
-      .from('members')
-      .select('email')
-      .in('category', groups)
-    if (mErr || !members) throw new Error('회원 조회 실패')
-
-    const allEmails = Array.from(
-      new Set([...members.map((m: { email: string }) => m.email), ...extraEmails])
-    )
+    // 그룹 이메일 + 수기 이메일 합산 (중복 제거)
+    const allEmails = Array.from(new Set([...groupEmails, ...extraEmails]))
 
     let sentCount = 0
     let failCount = 0
