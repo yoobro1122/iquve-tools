@@ -344,13 +344,18 @@ JSON 배열만 출력 (마크다운 없이):
   try {
     const data = await callProxy('text', {
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.9 }
+      generationConfig: { temperature: 0.9 }
     });
     if (data.error) throw new Error(data.error);
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const match = raw.match(/\[[\s\S]*\]/);
-    if (!match) throw new Error('응답 파싱 실패');
-    const copies = JSON.parse(match[0]);
+    if (!raw) throw new Error('응답이 비어있어요. Gemini API 키를 확인해주세요.');
+    let copies;
+    try { copies = JSON.parse(raw.trim()); } catch {
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error('응답 파싱 실패. 원문: ' + raw.slice(0, 150));
+      copies = JSON.parse(match[0]);
+    }
+    if (!Array.isArray(copies) || !copies.length) throw new Error('생성된 문구가 없어요');
 
     document.getElementById('aiResultList').innerHTML = copies.map((c,i) => `
       <div class="ai-copy-item">
