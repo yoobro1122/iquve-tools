@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>광고 소재 메이커 · iQUVE</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+    :root { --indigo:#3d4fd7; --indigo-light:#a8b4ff; --indigo-bg:#eef0fd; --dark:#1a1f36; --gray:#64748b; --border:#e2e8f0; --bg:#f1f3f9; --success:#10b981; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Noto Sans KR',sans-serif; background:var(--bg); color:var(--dark); min-height:100vh; }
+
+    header { background:white; border-bottom:1px solid var(--border); padding:0 28px; height:58px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .header-left { display:flex; align-items:center; gap:14px; }
+    .back-btn { font-size:13px; color:var(--gray); text-decoration:none; }
+    .back-btn:hover { color:var(--indigo); }
+    .logo { font-size:20px; font-weight:900; color:var(--indigo); }
+    .logo em { color:var(--indigo-light); font-style:normal; }
+    .page-title { font-size:14px; color:var(--gray); font-weight:600; }
+    .settings-link { font-size:13px; font-weight:700; color:var(--indigo); text-decoration:none; display:flex; align-items:center; gap:6px; padding:7px 16px; border:1.5px solid var(--indigo-light); background:var(--indigo-bg); border-radius:8px; transition:all 0.15s; }
+    .settings-link:hover { background:#dde1fa; border-color:var(--indigo); }
+
+    .api-banner { margin:14px 24px 0; padding:11px 16px; border-radius:10px; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:space-between; }
+    .api-banner.ok { background:#d1fae5; color:#065f46; }
+    .api-banner.warn { background:#fef3c7; color:#92400e; }
+    .api-banner a { color:inherit; font-weight:800; text-decoration:underline; }
+
+    .container { max-width:1080px; margin:0 auto; padding:18px 24px 40px; display:grid; grid-template-columns:1fr 340px; gap:18px; align-items:start; }
+
+    .card { background:white; border-radius:14px; border:1px solid var(--border); overflow:hidden; }
+    .card-header { padding:16px 22px 13px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .step-num { width:26px; height:26px; background:var(--indigo); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+    .card-header h2 { font-size:15px; font-weight:800; }
+    .card-body { padding:20px; }
+
+    .tabs { display:flex; border-bottom:1px solid var(--border); padding:0 22px; }
+    .tab { padding:11px 13px; font-size:13px; font-weight:700; color:var(--gray); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; margin-bottom:-1px; }
+    .tab.active { color:var(--indigo); border-bottom-color:var(--indigo); }
+    .tab-panel { display:none; padding:20px; }
+    .tab-panel.active { display:block; }
+
+    label { display:block; font-size:12px; font-weight:700; color:var(--gray); margin-bottom:5px; }
+    input[type=text], textarea, select { width:100%; padding:10px 13px; border:1.5px solid var(--border); border-radius:9px; font-size:14px; font-family:inherit; color:var(--dark); outline:none; transition:border-color 0.15s; background:white; }
+    input[type=text]:focus, textarea:focus, select:focus { border-color:var(--indigo); }
+    textarea { resize:vertical; line-height:1.6; }
+    .field { margin-bottom:13px; }
+    .field:last-child { margin-bottom:0; }
+
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:11px 18px; border-radius:9px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; border:none; transition:all 0.15s; }
+    .btn-primary { background:var(--indigo); color:white; width:100%; }
+    .btn-primary:hover:not(:disabled) { background:#2f3eb8; }
+    .btn-secondary { background:var(--indigo-bg); color:var(--indigo); width:100%; }
+    .btn-secondary:hover { background:#dde1fa; }
+    .btn-success { background:var(--success); color:white; width:100%; }
+    .btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+    .copy-list { display:flex; flex-direction:column; gap:10px; }
+    .copy-row { border:1.5px solid var(--border); border-radius:11px; padding:15px; }
+    .copy-row-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
+    .copy-row-label { font-size:11px; font-weight:700; color:var(--gray); background:var(--bg); padding:3px 10px; border-radius:20px; }
+    .copy-row-del { background:none; border:none; color:var(--gray); cursor:pointer; font-size:16px; }
+    .copy-row-fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .copy-row-fields .full { grid-column:1/-1; }
+    .copy-row-fields input, .copy-row-fields textarea { font-size:13px; padding:8px 11px; }
+    .copy-row-fields textarea { min-height:52px; }
+    .add-row-btn { display:flex; align-items:center; justify-content:center; gap:6px; border:2px dashed var(--border); border-radius:11px; padding:12px; font-size:13px; font-weight:700; color:var(--gray); cursor:pointer; background:none; width:100%; transition:all 0.15s; font-family:inherit; margin-top:10px; }
+    .add-row-btn:hover { border-color:var(--indigo); color:var(--indigo); background:var(--indigo-bg); }
+
+    .ai-result { background:var(--indigo-bg); border-radius:11px; padding:14px; margin-top:14px; }
+    .ai-result-label { font-size:11px; font-weight:700; color:var(--indigo); margin-bottom:10px; }
+    .ai-copy-item { background:white; border-radius:8px; padding:12px 14px; margin-bottom:8px; font-size:13px; line-height:1.6; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .ai-copy-item:last-child { margin-bottom:0; }
+    .ai-copy-text { flex:1; }
+    .ai-copy-type { font-size:10px; font-weight:700; color:var(--gray); margin-bottom:2px; }
+    .ai-use-btn { font-size:11px; font-weight:700; color:var(--indigo); background:var(--indigo-bg); border:none; padding:5px 12px; border-radius:6px; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+
+    .upload-zone { border:2px dashed var(--border); border-radius:11px; padding:30px 20px; text-align:center; cursor:pointer; transition:all 0.15s; }
+    .upload-zone:hover { border-color:var(--indigo); background:var(--indigo-bg); }
+
+    .size-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px; }
+    .size-item { border:2px solid var(--border); border-radius:10px; padding:12px 8px; text-align:center; cursor:pointer; transition:all 0.15s; }
+    .size-item.selected { border-color:var(--indigo); background:var(--indigo-bg); }
+    .size-item input[type=checkbox] { display:none; }
+    .size-icon { font-size:22px; margin-bottom:5px; }
+    .size-name { font-size:11px; font-weight:700; }
+    .size-dim { font-size:10px; color:var(--gray); margin-top:2px; }
+
+    .img-style-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+    .img-style-item { border:2px solid var(--border); border-radius:9px; padding:10px 12px; cursor:pointer; transition:all 0.15s; font-size:13px; font-weight:600; }
+    .img-style-item.selected { border-color:var(--indigo); background:var(--indigo-bg); color:var(--indigo); }
+
+    .log-box { background:#0f172a; border-radius:10px; padding:13px; font-size:12px; font-family:'Courier New',monospace; color:#94a3b8; max-height:150px; overflow-y:auto; margin-top:12px; }
+    .log-line { margin-bottom:3px; line-height:1.5; }
+    .log-line.ok { color:#4ade80; } .log-line.info { color:#60a5fa; } .log-line.err { color:#f87171; }
+
+    .result-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; }
+    .result-item { border:1.5px solid var(--border); border-radius:10px; overflow:hidden; }
+    .result-thumb { aspect-ratio:1; background:var(--indigo-bg); overflow:hidden; }
+    .result-thumb img { width:100%; height:100%; object-fit:cover; }
+    .result-info { padding:10px 12px; }
+    .result-name { font-size:11px; font-weight:700; margin-bottom:6px; }
+    .result-actions { display:flex; gap:6px; }
+    .result-btn { flex:1; padding:6px; font-size:11px; font-weight:700; border-radius:6px; border:none; cursor:pointer; font-family:inherit; text-decoration:none; text-align:center; display:block; }
+    .result-btn.dl { background:var(--success); color:white; }
+    .result-btn.figma { background:var(--indigo-bg); color:var(--indigo); }
+
+    .api-status-box { font-size:12px; color:var(--gray); padding:11px 13px; background:var(--bg); border-radius:9px; line-height:1.9; }
+
+    .spinner { width:15px; height:15px; border:2px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.6s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    @media (max-width:760px) { .container { grid-template-columns:1fr; } .copy-row-fields { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <a href="../../index.html" class="back-btn">← 홈</a>
+    <div class="logo">i<em>Q</em>UVE</div>
+    <div class="page-title">광고 소재 메이커</div>
+  </div>
+  <a href="settings.html" class="settings-link">⚙️ API 설정</a>
+</header>
+
+<div id="apiBanner" class="api-banner warn">
+  ⚠️ API 키 확인 중... <a href="settings.html">API 설정 →</a>
+</div>
+
+<div class="container">
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- STEP 1 -->
+    <div class="card">
+      <div class="card-header"><div class="step-num">1</div><h2>광고 문구 입력</h2></div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('manual')">직접 입력</div>
+        <div class="tab" onclick="switchTab('ai')">AI 자동 생성</div>
+        <div class="tab" onclick="switchTab('csv')">CSV 업로드</div>
+      </div>
+
+      <div id="tab-manual" class="tab-panel active">
+        <div class="copy-list" id="copyList"></div>
+        <button class="add-row-btn" onclick="addCopyRow()">+ 문구 세트 추가</button>
+      </div>
+
+      <div id="tab-ai" class="tab-panel">
+        <div class="field"><label>캠페인 목표</label>
+          <select id="aiGoal"><option>앱 설치 유도</option><option>무료 체험 신청</option><option>브랜드 인지도</option><option>이벤트 참여</option></select>
+        </div>
+        <div class="field"><label>타겟 고객</label><input type="text" id="aiTarget" value="4~8세 자녀를 둔 30대 부모"></div>
+        <div class="field"><label>강조 포인트</label><input type="text" id="aiPoint" value="AI 대화 동화책, 창의력, 무료 체험"></div>
+        <div class="field"><label>생성할 세트 수</label>
+          <select id="aiCount"><option value="3">3세트</option><option value="5" selected>5세트</option><option value="10">10세트</option></select>
+        </div>
+        <button class="btn btn-secondary" onclick="generateAICopy()" id="aiGenBtn">✨ AI 광고 문구 생성</button>
+        <div id="aiResult" style="display:none;" class="ai-result">
+          <div class="ai-result-label">✨ AI 생성 결과 — 사용할 문구를 고르세요</div>
+          <div id="aiResultList"></div>
+        </div>
+      </div>
+
+      <div id="tab-csv" class="tab-panel">
+        <div class="upload-zone" onclick="document.getElementById('csvFile').click()">
+          <div style="font-size:32px;margin-bottom:8px;">📂</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:3px;">CSV 파일 클릭해서 업로드</div>
+          <div style="font-size:12px;color:var(--gray);margin-bottom:14px;">tag, headline, body, cta 컬럼</div>
+          <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;" onclick="event.stopPropagation();downloadTemplate()">📥 CSV 템플릿</button>
+        </div>
+        <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSV(event)">
+        <div id="csvPreview" style="margin-top:12px;display:none;overflow-x:auto;font-size:12px;"></div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="card">
+      <div class="card-header"><div class="step-num">2</div><h2>사이즈 & 이미지 설정</h2></div>
+      <div class="card-body">
+        <label style="margin-bottom:8px;">생성할 사이즈</label>
+        <div class="size-grid">
+          <label class="size-item selected" id="sz-1-1"><input type="checkbox" value="1080x1080" checked onchange="toggleSize(this,'sz-1-1')"><div class="size-icon">⬛</div><div class="size-name">1:1</div><div class="size-dim">1080×1080</div></label>
+          <label class="size-item selected" id="sz-9-16"><input type="checkbox" value="1080x1920" checked onchange="toggleSize(this,'sz-9-16')"><div class="size-icon">📱</div><div class="size-name">9:16</div><div class="size-dim">1080×1920</div></label>
+          <label class="size-item selected" id="sz-banner"><input type="checkbox" value="1200x628" checked onchange="toggleSize(this,'sz-banner')"><div class="size-icon">🖥</div><div class="size-name">1.91:1</div><div class="size-dim">1200×628</div></label>
+        </div>
+        <div style="margin-top:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <label style="margin-bottom:0;">이미지 자동 생성 (Gemini Imagen)</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;">
+              <input type="checkbox" id="autoImg" checked style="width:auto;">
+              <span style="font-size:12px;font-weight:600;">활성화</span>
+            </label>
+          </div>
+          <div class="img-style-grid">
+            <div class="img-style-item selected" onclick="selectStyle(this,'따뜻한 파스텔 일러스트, 아이와 부모가 함께 동화책을 읽는 장면, 포근하고 밝은 분위기')">🎨 따뜻한 일러스트</div>
+            <div class="img-style-item" onclick="selectStyle(this,'귀여운 3D 캐릭터 렌더링, 아이가 마법 동화 세계에 있는 장면, 선명하고 생동감 있는 색감')">✨ 3D 귀여운</div>
+            <div class="img-style-item" onclick="selectStyle(this,'수채화 스타일 동화 삽화, 부드럽고 몽환적인 분위기, 파스텔 색감의 마법 장면')">🖌️ 수채화 동화</div>
+            <div class="img-style-item" onclick="selectStyle(this,'미니멀 플랫 디자인 일러스트, 깔끔하고 현대적, 인디고 블루와 화이트 계열')">📐 미니멀 플랫</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: 결과 -->
+    <div class="card" id="resultCard" style="display:none;">
+      <div class="card-header"><div class="step-num">3</div><h2>생성 결과</h2></div>
+      <div class="card-body">
+        <div id="resultList" class="result-grid"></div>
+        <div style="margin-top:16px;display:flex;gap:10px;">
+          <button class="btn btn-success" onclick="downloadAll()">⬇️ 전체 PNG 다운로드</button>
+          <a id="figmaLink" href="https://www.figma.com/design/VLI8iWLQpVpzWJdI9F11n4" target="_blank" class="btn btn-secondary" style="text-decoration:none;">🎨 피그마 열기</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 우측 패널 -->
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="card" style="position:sticky;top:70px;">
+      <div class="card-header"><div class="step-num" style="background:var(--dark);">▶</div><h2>소재 생성</h2></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div class="api-status-box" id="apiStatusBox">
+          <div id="figmaKeyStatus">🔑 Figma: 확인 중...</div>
+          <div id="geminiKeyStatus">🤖 Gemini: 확인 중...</div>
+        </div>
+        <button class="btn btn-primary" onclick="startGenerate()" id="generateBtn">🚀 소재 생성 시작</button>
+        <a href="settings.html" class="btn btn-secondary" style="text-decoration:none;text-align:center;">⚙️ API 키 설정</a>
+        <div id="logBox" class="log-box" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://emgsqnzfdvvbtooouaap.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
+const PROXY_URL = `${SUPABASE_URL}/functions/v1/ad-tools`;
+
+let CFG = {};
+let selectedStyle = '따뜻한 파스텔 일러스트, 아이와 부모가 함께 동화책을 읽는 장면, 포근하고 밝은 분위기';
+let allResults = [];
+
+// ── Supabase에서 설정 로드 ──
+async function loadConfig() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/api_config?select=key_name,key_value`, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    const rows = await res.json();
+    if (Array.isArray(rows)) {
+      rows.forEach(r => {
+        if (r.key_name === 'figma_token') CFG.figmaToken = r.key_value;
+        if (r.key_name === 'figma_file_key') CFG.figmaFileKey = r.key_value;
+        if (r.key_name === 'gemini_key') CFG.geminiKey = r.key_value;
+      });
+    }
+  } catch(e) { console.error('설정 로드 실패:', e); }
+  updateStatusUI();
+}
+
+function updateStatusUI() {
+  const hasFigma = !!CFG.figmaToken;
+  const hasGemini = !!CFG.geminiKey;
+  const ok = hasFigma && hasGemini;
+  const banner = document.getElementById('apiBanner');
+  banner.className = 'api-banner ' + (ok ? 'ok' : 'warn');
+  banner.innerHTML = ok
+    ? '✅ API 연동 완료 — 소재 생성 준비됐어요!'
+    : '⚠️ API 키가 설정되지 않았어요. <a href="settings.html">API 설정 →</a>';
+  document.getElementById('figmaKeyStatus').textContent = hasFigma ? '🔑 Figma: 연결됨 ✓' : '🔑 Figma: 미설정';
+  document.getElementById('figmaKeyStatus').style.color = hasFigma ? '#065f46' : '#92400e';
+  document.getElementById('geminiKeyStatus').textContent = hasGemini ? '🤖 Gemini: 연결됨 ✓' : '🤖 Gemini: 미설정';
+  document.getElementById('geminiKeyStatus').style.color = hasGemini ? '#065f46' : '#92400e';
+  if (CFG.figmaFileKey) document.getElementById('figmaLink').href = `https://www.figma.com/design/${CFG.figmaFileKey}`;
+}
+
+loadConfig();
+
+// ── UI 헬퍼 ──
+function switchTab(name) {
+  const names = ['manual','ai','csv'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+function toggleSize(cb, id) { document.getElementById(id).classList.toggle('selected', cb.checked); }
+function selectStyle(el, style) {
+  document.querySelectorAll('.img-style-item').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected'); selectedStyle = style;
+}
+
+// ── 문구 행 ──
+let copyRows = [], rowIdx = 0;
+function addCopyRow(data) {
+  const idx = rowIdx++;
+  const esc = s => (s||'').replace(/"/g,'&quot;');
+  const row = document.createElement('div');
+  row.className = 'copy-row'; row.id = 'row-'+idx;
+  row.innerHTML = `
+    <div class="copy-row-header">
+      <span class="copy-row-label">세트 ${idx+1}</span>
+      <button class="copy-row-del" onclick="removeCopyRow(${idx})">✕</button>
+    </div>
+    <div class="copy-row-fields">
+      <div><label>[ TAG ]</label><input type="text" id="tag-${idx}" placeholder="대화하는 동화책" value="${esc(data?.tag)}"></div>
+      <div><label>[ CTA ]</label><input type="text" id="cta-${idx}" placeholder="무료로 시작하기 →" value="${esc(data?.cta)}"></div>
+      <div class="full"><label>[ HEADLINE ]</label><input type="text" id="headline-${idx}" placeholder="우리 아이의 창의력을 깨워주는 AI 동화" value="${esc(data?.headline)}"></div>
+      <div class="full"><label>[ BODY ]</label><textarea id="body-${idx}" rows="2">${data?.body||''}</textarea></div>
+    </div>`;
+  document.getElementById('copyList').appendChild(row);
+  copyRows.push(idx);
+}
+function removeCopyRow(idx) {
+  document.getElementById('row-'+idx)?.remove();
+  copyRows = copyRows.filter(i => i!==idx);
+}
+function getCopyData() {
+  return copyRows.map(idx => ({
+    tag: document.getElementById('tag-'+idx)?.value||'',
+    headline: document.getElementById('headline-'+idx)?.value||'',
+    body: document.getElementById('body-'+idx)?.value||'',
+    cta: document.getElementById('cta-'+idx)?.value||'',
+  })).filter(r => r.headline);
+}
+addCopyRow({ tag:'대화하는 동화책', headline:'우리 아이의 창의력을 깨워주는 AI 동화', body:'매일 밤, 아이와 함께 대화하는 특별한 동화 시간', cta:'무료로 시작하기 →' });
+
+// ── AI 문구 생성 (Supabase 프록시 경유) ──
+async function generateAICopy() {
+  if (!CFG.geminiKey) { if(confirm('Gemini API 키가 없어요. 설정 페이지로 이동할까요?')) location.href='settings.html'; return; }
+  const btn = document.getElementById('aiGenBtn');
+  btn.innerHTML = '<div class="spinner"></div> 생성 중...'; btn.disabled = true;
+
+  const goal = document.getElementById('aiGoal').value;
+  const target = document.getElementById('aiTarget').value;
+  const point = document.getElementById('aiPoint').value;
+  const count = document.getElementById('aiCount').value;
+
+  const prompt = `iQUVE는 4~8세 아이를 위한 AI 대화형 동화책 앱입니다. 핵심 컨셉: "대화하는 동화책"
+광고 문구 ${count}세트를 생성해주세요.
+캠페인 목표: ${goal} / 타겟: ${target} / 강조 포인트: ${point}
+JSON 배열만 출력 (마크다운 없이):
+[{"tag":"태그(10자이내)","headline":"헤드라인(18자이내)","body":"바디카피(35자이내)","cta":"CTA(8자이내)"}]`;
+
+  try {
+    const data = await callProxy('text', {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.9 }
+    });
+    if (data.error) throw new Error(data.error);
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('응답 파싱 실패');
+    const copies = JSON.parse(match[0]);
+
+    document.getElementById('aiResultList').innerHTML = copies.map((c,i) => `
+      <div class="ai-copy-item">
+        <div class="ai-copy-text">
+          <div class="ai-copy-type">세트 ${i+1}</div>
+          <b>${c.headline}</b><br>
+          <span style="color:var(--gray);font-size:12px;">${c.body}</span><br>
+          <small style="color:#94a3b8;">태그: ${c.tag} · CTA: ${c.cta}</small>
+        </div>
+        <button class="ai-use-btn" onclick='useAICopy(${JSON.stringify(c).replace(/'/g,"&#39;")})'>사용</button>
+      </div>`).join('');
+    document.getElementById('aiResult').style.display = 'block';
+  } catch(e) {
+    alert('문구 생성 오류: ' + e.message);
+  } finally {
+    btn.innerHTML = '✨ AI 광고 문구 생성'; btn.disabled = false;
+  }
+}
+function useAICopy(c) { switchTab('manual'); addCopyRow(c); }
+
+// ── Supabase 프록시 호출 ──
+async function callProxy(type, payload) {
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify({ type, payload }),
+  });
+  return res.json();
+}
+
+// ── CSV ──
+function downloadTemplate() {
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent('tag,headline,body,cta\n대화하는 동화책,우리 아이의 창의력을 깨워주는 AI 동화,매일 밤 아이와 함께 대화하는 특별한 동화 시간,무료로 시작하기');
+  a.download = 'iquve_ad_template.csv'; a.click();
+}
+function handleCSV(e) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const lines = ev.target.result.trim().split('\n').map(l => l.split(',').map(c=>c.trim()));
+    let html = '<table style="border-collapse:collapse;width:100%;">';
+    lines.forEach((r,i) => { html += '<tr>'+r.map(c=>`<td style="padding:5px 7px;border:1px solid var(--border);${i===0?'font-weight:700;background:var(--bg)':''}">${c}</td>`).join('')+'</tr>'; });
+    html += '</table>';
+    document.getElementById('csvPreview').style.display='block';
+    document.getElementById('csvPreview').innerHTML=html;
+    lines.slice(1).forEach(r => addCopyRow({tag:r[0],headline:r[1],body:r[2],cta:r[3]}));
+    switchTab('manual');
+  };
+  reader.readAsText(e.target.files[0],'utf-8');
+}
+
+// ── 로그 ──
+function log(msg, type='info') {
+  const b = document.getElementById('logBox');
+  b.style.display='block';
+  b.innerHTML += `<div class="log-line ${type}">[${new Date().toLocaleTimeString('ko')}] ${msg}</div>`;
+  b.scrollTop = b.scrollHeight;
+}
+
+// ── Gemini 이미지 생성 (프록시 경유) ──
+async function generateImage(headline, body) {
+  const prompt = `어린이 교육 앱 광고 이미지. ${headline}. ${body}. 스타일: ${selectedStyle}. 텍스트 없이, 깔끔하게. 안전하고 따뜻한 이미지.`;
+  const data = await callProxy('image', {
+    instances: [{ prompt }],
+    parameters: { sampleCount: 1, aspectRatio: '1:1', safetySetting: 'block_only_high' }
+  });
+  if (data.error) throw new Error(data.error);
+  const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+  if (!b64) throw new Error('이미지 없음');
+  return 'data:image/png;base64,' + b64;
+}
+
+// ── Canvas 합성 ──
+function rrect(ctx,x,y,w,h,r){
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+function wrapText(ctx,text,x,y,maxW,lineH,maxLines){
+  const chars=text.split(''); let line=''; let lc=0;
+  for(let i=0;i<chars.length;i++){
+    const test=line+chars[i];
+    if(ctx.measureText(test).width>maxW&&line){ ctx.fillText(line,x,y+lc*lineH); lc++; if(lc>=maxLines)return; line=chars[i]; }
+    else line=test;
+  }
+  if(line) ctx.fillText(line,x,y+lc*lineH);
+}
+
+async function compositeCanvas(copy, imgDataUrl, sizeStr) {
+  const [w,h]=sizeStr.split('x').map(Number);
+  const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext('2d');
+  const isBanner=w>h*1.5, is916=h>w;
+
+  const grad=ctx.createLinearGradient(0,0,w*0.4,h);
+  grad.addColorStop(0,'#2d3fca'); grad.addColorStop(1,'#1a2570');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+
+  let ix,iy,iw,ih;
+  if(isBanner){ix=Math.round(w*0.57);iy=0;iw=Math.round(w*0.43);ih=h;}
+  else if(is916){ix=60;iy=160;iw=w-120;ih=Math.round(h*0.44);}
+  else{ix=Math.round(w*0.5);iy=Math.round(h*0.12);iw=Math.round(w*0.44);ih=Math.round(h*0.44);}
+
+  if(imgDataUrl){
+    await new Promise((res,rej)=>{
+      const img=new Image(); img.crossOrigin='anonymous';
+      img.onload=()=>{ ctx.save(); rrect(ctx,ix,iy,iw,ih,28); ctx.clip(); ctx.drawImage(img,ix,iy,iw,ih); ctx.restore(); res(); };
+      img.onerror=rej; img.src=imgDataUrl;
+    });
+  }
+
+  const ov=ctx.createLinearGradient(0,h*0.42,0,h);
+  ov.addColorStop(0,'rgba(12,18,70,0)'); ov.addColorStop(1,'rgba(12,18,70,0.96)');
+  ctx.fillStyle=ov; ctx.fillRect(0,h*0.42,isBanner?w*0.62:w,h*0.58);
+
+  const sc=w/1080, tx=60*sc;
+  let ty=isBanner?80*sc:(is916?h*0.63:h*0.56);
+
+  ctx.fillStyle='rgba(255,255,255,0.18)'; rrect(ctx,48*sc,44*sc,120*sc,40*sc,20*sc); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font=`700 ${Math.round(19*sc)}px sans-serif`; ctx.fillText('iQUVE',68*sc,68*sc);
+
+  if(copy.tag){ ctx.fillStyle='#a8b4ff'; ctx.font=`700 ${Math.round((isBanner?21:29)*sc)}px sans-serif`; ctx.fillText(copy.tag,tx,ty); ty+=(isBanner?33:42)*sc; }
+
+  ctx.fillStyle='#fff';
+  const hlSz=isBanner?36:is916?76:64;
+  ctx.font=`900 ${Math.round(hlSz*sc)}px sans-serif`;
+  wrapText(ctx,copy.headline,tx,ty,isBanner?w*0.5:w-120,(hlSz+14)*sc,3);
+  ty+=(hlSz+14)*sc*(copy.headline.length>14?2:1)+10*sc;
+
+  if(copy.body){
+    ctx.fillStyle='rgba(190,205,255,0.9)';
+    const bSz=isBanner?19:is916?32:27;
+    ctx.font=`400 ${Math.round(bSz*sc)}px sans-serif`;
+    wrapText(ctx,copy.body,tx,ty,isBanner?w*0.52:w-120,(bSz+10)*sc,2);
+    ty+=(bSz+10)*sc*2+16*sc;
+  }
+
+  const ctaW=isBanner?200*sc:is916?w-120:310*sc, ctaH=(isBanner?48:68)*sc;
+  ctx.fillStyle='#fff'; rrect(ctx,tx,ty,ctaW,ctaH,ctaH/2); ctx.fill();
+  ctx.fillStyle='#3d4fd7';
+  ctx.font=`700 ${Math.round((isBanner?17:26)*sc)}px sans-serif`;
+  const ctaTxt=copy.cta||'무료로 시작하기 →';
+  const ctaM=ctx.measureText(ctaTxt);
+  ctx.fillText(ctaTxt,tx+(ctaW-ctaM.width)/2,ty+ctaH*0.64);
+
+  return canvas.toDataURL('image/png');
+}
+
+// ── 소재 생성 메인 ──
+async function startGenerate() {
+  await loadConfig();
+  const copies=getCopyData();
+  if(!copies.length){alert('광고 문구를 최소 1세트 입력해주세요');return;}
+  const sizes=[...document.querySelectorAll('.size-grid input[type=checkbox]:checked')].map(c=>c.value);
+  if(!sizes.length){alert('사이즈를 1개 이상 선택해주세요');return;}
+  const useImg=document.getElementById('autoImg').checked;
+  if(useImg&&!CFG.geminiKey){alert('이미지 생성에 Gemini API 키가 필요해요.');return;}
+
+  const btn=document.getElementById('generateBtn');
+  btn.innerHTML='<div class="spinner"></div> 생성 중...'; btn.disabled=true;
+  document.getElementById('logBox').innerHTML=''; allResults=[];
+
+  try {
+    const imgMap={};
+    if(useImg&&CFG.geminiKey){
+      for(let ci=0;ci<copies.length;ci++){
+        log(`[세트 ${ci+1}] Gemini 이미지 생성 중...`,'info');
+        try{ imgMap[ci]=await generateImage(copies[ci].headline,copies[ci].body); log(`[세트 ${ci+1}] 이미지 완료 ✓`,'ok'); }
+        catch(e){ log(`[세트 ${ci+1}] 이미지 실패: ${e.message}`,'err'); imgMap[ci]=null; }
+      }
+    }
+    for(let ci=0;ci<copies.length;ci++){
+      for(const sz of sizes){
+        const label=sz==='1080x1080'?'1:1':sz==='1080x1920'?'9:16':'배너';
+        log(`[세트 ${ci+1}] ${label} 합성 중...`,'info');
+        const dataUrl=await compositeCanvas(copies[ci],imgMap[ci]||null,sz);
+        allResults.push({name:`세트${ci+1}_${label}`,sz,dataUrl});
+        log(`[세트 ${ci+1}] ${label} 완료 ✓`,'ok');
+      }
+    }
+    showResults();
+    log(`🎉 완료! ${allResults.length}개 소재 생성`,'ok');
+  } catch(e){ log('오류: '+e.message,'err'); alert('오류: '+e.message); }
+  finally{ btn.innerHTML='🚀 소재 생성 시작'; btn.disabled=false; }
+}
+
+function showResults(){
+  const card=document.getElementById('resultCard'); card.style.display='block';
+  document.getElementById('resultList').innerHTML=allResults.map(r=>`
+    <div class="result-item">
+      <div class="result-thumb"><img src="${r.dataUrl}" loading="lazy"></div>
+      <div class="result-info">
+        <div class="result-name">${r.name}</div>
+        <div class="result-actions">
+          <a href="${r.dataUrl}" download="${r.name}.png" class="result-btn dl">PNG ↓</a>
+          ${CFG.figmaFileKey?`<a href="https://www.figma.com/design/${CFG.figmaFileKey}" target="_blank" class="result-btn figma">Figma</a>`:''}
+        </div>
+      </div>
+    </div>`).join('');
+  card.scrollIntoView({behavior:'smooth'});
+}
+
+function downloadAll(){
+  allResults.forEach((r,i)=>setTimeout(()=>{
+    const a=document.createElement('a'); a.href=r.dataUrl; a.download=`iquve_ad_${r.name}.png`; a.click();
+  },i*600));
+}
+</script>
+</body>
+</html>

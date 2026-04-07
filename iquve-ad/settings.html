@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API 설정 · iQUVE</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+    :root { --indigo:#3d4fd7; --indigo-light:#a8b4ff; --indigo-bg:#eef0fd; --dark:#1a1f36; --gray:#64748b; --border:#e2e8f0; --bg:#f1f3f9; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Noto Sans KR',sans-serif; background:var(--bg); color:var(--dark); min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
+
+    /* 잠금 화면 */
+    .lock-screen { width:100%; max-width:380px; text-align:center; }
+    .lock-icon { font-size:48px; margin-bottom:16px; }
+    .lock-title { font-size:22px; font-weight:900; margin-bottom:6px; }
+    .lock-sub { font-size:14px; color:var(--gray); margin-bottom:32px; }
+    .lock-input { width:100%; padding:14px 18px; border:2px solid var(--border); border-radius:12px; font-size:18px; letter-spacing:6px; text-align:center; font-family:inherit; outline:none; margin-bottom:12px; transition:border-color 0.15s; }
+    .lock-input:focus { border-color:var(--indigo); }
+    .lock-input.shake { animation:shake 0.3s ease; border-color:#ef4444; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+    .lock-btn { width:100%; padding:14px; background:var(--indigo); color:white; border:none; border-radius:12px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; }
+    .lock-btn:hover { background:#2f3eb8; }
+    .lock-hint { font-size:12px; color:var(--gray); margin-top:12px; }
+
+    /* 설정 화면 */
+    .settings-screen { width:100%; max-width:560px; display:none; }
+    header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; }
+    .logo { font-size:22px; font-weight:900; color:var(--indigo); }
+    .logo em { color:var(--indigo-light); font-style:normal; }
+    .back-link { font-size:13px; color:var(--gray); text-decoration:none; }
+    .back-link:hover { color:var(--indigo); }
+
+    .card { background:white; border-radius:16px; border:1px solid var(--border); margin-bottom:14px; overflow:hidden; }
+    .card-header { padding:18px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .card-icon { font-size:20px; }
+    .card-header h2 { font-size:15px; font-weight:800; }
+    .card-body { padding:22px; display:flex; flex-direction:column; gap:14px; }
+    label { display:block; font-size:12px; font-weight:700; color:var(--gray); margin-bottom:5px; }
+    .input-row { display:flex; gap:8px; }
+    .input-row input { flex:1; }
+    input[type=text], input[type=password] { width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:14px; font-family:inherit; outline:none; transition:border-color 0.15s; }
+    input:focus { border-color:var(--indigo); }
+    .hint { font-size:12px; color:var(--gray); margin-top:5px; }
+    .hint a { color:var(--indigo); }
+    .toggle-btn { padding:10px 14px; background:var(--bg); border:1.5px solid var(--border); border-radius:10px; cursor:pointer; font-size:13px; font-family:inherit; transition:all 0.15s; white-space:nowrap; }
+    .toggle-btn:hover { border-color:var(--indigo); }
+    .verify-btn { padding:10px 14px; background:var(--indigo-bg); color:var(--indigo); border:1.5px solid var(--indigo-bg); border-radius:10px; cursor:pointer; font-size:13px; font-weight:700; font-family:inherit; transition:all 0.15s; white-space:nowrap; }
+    .verify-btn:hover { background:#dde1fa; }
+    .save-btn { width:100%; padding:14px; background:var(--indigo); color:white; border:none; border-radius:12px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; margin-top:6px; transition:background 0.15s; }
+    .save-btn:hover { background:#2f3eb8; }
+    .save-btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .lock-out-btn { width:100%; padding:12px; background:none; border:1.5px solid var(--border); border-radius:10px; font-size:13px; font-weight:700; color:var(--gray); font-family:inherit; cursor:pointer; margin-top:6px; transition:all 0.15s; }
+    .lock-out-btn:hover { border-color:#ef4444; color:#ef4444; }
+
+    .status-bar { display:none; align-items:center; gap:8px; padding:10px 14px; border-radius:9px; font-size:13px; font-weight:600; margin-top:8px; }
+    .status-bar.ok { background:#d1fae5; color:#065f46; display:flex; }
+    .status-bar.warn { background:#fef3c7; color:#92400e; display:flex; }
+    .status-bar.err { background:#fee2e2; color:#991b1b; display:flex; }
+    .status-bar.loading { background:var(--indigo-bg); color:var(--indigo); display:flex; }
+
+    .spinner { width:14px; height:14px; border:2px solid rgba(61,79,215,0.3); border-top-color:var(--indigo); border-radius:50%; animation:spin 0.6s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .saved-tag { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:#065f46; background:#d1fae5; padding:3px 10px; border-radius:20px; font-weight:700; margin-left:8px; }
+  </style>
+</head>
+<body>
+
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-icon">🔐</div>
+  <div class="lock-title">API 설정</div>
+  <div class="lock-sub">접근하려면 비밀번호를 입력해주세요</div>
+  <input type="password" class="lock-input" id="lockInput" placeholder="••••" maxlength="20" onkeydown="if(event.key==='Enter')unlock()">
+  <button class="lock-btn" onclick="unlock()">잠금 해제</button>
+  <p class="lock-hint" id="lockHint">기본 비밀번호: <b>iquve</b></p>
+</div>
+
+<div class="settings-screen" id="settingsScreen">
+  <header>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="logo">i<em>Q</em>UVE</div>
+      <span style="font-size:14px;color:var(--gray);font-weight:600;">API 설정</span>
+    </div>
+    <a href="../../index.html" class="back-link">← 홈으로</a>
+  </header>
+
+  <!-- Figma -->
+  <div class="card">
+    <div class="card-header"><div class="card-icon">🎨</div><h2>Figma 연동</h2></div>
+    <div class="card-body">
+      <div>
+        <label>액세스 토큰 <span id="figmaTokenSaved" class="saved-tag" style="display:none;">✓ 저장됨</span></label>
+        <div class="input-row">
+          <input type="password" id="figmaToken" placeholder="figd_...">
+          <button class="toggle-btn" onclick="toggleVis('figmaToken',this)">보기</button>
+          <button class="verify-btn" onclick="verifyFigma()">확인</button>
+        </div>
+        <p class="hint">Figma → Settings → Security → Personal access tokens · <a href="https://www.figma.com/settings" target="_blank">발급받기 →</a></p>
+        <div id="figmaStatus" class="status-bar"></div>
+      </div>
+      <div>
+        <label>피그마 파일 키 <span id="figmaFileSaved" class="saved-tag" style="display:none;">✓ 저장됨</span></label>
+        <input type="text" id="figmaFileKey" placeholder="VLI8iWLQ...">
+        <p class="hint">피그마 파일 URL /design/ 뒤에 오는 키 · <a href="https://www.figma.com/design/VLI8iWLQpVpzWJdI9F11n4" target="_blank">광고 템플릿 파일 →</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemini -->
+  <div class="card">
+    <div class="card-header"><div class="card-icon">✨</div><h2>Gemini AI 연동</h2></div>
+    <div class="card-body">
+      <div>
+        <label>API 키 <span id="geminiKeySaved" class="saved-tag" style="display:none;">✓ 저장됨</span></label>
+        <div class="input-row">
+          <input type="password" id="geminiKey" placeholder="AIzaSy...">
+          <button class="toggle-btn" onclick="toggleVis('geminiKey',this)">보기</button>
+          <button class="verify-btn" onclick="verifyGemini()">확인</button>
+        </div>
+        <p class="hint">Google AI Studio에서 무료 발급 · <a href="https://aistudio.google.com/app/apikey" target="_blank">발급받기 →</a></p>
+        <div id="geminiStatus" class="status-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 비밀번호 변경 -->
+  <div class="card">
+    <div class="card-header"><div class="card-icon">🔑</div><h2>비밀번호 변경</h2></div>
+    <div class="card-body">
+      <div><label>새 비밀번호</label><input type="password" id="newPw" placeholder="새 비밀번호 (4자 이상)"></div>
+      <div><label>비밀번호 확인</label><input type="password" id="newPwConfirm" placeholder="다시 입력"></div>
+    </div>
+  </div>
+
+  <button class="save-btn" onclick="saveAll()" id="saveBtn">💾 Supabase에 저장하기</button>
+  <button class="lock-out-btn" onclick="lockOut()">🔒 잠금</button>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://emgsqnzfdvvbtooouaap.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
+const PW_KEY = 'iquve_pw';
+
+function getPassword() { return localStorage.getItem(PW_KEY) || 'iquve'; }
+
+function unlock() {
+  const input = document.getElementById('lockInput');
+  if (input.value === getPassword()) {
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('settingsScreen').style.display = 'block';
+    loadSaved();
+  } else {
+    input.classList.add('shake');
+    input.value = '';
+    setTimeout(() => input.classList.remove('shake'), 400);
+  }
+}
+
+function lockOut() {
+  document.getElementById('lockScreen').style.display = 'flex';
+  document.getElementById('settingsScreen').style.display = 'none';
+  document.getElementById('lockInput').value = '';
+}
+
+// Supabase에서 저장된 키 불러오기
+async function loadSaved() {
+  const headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/api_config?select=key_name,key_value`, { headers });
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return;
+    rows.forEach(row => {
+      if (row.key_name === 'figma_token') { document.getElementById('figmaToken').value = row.key_value; showSaved('figmaTokenSaved'); }
+      if (row.key_name === 'figma_file_key') { document.getElementById('figmaFileKey').value = row.key_value; showSaved('figmaFileSaved'); }
+      if (row.key_name === 'gemini_key') { document.getElementById('geminiKey').value = row.key_value; showSaved('geminiKeySaved'); }
+    });
+  } catch(e) { console.error('설정 불러오기 실패:', e); }
+}
+
+function showSaved(id) { document.getElementById(id).style.display = 'inline-flex'; }
+
+// Supabase에 저장
+async function saveAll() {
+  const figmaToken = document.getElementById('figmaToken').value.trim();
+  const figmaFileKey = document.getElementById('figmaFileKey').value.trim().replace(/.*\/design\/([^/?]+).*/, '$1');
+  const geminiKey = document.getElementById('geminiKey').value.trim();
+  const newPw = document.getElementById('newPw').value;
+  const newPwConfirm = document.getElementById('newPwConfirm').value;
+
+  if (newPw) {
+    if (newPw !== newPwConfirm) { alert('비밀번호가 일치하지 않아요'); return; }
+    if (newPw.length < 4) { alert('비밀번호는 4자 이상이어야 해요'); return; }
+    localStorage.setItem(PW_KEY, newPw);
+  }
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:8px;vertical-align:middle;"></div>저장 중...';
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Prefer': 'resolution=merge-duplicates',
+  };
+
+  const entries = [
+    { key_name: 'figma_token', key_value: figmaToken },
+    { key_name: 'figma_file_key', key_value: figmaFileKey },
+    { key_name: 'gemini_key', key_value: geminiKey },
+  ].filter(e => e.key_value);
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/api_config`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(entries),
+    });
+    if (res.ok || res.status === 201) {
+      btn.innerHTML = '✅ 저장됐어요!';
+      btn.style.background = '#10b981';
+      entries.forEach(e => {
+        if (e.key_name === 'figma_token') showSaved('figmaTokenSaved');
+        if (e.key_name === 'figma_file_key') showSaved('figmaFileSaved');
+        if (e.key_name === 'gemini_key') showSaved('geminiKeySaved');
+      });
+      setTimeout(() => { btn.innerHTML = '💾 Supabase에 저장하기'; btn.style.background = ''; btn.disabled = false; }, 2500);
+    } else {
+      const err = await res.text();
+      throw new Error(err);
+    }
+  } catch(e) {
+    alert('저장 실패: ' + e.message);
+    btn.innerHTML = '💾 Supabase에 저장하기';
+    btn.style.background = '';
+    btn.disabled = false;
+  }
+}
+
+function toggleVis(id, btn) {
+  const input = document.getElementById(id);
+  input.type = input.type === 'password' ? 'text' : 'password';
+  btn.textContent = input.type === 'password' ? '보기' : '숨기기';
+}
+
+async function verifyFigma() {
+  const token = document.getElementById('figmaToken').value.trim();
+  const el = document.getElementById('figmaStatus');
+  if (!token) { showStatus(el, 'err', '토큰을 입력해주세요'); return; }
+  showStatus(el, 'loading', '확인 중...');
+  try {
+    const res = await fetch('https://api.figma.com/v1/me', { headers: { 'X-Figma-Token': token } });
+    const data = await res.json();
+    data.email ? showStatus(el, 'ok', `✓ ${data.handle || data.email} 연결됨`) : showStatus(el, 'err', '토큰이 올바르지 않아요');
+  } catch { showStatus(el, 'err', '연결 실패'); }
+}
+
+async function verifyGemini() {
+  const key = document.getElementById('geminiKey').value.trim();
+  const el = document.getElementById('geminiStatus');
+  if (!key) { showStatus(el, 'err', 'API 키를 입력해주세요'); return; }
+  if (!key.startsWith('AIza') || key.length < 30) { showStatus(el, 'err', '키 형식 오류 (AIzaSy...로 시작해야 해요)'); return; }
+  showStatus(el, 'loading', '확인 중...');
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    const data = await res.json();
+    data.error ? showStatus(el, 'err', `❌ ${data.error.message}`) : showStatus(el, 'ok', `✓ Gemini 연결 성공`);
+  } catch {
+    // 키 형식이 맞으면 일단 통과 (CORS 이슈 가능)
+    showStatus(el, 'warn', '⚠️ 네트워크 확인 불가 — 키 형식은 올바른 것 같아요. 저장 후 소재 생성에서 확인해주세요.');
+  }
+}
+
+function showStatus(el, type, msg) {
+  el.className = `status-bar ${type}`;
+  el.innerHTML = type === 'loading' ? `<div class="spinner"></div> ${msg}` : msg;
+}
+
+document.getElementById('lockInput').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+</script>
+</body>
+</html>
