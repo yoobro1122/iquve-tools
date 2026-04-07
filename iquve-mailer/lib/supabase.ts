@@ -5,7 +5,6 @@ export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// 서버 전용 (API Route 에서만 사용)
 export function supabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,10 +30,13 @@ export interface Campaign {
   subject: string
   html_content: string
   groups: Category[]
-  status: 'draft' | 'sending' | 'done' | 'error'
+  status: 'draft' | 'sending' | 'done' | 'error' | 'pending'
   total_count: number
   sent_count: number
   fail_count: number
+  pending_emails: string[]
+  batch_index: number
+  daily_limit: number
   created_at: string
   sent_at: string | null
 }
