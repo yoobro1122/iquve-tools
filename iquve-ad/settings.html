@@ -82,7 +82,7 @@
       <div class="logo">i<em>Q</em>UVE</div>
       <span style="font-size:14px;color:var(--gray);font-weight:600;">API 설정</span>
     </div>
-    <a href="../index.html" class="back-link">← 홈으로</a>
+    <a href="ad-maker.html" class="back-link">← 홈으로</a>
   </header>
 
   <!-- Figma -->
@@ -212,7 +212,7 @@ async function saveAll() {
   ].filter(e => e.key_value);
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/api_config`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/api_config?on_conflict=key_name`, {
       method: 'POST',
       headers,
       body: JSON.stringify(entries),
