@@ -35,9 +35,10 @@ export default function Home() {
   const [extraEmailInput, setExtraEmailInput] = useState('')
   const [extraEmails, setExtraEmails] = useState<string[]>([])
   const [sending, setSending] = useState(false)
-  const [sendResult, setSendResult] = useState<{ total: number; sentCount: number; failCount: number } | null>(null)
+  const [sendResult, setSendResult] = useState<{ sentCount: number; failCount: number; sentToday: number; remaining: number; hasPending: boolean; campaignId: string } | null>(null)
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [historyDetail, setHistoryDetail] = useState<Campaign | null>(null)
+  const [continueCampaign, setContinueCampaign] = useState<Campaign | null>(null)
   const dbFileRef = useRef<HTMLInputElement>(null)
   const htmlFileRef = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' | 'info' } | null>(null)
@@ -105,18 +106,29 @@ export default function Home() {
     showToast(`${newOnes.length}개 추가됨`, 'ok')
   }
 
-  async function handleSend() {
-    if (!subject.trim()) { showToast('메일 제목을 입력해주세요.', 'err'); return }
-    if (!htmlContent.trim()) { showToast('메일 내용을 입력해주세요.', 'err'); return }
-    if (selectedGroups.length === 0 && extraEmails.length === 0) { showToast('발송 그룹 또는 수기 이메일을 추가해주세요.', 'err'); return }
+  async function handleSend(campaignId?: string, isContinue = false) {
+    if (!isContinue) {
+      if (!subject.trim()) { showToast('메일 제목을 입력해주세요.', 'err'); return }
+      if (!htmlContent.trim()) { showToast('메일 내용을 입력해주세요.', 'err'); return }
+      if (selectedGroups.length === 0 && extraEmails.length === 0) { showToast('발송 그룹 또는 수기 이메일을 추가해주세요.', 'err'); return }
+    }
     setSending(true); setSendResult(null)
     try {
-      const { data: campaign, error } = await supabase.from('campaigns').insert({ title: campaignTitle || subject, subject, html_content: htmlContent, groups: selectedGroups }).select().single()
-      if (error || !campaign) throw new Error('캠페인 생성 실패: ' + error?.message)
-      const res = await fetch('/api/send-campaign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId: campaign.id, extraEmails }) })
+      let cid = campaignId
+      if (!isContinue) {
+        const { data: campaign, error } = await supabase.from('campaigns').insert({ title: campaignTitle || subject, subject, html_content: htmlContent, groups: selectedGroups }).select().single()
+        if (error || !campaign) throw new Error('캠페인 생성 실패: ' + error?.message)
+        cid = campaign.id
+      }
+      const res = await fetch('/api/send-campaign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId: cid, extraEmails, isContinue }) })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
-      setSendResult(json); showToast(`발송 완료! ${json.sentCount}/${json.total}건 성공`, 'ok')
+      setSendResult({ ...json, campaignId: cid })
+      if (json.hasPending) {
+        showToast(`오늘 ${json.sentCount}건 발송 완료! 내일 ${json.remaining}명 이어서 발송 가능`, 'info')
+      } else {
+        showToast(`전체 발송 완료! ${json.sentCount}건 성공`, 'ok')
+      }
       await loadCampaigns()
     } catch (err: unknown) { showToast(err instanceof Error ? err.message : '오류', 'err') }
     finally { setSending(false) }
@@ -301,18 +313,34 @@ export default function Home() {
             </div>
             {!sendResult ? (
               <div style={{ marginTop: 24, textAlign: 'center' }}>
-                <button onClick={handleSend} disabled={sending}
+                <button onClick={() => handleSend()} disabled={sending}
                   style={{ padding: '16px 52px', background: sending ? '#94a3b8' : '#e84393', color: 'white', border: 'none', borderRadius: 14, fontSize: 16, fontWeight: 800, cursor: sending ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                   {sending ? <><Spinner /> 발송 중... 잠시 기다려주세요</> : '🚀 메일 발송 시작'}
                 </button>
                 <p style={{ marginTop: 10, fontSize: 13, color: '#94a3b8' }}>발송 후 취소할 수 없습니다.</p>
               </div>
+            ) : sendResult.hasPending ? (
+              <div style={{ marginTop: 24, padding: '28px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 16, textAlign: 'center' }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📬</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#92400e', marginBottom: 8 }}>오늘 분 발송 완료!</div>
+                <div style={{ fontSize: 15, color: '#78350f', marginBottom: 16, lineHeight: 1.8 }}>
+                  오늘 <b>{sendResult.sentCount.toLocaleString()}명</b> 발송 완료
+                  {sendResult.failCount > 0 && <span style={{ color: '#dc2626' }}> ({sendResult.failCount}명 실패)</span>}<br/>
+                  <b style={{ color: '#d97706' }}>{sendResult.remaining.toLocaleString()}명</b>이 대기 중이에요.<br/>
+                  내일 아래 버튼을 눌러 이어서 발송하세요.
+                </div>
+                <button onClick={() => handleSend(sendResult.campaignId, true)} disabled={sending}
+                  style={{ padding: '12px 32px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: sending ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {sending ? <><Spinner /> 발송 중...</> : `▶ 지금 이어서 발송 (${sendResult.remaining.toLocaleString()}명)`}
+                </button>
+                <p style={{ marginTop: 8, fontSize: 12, color: '#a16207' }}>내일 다시 방문하거나, 지금 바로 이어서 발송할 수 있어요.</p>
+              </div>
             ) : (
               <div style={{ marginTop: 24, padding: '32px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 16, textAlign: 'center' }}>
                 <div style={{ fontSize: 44, marginBottom: 12 }}>🎉</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d', marginBottom: 8 }}>발송 완료!</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d', marginBottom: 8 }}>전체 발송 완료!</div>
                 <div style={{ fontSize: 15, color: '#166534' }}>
-                  총 {sendResult.total.toLocaleString()}명 중 <b>{sendResult.sentCount.toLocaleString()}명 성공</b>
+                  <b>{sendResult.sentCount.toLocaleString()}명</b> 성공
                   {sendResult.failCount > 0 && <span style={{ color: '#dc2626' }}>, {sendResult.failCount}명 실패</span>}
                 </div>
                 <button onClick={() => { setTab(4); loadCampaigns() }}
@@ -351,11 +379,18 @@ export default function Home() {
                           <span style={{ fontSize: 15, fontWeight: 700, color: '#1e293b' }}>{c.title}</span>
                         </div>
                         <div style={{ fontSize: 13, color: '#64748b', marginBottom: 6 }}>제목: {c.subject}</div>
-                        <div style={{ display: 'flex', gap: 16, fontSize: 13, color: '#94a3b8', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 16, fontSize: 13, color: '#94a3b8', flexWrap: 'wrap', alignItems: 'center' }}>
                           <span>그룹: {c.groups.join(', ')}</span>
                           <span>수신자: {c.total_count.toLocaleString()}명</span>
                           <span style={{ color: '#16a34a' }}>성공: {c.sent_count.toLocaleString()}</span>
                           {c.fail_count > 0 && <span style={{ color: '#dc2626' }}>실패: {c.fail_count}</span>}
+                          {c.status === 'pending' && c.pending_emails?.length > 0 && (
+                            <span
+                              onClick={e => { e.stopPropagation(); setContinueCampaign(c) }}
+                              style={{ padding: '3px 12px', background: '#f59e0b', color: 'white', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                              ▶ 이어서 발송 ({c.pending_emails.length.toLocaleString()}명 대기)
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div style={{ fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap', textAlign: 'right', flexShrink: 0 }}>
@@ -384,7 +419,41 @@ export default function Home() {
         </Modal>
       )}
 
-      {toast && (
+      {/* ── 이어서 발송 확인 모달 ── */}
+      {continueCampaign && (
+        <div onClick={() => setContinueCampaign(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: 'white', borderRadius: 18, padding: '36px', maxWidth: 440, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,.25)', textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>📬</div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{continueCampaign.title}</div>
+            <div style={{ fontSize: 14, color: '#64748b', marginBottom: 24, lineHeight: 1.8 }}>
+              대기 중인 수신자 <b style={{ color: '#d97706' }}>{(continueCampaign.pending_emails?.length ?? 0).toLocaleString()}명</b>에게<br/>
+              오늘 <b>최대 100명</b>을 이어서 발송합니다.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={() => setContinueCampaign(null)}
+                style={{ padding: '10px 24px', border: '1.5px solid #e2e8f0', borderRadius: 10, background: 'white', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  const cid = continueCampaign.id
+                  setContinueCampaign(null)
+                  setTab(3)
+                  setSendResult(null)
+                  await handleSend(cid, true)
+                }}
+                disabled={sending}
+                style={{ padding: '10px 28px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {sending ? <><Spinner /> 발송 중...</> : '▶ 이어서 발송'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {toast && (
         <div style={{ position: 'fixed', bottom: 28, right: 28, padding: '14px 22px', borderRadius: 12, fontWeight: 600, fontSize: 14, color: 'white', zIndex: 3000, boxShadow: '0 8px 32px rgba(0,0,0,.2)', background: toast.type === 'ok' ? '#16a34a' : toast.type === 'err' ? '#dc2626' : '#3d4fd7', animation: 'fadeIn .2s ease' }}>
           {toast.msg}
         </div>
@@ -457,7 +526,7 @@ function TabBtn({ children, active, onClick }: { children: React.ReactNode; acti
 }
 
 function StatusBadge({ status }: { status: Campaign['status'] }) {
-  const map: Record<string, [string, string, string]> = { draft: ['임시', '#f1f5f9', '#64748b'], sending: ['발송중', '#fef9c3', '#a16207'], done: ['완료', '#dcfce7', '#15803d'], error: ['오류', '#fee2e2', '#dc2626'] }
+  const map: Record<string, [string, string, string]> = { draft: ['임시', '#f1f5f9', '#64748b'], sending: ['발송중', '#fef9c3', '#a16207'], done: ['완료', '#dcfce7', '#15803d'], error: ['오류', '#fee2e2', '#dc2626'], pending: ['대기중', '#fef3c7', '#d97706'] }
   const [label, bg, color] = map[status] ?? map.draft
   return <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: bg, color }}>{label}</span>
 }
