@@ -51,7 +51,7 @@ async function sendEmails(
 
     // 중간 진행률 업데이트
     await db.from('campaigns')
-      .update({ sent_count: db.rpc ? sentCount : sentCount, fail_count: failCount })
+      .update({ sent_count: sentCount, fail_count: failCount })
       .eq('id', campaignId)
 
     if (i + BATCH_SIZE < emails.length) await sleep(BATCH_DELAY_MS)
