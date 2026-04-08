@@ -380,7 +380,7 @@ function useAICopy(c) { switchTab('manual'); addCopyRow(c); }
 async function callProxy(type, payload) {
   const res = await fetch(PROXY_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
     body: JSON.stringify({ type, payload }),
   });
   return res.json();
