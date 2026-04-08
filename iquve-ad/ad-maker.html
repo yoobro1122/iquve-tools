@@ -346,7 +346,7 @@ JSON 배열만 출력 (마크다운 없이):
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.9 }
     });
-    if (data.error) throw new Error(data.error);
+    if (data.error) throw new Error(typeof data.error === 'object' ? JSON.stringify(data.error) : data.error);
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!raw) throw new Error('응답이 비어있어요. Gemini API 키를 확인해주세요.');
     let copies;
@@ -417,14 +417,14 @@ function log(msg, type='info') {
 
 // ── Gemini 이미지 생성 (프록시 경유) ──
 async function generateImage(headline, body) {
-  const prompt = `어린이 교육 앱 광고 이미지. ${headline}. ${body}. 스타일: ${selectedStyle}. 텍스트 없이, 깔끔하게. 안전하고 따뜻한 이미지.`;
   const data = await callProxy('image', {
-    instances: [{ prompt }],
+    instances: [{ prompt: `어린이 교육 앱 광고 이미지. ${headline}. ${body}. 스타일: ${selectedStyle}. 텍스트 없이, 깔끔하게.` }],
     parameters: { sampleCount: 1, aspectRatio: '1:1', safetySetting: 'block_only_high' }
   });
-  if (data.error) throw new Error(data.error);
+  // 이미지 API 미지원(쿼터 초과 등) 시 null 반환 → 이미지 없이 Canvas 합성
+  if (data.error === 'IMAGE_UNAVAILABLE' || data.error) return null;
   const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-  if (!b64) throw new Error('이미지 없음');
+  if (!b64) return null;
   return 'data:image/png;base64,' + b64;
 }
 
