@@ -13,47 +13,57 @@ const TABS = ['① 수신자 업로드', '② 메일 작성', '③ 수신자 선
 const INTERNAL = new Set(['growv.com', 'growv.kr'])
 
 // ─── Excel parsing (client-side) ─────────────────────────────────────────────
-function parseXlsx(file: File): Promise<ParsedMember[]> {
+// 파일 1개의 모든 시트에서 이메일 추출
+function parseOneFile(file: File): Promise<ParsedMember[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = e => {
       try {
         const wb = XLSX.read(e.target!.result as ArrayBuffer, { type: 'array' })
-        const ws = wb.Sheets[wb.SheetNames[0]]
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null })
-
         const members: ParsedMember[] = []
         const seen = new Set<string>()
 
-        for (const row of rows) {
-          const keys = Object.keys(row)
+        // 모든 시트 순회
+        for (const sheetName of wb.SheetNames) {
+          const ws = wb.Sheets[sheetName]
+          const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null })
+          if (!rows.length) continue
+
+          const keys = Object.keys(rows[0])
           const eCol = keys.find(k => k === '이메일' || k === '로그인ID' || /email/i.test(k))
           const phCol = keys.find(k => k === '전화번호' || k === '휴대폰번호')
           const pdCol = keys.find(k => k === '결제여부')
           const mkCol = keys.find(k => /마케팅/.test(k))
 
-          const rawEmail = eCol ? String(row[eCol] ?? '').trim().toLowerCase() : ''
-          if (!rawEmail.includes('@')) continue
-          const domain = rawEmail.split('@')[1] ?? ''
-          if (INTERNAL.has(domain)) continue
-          if (/^quvetest|^sv\d/.test(rawEmail)) continue
-          if (seen.has(rawEmail)) continue
-          seen.add(rawEmail)
+          // 이메일 컬럼 없으면 모든 셀에서 이메일 패턴 탐색
+          for (const row of rows) {
+            let rawEmail = ''
+            if (eCol) {
+              rawEmail = String(row[eCol] ?? '').trim().toLowerCase()
+            } else {
+              // 컬럼명 없을 때: 모든 값에서 @ 포함된 것 찾기
+              for (const val of Object.values(row)) {
+                const s = String(val ?? '').trim().toLowerCase()
+                if (s.includes('@') && s.includes('.')) { rawEmail = s; break }
+              }
+            }
 
-          const hasPhone = !!phCol && !!row[phCol]
-          const paid = pdCol ? row[pdCol] === 'Y' : false
-          const marketing = mkCol ? (row[mkCol] === 'Y' || row[mkCol] === true) : false
+            if (!rawEmail.includes('@')) continue
+            const domain = rawEmail.split('@')[1] ?? ''
+            if (INTERNAL.has(domain)) continue
+            if (/^quvetest|^sv\d/.test(rawEmail)) continue
+            if (seen.has(rawEmail)) continue
+            seen.add(rawEmail)
 
-          const category = paid ? '결제회원'
-            : hasPhone ? '이메일+전화번호'
-            : '이메일만'
-
-          members.push({ email: rawEmail, category, marketing })
+            const hasPhone = !!phCol && !!row[phCol]
+            const paid = pdCol ? row[pdCol] === 'Y' : false
+            const marketing = mkCol ? (row[mkCol] === 'Y' || row[mkCol] === true) : false
+            const category = paid ? '결제회원' : hasPhone ? '이메일+전화번호' : '이메일만'
+            members.push({ email: rawEmail, category, marketing })
+          }
         }
         resolve(members)
-      } catch (err) {
-        reject(err)
-      }
+      } catch (err) { reject(err) }
     }
     reader.onerror = reject
     reader.readAsArrayBuffer(file)
@@ -64,10 +74,10 @@ function parseXlsx(file: File): Promise<ParsedMember[]> {
 export default function Home() {
   const [tab, setTab] = useState(0)
 
-  // 수신자 엑셀
+  // 수신자 엑셀 (여러 파일)
   const [members, setMembers] = useState<ParsedMember[]>([])
   const [xlsxStats, setXlsxStats] = useState<XlsxStats | null>(null)
-  const [xlsxFileName, setXlsxFileName] = useState('')
+  const [uploadedFiles, setUploadedFiles] = useState<{name:string; count:number}[]>([])
   const [xlsxLoading, setXlsxLoading] = useState(false)
 
   // 메일 작성
@@ -109,31 +119,64 @@ export default function Home() {
 
   useEffect(() => { loadCampaigns() }, [])
 
-  // ── 수신자 엑셀 로드 ──
+  // ── 수신자 엑셀 로드 (여러 파일 누적) ──
   async function handleXlsxUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file) return
+    const files = e.target.files; if (!files || !files.length) return
     setXlsxLoading(true)
     try {
-      const parsed = await parseXlsx(file)
-      setMembers(parsed)
-      setXlsxFileName(file.name)
-      const stats: XlsxStats = { total: parsed.length, paid: 0, both: 0, emailOnly: 0, marketing: 0 }
-      parsed.forEach(m => {
-        if (m.category === '결제회원') stats.paid++
-        else if (m.category === '이메일+전화번호') stats.both++
-        else stats.emailOnly++
-        if (m.marketing) stats.marketing++
+      const newFiles: {name:string; count:number}[] = []
+      let allNewMembers: ParsedMember[] = []
+
+      for (const file of Array.from(files)) {
+        const parsed = await parseOneFile(file)
+        newFiles.push({ name: file.name, count: parsed.length })
+        allNewMembers = [...allNewMembers, ...parsed]
+      }
+
+      // 기존 + 신규 합산 후 이메일 기준 중복 제거
+      setMembers(prev => {
+        const seenEmails = new Set(prev.map(m => m.email))
+        const deduped = allNewMembers.filter(m => {
+          if (seenEmails.has(m.email)) return false
+          seenEmails.add(m.email)
+          return true
+        })
+        const combined = [...prev, ...deduped]
+        // 통계 업데이트
+        const stats: XlsxStats = { total: combined.length, paid: 0, both: 0, emailOnly: 0, marketing: 0 }
+        combined.forEach(m => {
+          if (m.category === '결제회원') stats.paid++
+          else if (m.category === '이메일+전화번호') stats.both++
+          else stats.emailOnly++
+          if (m.marketing) stats.marketing++
+        })
+        setXlsxStats(stats)
+        return combined
       })
-      setXlsxStats(stats)
-      setSelectedGroups([])
-      setMktOnly(false)
-      showToast(`✅ ${parsed.length.toLocaleString()}명 로드 완료 (growv·중복 제외)`, 'ok')
+      setUploadedFiles(prev => [...prev, ...newFiles])
+      const totalNew = allNewMembers.length
+      showToast(`✅ ${newFiles.map(f=>f.name).join(', ')} — ${totalNew.toLocaleString()}명 추가 (중복 제외)`, 'ok')
     } catch (err: unknown) {
       showToast('파일 오류: ' + (err instanceof Error ? err.message : ''), 'err')
     } finally {
       setXlsxLoading(false)
       if (xlsxFileRef.current) xlsxFileRef.current.value = ''
     }
+  }
+
+  function removeUploadedFile(idx: number) {
+    // 파일 제거 후 전체 재계산 불가 (이미 합산됨) → 전체 리셋
+    setUploadedFiles(prev => {
+      const next = prev.filter((_, i) => i !== idx)
+      if (!next.length) { setMembers([]); setXlsxStats(null); setSelectedGroups([]); setMktOnly(false) }
+      return next
+    })
+    showToast('전체 파일을 다시 업로드해주세요.', 'info')
+  }
+
+  function clearAllFiles() {
+    setMembers([]); setXlsxStats(null); setUploadedFiles([])
+    setSelectedGroups([]); setMktOnly(false)
   }
 
   // ── HTML 업로드 ──
@@ -221,6 +264,7 @@ export default function Home() {
     setSelectedGroups([]); setMktOnly(false)
     setExtraEmails([]); setExtraEmailInput('')
     setSendResult(null); setTab(0)
+    // 수신자 파일은 유지 (재사용 가능하도록)
   }
 
   const recipientEmails = getRecipientEmails()
@@ -236,6 +280,7 @@ export default function Home() {
         </div>
         {xlsxStats && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 20, fontSize: 13, color: 'rgba(255,255,255,.8)' }}>
+            <span>파일 <b style={{ color: 'white' }}>{uploadedFiles.length}</b>개</span>
             <span>수신자 <b style={{ color: 'white', fontSize: 15 }}>{xlsxStats.total.toLocaleString()}</b>명</span>
             <span>💳 <b style={{ color: 'white' }}>{xlsxStats.paid}</b></span>
             <span>📋 <b style={{ color: 'white' }}>{xlsxStats.both}</b></span>
@@ -260,34 +305,55 @@ export default function Home() {
         {tab === 0 && (
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>수신자 엑셀 업로드</h2>
-            <p style={{ color: '#64748b', marginBottom: 24, fontSize: 14, lineHeight: 1.8 }}>
-              회원 관리 프로그램에서 다운로드한 엑셀 파일을 업로드하세요.<br />
-              <b>@growv.com / @growv.kr</b> 내부 계정과 중복 이메일은 자동 제외됩니다.
+            <p style={{ color: '#64748b', marginBottom: 20, fontSize: 14, lineHeight: 1.8 }}>
+              파일을 여러 개 올려도 돼요 — 이메일 주소를 자동으로 취합하고 중복은 제거됩니다.<br />
+              모든 시트를 스캔하고 <b>@growv.com / @growv.kr</b> 내부 계정은 자동 제외됩니다.
             </p>
 
-            {/* 업로드 존 */}
+            {/* 드롭존 */}
             <label style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              border: `3px dashed ${xlsxStats ? '#86efac' : '#a5b4fc'}`,
-              borderRadius: 16, padding: '40px 24px', cursor: 'pointer',
-              background: xlsxStats ? '#f0fdf4' : '#f5f7ff', transition: 'all .18s', marginBottom: 16,
+              border: '3px dashed #a5b4fc', borderRadius: 16, padding: '36px 24px',
+              cursor: xlsxLoading ? 'not-allowed' : 'pointer',
+              background: '#f5f7ff', transition: 'all .18s', marginBottom: 16,
+              opacity: xlsxLoading ? .6 : 1,
             }}>
-              <input ref={xlsxFileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+              <input ref={xlsxFileRef} type="file" accept=".xlsx,.xls" multiple style={{ display: 'none' }}
                 onChange={handleXlsxUpload} disabled={xlsxLoading} />
-              <div style={{ fontSize: 44, marginBottom: 10 }}>{xlsxLoading ? '⏳' : xlsxStats ? '✅' : '📂'}</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: xlsxStats ? '#16a34a' : '#4355e8', marginBottom: 6 }}>
-                {xlsxLoading ? '파일 처리 중...' : xlsxStats ? xlsxFileName : '엑셀 파일을 클릭해서 업로드'}
+              <div style={{ fontSize: 44, marginBottom: 10 }}>{xlsxLoading ? '⏳' : '📂'}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#4355e8', marginBottom: 4 }}>
+                {xlsxLoading ? '파일 처리 중...' : '파일 클릭 또는 드래그'}
               </div>
-              <div style={{ fontSize: 13, color: '#64748b' }}>
-                {xlsxStats ? `총 ${xlsxStats.total.toLocaleString()}명 로드됨 · 다시 올리려면 클릭` : '회원 관리 프로그램 다운로드 파일 (.xlsx)'}
-              </div>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>여러 파일 동시 선택 가능 · 추가 업로드 시 누적됩니다</div>
             </label>
+
+            {/* 업로드된 파일 목록 */}
+            {uploadedFiles.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>업로드된 파일 ({uploadedFiles.length}개)</div>
+                  <button onClick={clearAllFiles}
+                    style={{ fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: '2px 8px' }}>
+                    전체 삭제
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {uploadedFiles.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'white', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: 18 }}>📄</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      <span style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{f.count.toLocaleString()}행</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* 통계 카드 */}
             {xlsxStats && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
                 {[
-                  { label: '전체', value: xlsxStats.total, color: '#64748b' },
+                  { label: '전체 (중복제외)', value: xlsxStats.total, color: '#64748b' },
                   { label: '💳 결제회원', value: xlsxStats.paid, color: '#16a34a' },
                   { label: '📋 이메일+전화', value: xlsxStats.both, color: '#d97706' },
                   { label: '✉️ 이메일만', value: xlsxStats.emailOnly, color: '#7c3aed' },
@@ -459,7 +525,7 @@ export default function Home() {
               {[
                 { label: '캠페인 이름', value: campaignTitle || subject },
                 { label: '메일 제목', value: subject },
-                { label: '수신자 파일', value: xlsxFileName || '—' },
+                { label: '수신자 파일', value: uploadedFiles.length > 0 ? uploadedFiles.map(f=>f.name).join(', ') : '—' },
                 { label: '발송 그룹', value: selectedGroups.join(', ') || '(수기만)' },
                 { label: '마케팅 동의만', value: mktOnly ? 'Y' : 'N' },
                 { label: '총 수신자', value: `${recipientEmails.length.toLocaleString()}명` },
