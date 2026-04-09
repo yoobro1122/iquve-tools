@@ -1234,18 +1234,95 @@ async function loadSave(id) {
 
     const h=saved.hero||{}, f=saved.footer||{}, c=saved.cta||{};
     const setVal=(elId,v)=>{ const el=document.getElementById(elId); if(el)el.value=v||''; };
-    setVal('HERO_BADGE',h.heroBadge); setVal('EVENT_BTN_TEXT',(saved.events||{}).btnText); setVal('NEWBOOK_BTN_TEXT',(saved.newbooks||{}).btnText); setVal('REC_BTN_TEXT',(saved.rec||{}).btnText);
+
+    // ── 이벤트 카드 복원 ──
+    const evItems = (saved.events&&saved.events.items) ? saved.events.items : [];
+    events.length = 0; // 배열 초기화
+    document.getElementById('event-list').innerHTML = '';
+    eventCount = 0;
+    evItems.forEach(ev => {
+      const id = ++eventCount;
+      events.push({id});
+      eventImgs[id] = ev.img || null;
+      const card = makeEventCard(id);
+      document.getElementById('event-list').appendChild(card);
+      // 값 채우기
+      setVal('evt_title_'+id, ev.title);
+      setVal('evt_period_'+id, ev.period);
+      setVal('evt_desc_'+id, ev.desc);
+      setVal('evt_btn_'+id, ev.btnText);
+      setVal('evt_url_'+id, ev.url);
+      if(ev.img){
+        document.getElementById('evt_imgel_'+id).src = ev.img;
+        document.getElementById('evt_imgprev_'+id).style.display = 'block';
+        document.getElementById('evt_imgupload_'+id).style.display = 'none';
+      }
+    });
+    if(events.length === 0) addEvent(); // 없으면 빈 카드 1개
+    refreshEventHeaders();
+
+    // ── 신규 도서 카드 복원 ──
+    const nbItems = (saved.newbooks&&saved.newbooks.items) ? saved.newbooks.items : [];
+    newbooks.length = 0;
+    document.getElementById('newbook-list').innerHTML = '';
+    newbookCount = 0;
+    nbItems.forEach(b => {
+      const id = ++newbookCount;
+      newbooks.push({id});
+      newbookImgs[id] = b.img || null;
+      const card = makeNewBookCard(id);
+      document.getElementById('newbook-list').appendChild(card);
+      setVal('nb_title_'+id, b.title);
+      setVal('nb_age_'+id, b.age);
+      setVal('nb_pub_'+id, b.pub);
+      setVal('nb_desc_'+id, b.desc);
+      setVal('nb_btn_'+id, b.btnText);
+      setVal('nb_url_'+id, b.url);
+      setVal('nb_tag1_'+id, b.tag1);
+      setVal('nb_tag2_'+id, b.tag2);
+      if(b.img){
+        document.getElementById('nb_imgel_'+id).src = b.img;
+        document.getElementById('nb_imgprev_'+id).style.display = 'block';
+        document.getElementById('nb_imgupload_'+id).style.display = 'none';
+      }
+    });
+    if(newbooks.length === 0) addNewBook();
+    refreshNewBookHeaders();
+
+    // ── 추천 도서 복원 ──
+    const recBooks = (saved.rec&&saved.rec.books) ? saved.rec.books : [];
+    [1,2,3].forEach(n => {
+      const bk = recBooks[n-1] || {};
+      setVal('REC_BOOK'+n+'_TITLE', bk.title);
+      setVal('REC_BOOK'+n+'_AGE', bk.age);
+      setVal('REC_BOOK'+n+'_ONE_LINE', bk.oneline);
+      setVal('REC_BOOK'+n+'_URL', bk.url);
+      imgStore['rec'+n] = bk.img || null;
+      if(bk.img){
+        document.getElementById('rec'+n+'-img-el').src = bk.img;
+        document.getElementById('rec'+n+'-img-preview').style.display = 'block';
+        document.getElementById('rec'+n+'-img-upload').style.display = 'none';
+      } else {
+        document.getElementById('rec'+n+'-img-preview').style.display = 'none';
+        document.getElementById('rec'+n+'-img-upload').style.display = 'flex';
+      }
+    });
+    setVal('REC_BTN_TEXT', saved.rec&&saved.rec.btnText);
+
+    setVal('HERO_BADGE',h.heroBadge);
     setVal('SEND_DATE',h.SEND_DATE); setVal('HEADLINE_MAIN',h.HEADLINE_MAIN);
     setVal('HEADLINE_SUB',h.HEADLINE_SUB); setVal('HERO_BODY_COPY',h.HERO_BODY_COPY);
     setVal('CTA_TEXT',h.CTA_TEXT); setVal('CTA_URL',h.CTA_URL);
     if(h.headerLogoSize){ const el=document.getElementById('header-logo-size'); if(el){ el.value=h.headerLogoSize; document.getElementById('header-logo-size-val').textContent=h.headerLogoSize; }}
     if(imgStore.headerLogo){ document.getElementById('header-logo-el').src=imgStore.headerLogo; document.getElementById('header-logo-preview').style.display='block'; document.getElementById('header-logo-upload').style.display='none'; }
     else{ document.getElementById('header-logo-preview').style.display='none'; document.getElementById('header-logo-upload').style.display='flex'; }
+
     setVal('USER_EMAIL',f.USER_EMAIL); setVal('UNSUBSCRIBE_URL',f.UNSUBSCRIBE_URL);
     setVal('PRIVACY_URL',f.PRIVACY_URL); setVal('APP_STORE_URL',f.APP_STORE_URL); setVal('APP_OPEN_URL',f.APP_OPEN_URL);
     if(f.footerLogoSize){ const el=document.getElementById('footer-logo-size'); if(el){ el.value=f.footerLogoSize; document.getElementById('footer-logo-size-val').textContent=f.footerLogoSize; }}
     if(imgStore.footerLogo){ document.getElementById('footer-logo-el').src=imgStore.footerLogo; document.getElementById('footer-logo-preview').style.display='block'; document.getElementById('footer-logo-upload').style.display='none'; }
     else{ document.getElementById('footer-logo-preview').style.display='none'; document.getElementById('footer-logo-upload').style.display='flex'; }
+
     setVal('CTA_BANNER_TITLE',c.bannerTitle); setVal('CTA_BANNER_SUB',c.bannerSub);
     setVal('CTA_BANNER_BTN_TEXT',c.bannerBtnText); setVal('CTA_BANNER_URL',c.bannerUrl);
 
