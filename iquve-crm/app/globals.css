@@ -1,0 +1,8 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', -apple-system, sans-serif;
+  background: #f1f4fb;
+  color: #1a1d2e;
+  min-height: 100vh;
+  font-size: 14px;
+}
