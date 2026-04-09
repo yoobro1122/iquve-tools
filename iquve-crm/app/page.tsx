@@ -18,7 +18,7 @@ interface GroupData { active: CrmMember[]; unconverted: CrmMember[] }
 interface ApiData {
   ref_date: string
   stats: { total: number; paid: number; unpaid: number }
-  groups: { A: GroupData; B: GroupData; C: GroupData }
+  groups: { A: GroupData; B: GroupData; C: GroupData; none?: CrmMember[] }
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -43,7 +43,14 @@ const GROUP_META = {
   },
 } as const
 
-type GroupKey = 'A' | 'B' | 'C'
+const NONE_META = {
+  icon: '👤', label: '그룹 미해당', color: '#64748b', bg: '#f1f5f9',
+  desc: '오늘 가입했거나 가입일 정보 없는 회원',
+  unconvDesc: '',
+  refLabel: '가입일',
+}
+
+type GroupKey = 'A' | 'B' | 'C' | 'none'
 type ViewMode = 'active' | 'unconverted'
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -106,7 +113,12 @@ export default function Home() {
   // ── 현재 보여줄 데이터 ──
   function getCurrentList(): CrmMember[] {
     if (!data) return []
-    const list = data.groups[curGroup][viewMode === 'active' ? 'active' : 'unconverted']
+    let list: CrmMember[]
+    if (curGroup === 'none') {
+      list = data.groups.none ?? []
+    } else {
+      list = data.groups[curGroup][viewMode === 'active' ? 'active' : 'unconverted']
+    }
     const q = search.trim().toLowerCase()
     return list.filter(m =>
       !q ||
@@ -120,7 +132,7 @@ export default function Home() {
   function downloadCurrent() {
     const list = getCurrentList()
     if (!list.length) { showToast('다운로드할 데이터가 없어요', 'err'); return }
-    const meta = GROUP_META[curGroup]
+    const meta = curGroup === 'none' ? NONE_META : GROUP_META[curGroup as 'A'|'B'|'C']
     const rows = list.map((m, i) => ({
       'No': i + 1,
       '그룹': curGroup,
@@ -145,7 +157,8 @@ export default function Home() {
   function getRefDate(m: CrmMember, g: GroupKey): string {
     if (g === 'A') return m.join_date ?? ''
     if (g === 'B') return m.profile_date ?? ''
-    return m.trial_start ?? ''
+    if (g === 'C') return m.trial_start ?? ''
+    return m.join_date ?? ''
   }
 
   function fmtPhone(p: string | null): string {
@@ -172,6 +185,7 @@ export default function Home() {
   }
 
   const curList = getCurrentList()
+  const curMeta = curGroup === 'none' ? NONE_META : GROUP_META[curGroup as 'A'|'B'|'C']
   const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -248,7 +262,7 @@ export default function Home() {
 
         {/* ── 그룹 카드 ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 20 }}>
-          {(Object.entries(GROUP_META) as [GroupKey, typeof GROUP_META[GroupKey]][]).map(([key, meta]) => {
+          {(Object.entries(GROUP_META) as [('A'|'B'|'C'), typeof GROUP_META['A']][]).map(([key, meta]) => {
             const active = data?.groups[key].active.length ?? 0
             const unconv = data?.groups[key].unconverted.length ?? 0
             const isCur = curGroup === key
@@ -283,8 +297,28 @@ export default function Home() {
           })}
         </div>
 
+        {/* 그룹 없음 카드 */}
+        {data && (
+          <div
+            onClick={() => { setCurGroup('none'); setViewMode('active'); setSearch('') }}
+            style={{
+              background: 'white', borderRadius: 14, padding: '16px 20px',
+              border: `2px solid ${curGroup === 'none' ? '#64748b' : '#e2e8f4'}`,
+              boxShadow: curGroup === 'none' ? '0 4px 16px rgba(0,0,0,.1)' : '0 2px 8px rgba(0,0,0,.04)',
+              cursor: 'pointer', transition: 'all .18s', marginBottom: 16,
+              display: 'flex', alignItems: 'center', gap: 16,
+            }}>
+            <span style={{ fontSize: 24 }}>👤</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#7c88a4', letterSpacing: .5, marginBottom: 2 }}>그룹 미해당 (오늘 가입 또는 정보 없음)</div>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>가입일 D+0 이거나 가입일 없는 회원</div>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: '#64748b' }}>{(data.groups.none?.length ?? 0).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, marginLeft: 4 }}>명</span></div>
+          </div>
+        )}
+
         {/* ── D+1~14 일자별 분포 (active 상태일 때) ── */}
-        {data && viewMode === 'active' && (
+        {data && viewMode === 'active' && curGroup !== 'none' && (
           <div style={{ background: 'white', borderRadius: 14, padding: '16px 20px', border: '1px solid #e2e8f4', marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12, color: '#374151' }}>
               📊 그룹 {curGroup} 일자별 현황 (D+1 ~ D+14)
@@ -317,26 +351,34 @@ export default function Home() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid #f1f5f9', background: '#fafbff', flexWrap: 'wrap' }}>
             {/* 탭 */}
             <div style={{ display: 'flex', gap: 2 }}>
-              {(['active', 'unconverted'] as ViewMode[]).map(mode => (
-                <button key={mode} onClick={() => { setViewMode(mode); setSearch('') }}
-                  style={{
-                    padding: '7px 14px', border: 'none', borderRadius: 8,
-                    background: viewMode === mode ? GROUP_META[curGroup].bg : 'transparent',
-                    color: viewMode === mode ? GROUP_META[curGroup].color : '#7c88a4',
-                    fontWeight: viewMode === mode ? 800 : 500, fontSize: 13,
-                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-                  }}>
-                  {mode === 'active'
-                    ? `🎯 D+1~14 발송대상 (${data?.groups[curGroup].active.length ?? 0})`
-                    : `⚠️ 14일 초과 미전환 (${data?.groups[curGroup].unconverted.length ?? 0})`
-                  }
-                </button>
-              ))}
+              {curGroup !== 'none' && (['active', 'unconverted'] as ViewMode[]).map(mode => {
+                const meta = GROUP_META[curGroup as 'A'|'B'|'C']
+                return (
+                  <button key={mode} onClick={() => { setViewMode(mode); setSearch('') }}
+                    style={{
+                      padding: '7px 14px', border: 'none', borderRadius: 8,
+                      background: viewMode === mode ? meta.bg : 'transparent',
+                      color: viewMode === mode ? meta.color : '#7c88a4',
+                      fontWeight: viewMode === mode ? 800 : 500, fontSize: 13,
+                      cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
+                    }}>
+                    {mode === 'active'
+                      ? `🎯 D+1~14 발송대상 (${(data?.groups[curGroup as 'A'|'B'|'C'] as GroupData)?.active?.length ?? 0})`
+                      : `⚠️ 14일 초과 미전환 (${(data?.groups[curGroup as 'A'|'B'|'C'] as GroupData)?.unconverted?.length ?? 0})`
+                    }
+                  </button>
+                )
+              })}
+              {curGroup === 'none' && (
+                <div style={{ padding: '7px 14px', fontSize: 13, color: '#64748b', fontWeight: 700 }}>
+                  👤 그룹 미해당 회원 ({data?.groups.none?.length ?? 0}명)
+                </div>
+              )}
             </div>
 
             {/* 그룹 설명 */}
             <div style={{ fontSize: 12, color: '#94a3b8', flex: 1 }}>
-              {viewMode === 'active' ? GROUP_META[curGroup].desc : GROUP_META[curGroup].unconvDesc}
+              {curGroup === 'none' ? NONE_META.desc : viewMode === 'active' ? GROUP_META[curGroup as 'A'|'B'|'C'].desc : GROUP_META[curGroup as 'A'|'B'|'C'].unconvDesc}
             </div>
 
             {/* 검색 */}
@@ -347,7 +389,7 @@ export default function Home() {
                 style={{ padding: '8px 12px 8px 30px', border: '1.5px solid #e2e8f4', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', width: 200 }} />
             </div>
 
-            <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 10px', background: GROUP_META[curGroup].bg, color: GROUP_META[curGroup].color, borderRadius: 20 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 10px', background: curMeta.bg, color: curMeta.color, borderRadius: 20 }}>
               {curList.length.toLocaleString()}명
             </span>
             <button onClick={downloadCurrent}
@@ -369,7 +411,7 @@ export default function Home() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ position: 'sticky', top: 0, zIndex: 5, background: '#f8fafc', borderBottom: '1.5px solid #e2e8f4' }}>
-                    {['#', '이메일', '학부모명', '자녀이름', '전화번호', GROUP_META[curGroup].refLabel, 'D+', '가입일', '체험'].map(h => (
+                    {['#', '이메일', '학부모명', '자녀이름', '전화번호', curMeta.refLabel, 'D+', '가입일', '체험'].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#7c88a4', letterSpacing: .5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
