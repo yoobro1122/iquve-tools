@@ -90,6 +90,8 @@ export default function Home() {
   // 수신자 선택
   const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   const [mktOnly, setMktOnly] = useState(false)
+  const [excludedEmails, setExcludedEmails] = useState<Set<string>>(new Set())
+  const [listSearch, setListSearch] = useState('')
   const [extraEmailInput, setExtraEmailInput] = useState('')
   const [extraEmails, setExtraEmails] = useState<string[]>([])
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -197,9 +199,33 @@ export default function Home() {
     const fromGroups = members
       .filter(m => selectedGroups.includes(m.category))
       .filter(m => !mktOnly || m.marketing)
+      .filter(m => !excludedEmails.has(m.email))
       .map(m => m.email)
-    const all = Array.from(new Set([...fromGroups, ...extraEmails]))
-    return all
+    const filteredExtra = extraEmails.filter(e => !excludedEmails.has(e))
+    return Array.from(new Set([...fromGroups, ...filteredExtra]))
+  }
+
+  function excludeEmail(email: string) {
+    setExcludedEmails(prev => new Set(Array.from(prev).concat(email)))
+  }
+
+  function restoreEmail(email: string) {
+    setExcludedEmails(prev => { const next = new Set(prev); next.delete(email); return next })
+  }
+
+  function excludeAll() {
+    const allVisible = getFilteredListEmails()
+    setExcludedEmails(prev => new Set(Array.from(prev).concat(allVisible)))
+  }
+
+  function getFilteredListEmails(): string[] {
+    const q = listSearch.trim().toLowerCase()
+    return members
+      .filter(m => selectedGroups.includes(m.category))
+      .filter(m => !mktOnly || m.marketing)
+      .map(m => m.email)
+      .concat(extraEmails)
+      .filter(e => !q || e.includes(q))
   }
 
   // ── 수기 이메일 추가 ──
@@ -262,9 +288,9 @@ export default function Home() {
   function resetAll() {
     setCampaignTitle(''); setSubject(''); setHtmlContent('')
     setSelectedGroups([]); setMktOnly(false)
+    setExcludedEmails(new Set()); setListSearch('')
     setExtraEmails([]); setExtraEmailInput('')
     setSendResult(null); setTab(0)
-    // 수신자 파일은 유지 (재사용 가능하도록)
   }
 
   const recipientEmails = getRecipientEmails()
@@ -439,8 +465,8 @@ export default function Home() {
             <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 20 }}>수신자 선택</h2>
 
             {/* 그룹 선택 */}
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8 }}>업로드된 파일에서 그룹 선택</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8 }}>발송 그룹 선택</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
               {[
                 { key: '결제회원', label: '💳 결제회원', count: xlsxStats?.paid ?? 0, color: '#16a34a', bg: '#dcfce7' },
                 { key: '이메일+전화번호', label: '📋 이메일+전화', count: xlsxStats?.both ?? 0, color: '#d97706', bg: '#fef3c7' },
@@ -449,7 +475,7 @@ export default function Home() {
                 const active = selectedGroups.includes(g.key)
                 return (
                   <button key={g.key}
-                    onClick={() => setSelectedGroups(prev => prev.includes(g.key) ? prev.filter(x => x !== g.key) : [...prev, g.key])}
+                    onClick={() => { setSelectedGroups(prev => prev.includes(g.key) ? prev.filter(x => x !== g.key) : [...prev, g.key]); setExcludedEmails(new Set()); setListSearch('') }}
                     style={{ padding: '16px', border: `2px solid ${active ? g.color : '#e2e8f0'}`, borderRadius: 12, background: active ? g.bg : 'white', cursor: 'pointer', textAlign: 'left', transition: 'all .15s' }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: active ? g.color : '#374151', marginBottom: 4 }}>{g.label}</div>
                     <div style={{ fontSize: 13, color: '#94a3b8' }}>{g.count.toLocaleString()}명</div>
@@ -461,50 +487,140 @@ export default function Home() {
 
             {/* 마케팅 동의 토글 */}
             {selectedGroups.length > 0 && (
-              <button onClick={() => setMktOnly(p => !p)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', border: `1.5px solid ${mktOnly ? '#0891b2' : '#e2e8f0'}`, borderRadius: 10, background: mktOnly ? '#ecfeff' : 'white', color: mktOnly ? '#0e7490' : '#64748b', fontSize: 13, fontWeight: mktOnly ? 700 : 500, cursor: 'pointer', marginBottom: 16, transition: 'all .15s', fontFamily: 'inherit' }}>
+              <button onClick={() => { setMktOnly(p => !p); setExcludedEmails(new Set()) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', border: `1.5px solid ${mktOnly ? '#0891b2' : '#e2e8f0'}`, borderRadius: 10, background: mktOnly ? '#ecfeff' : 'white', color: mktOnly ? '#0e7490' : '#64748b', fontSize: 13, fontWeight: mktOnly ? 700 : 500, cursor: 'pointer', marginBottom: 12, transition: 'all .15s', fontFamily: 'inherit' }}>
                 <span style={{ fontSize: 16 }}>📢</span>
                 마케팅 동의한 회원만
                 {mktOnly && <span style={{ marginLeft: 4, background: '#0891b2', color: 'white', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 800 }}>ON</span>}
               </button>
             )}
 
-            {/* 수기 이메일 */}
-            <div style={{ background: 'white', borderRadius: 14, padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,.04)', marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>수기 이메일 추가</div>
+            {/* ── 수신자 명단 테이블 ── */}
+            {(selectedGroups.length > 0 || extraEmails.length > 0) && (() => {
+              const allList = members
+                .filter(m => selectedGroups.includes(m.category))
+                .filter(m => !mktOnly || m.marketing)
+                .map(m => ({ email: m.email, src: '파일', category: m.category }))
+                .concat(extraEmails.map(e => ({ email: e, src: '수기', category: '수기추가' })))
+
+              const q = listSearch.trim().toLowerCase()
+              const visibleList = allList.filter(m => !q || m.email.includes(q))
+              const excludedCount = excludedEmails.size
+
+              return (
+                <div style={{ background: 'white', borderRadius: 14, border: '1px solid #e2e8f0', marginBottom: 14, overflow: 'hidden' }}>
+                  {/* 테이블 헤더 컨트롤 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid #f1f5f9', background: '#fafbff' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+                      발송 명단
+                      <span style={{ marginLeft: 8, fontSize: 12, color: '#3d4fd7', fontWeight: 800 }}>
+                        {(allList.length - excludedCount).toLocaleString()}명
+                      </span>
+                      {excludedCount > 0 && (
+                        <span style={{ marginLeft: 6, fontSize: 11, color: '#dc2626', fontWeight: 700 }}>
+                          ({excludedCount}명 제외됨)
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#94a3b8' }}>🔍</span>
+                      <input value={listSearch} onChange={e => setListSearch(e.target.value)}
+                        placeholder="이메일 검색..."
+                        style={{ width: '100%', padding: '7px 10px 7px 30px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                    </div>
+                    {excludedCount > 0 && (
+                      <button onClick={() => setExcludedEmails(new Set())}
+                        style={{ padding: '7px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, background: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: '#374151', whiteSpace: 'nowrap' }}>
+                        제외 취소 ({excludedCount})
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 명단 스크롤 테이블 */}
+                  <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 1 }}>
+                          <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '.5px', borderBottom: '1px solid #f1f5f9' }}>#</th>
+                          <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '.5px', borderBottom: '1px solid #f1f5f9' }}>이메일</th>
+                          <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '.5px', borderBottom: '1px solid #f1f5f9' }}>구분</th>
+                          <th style={{ padding: '9px 14px', textAlign: 'center', fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '.5px', borderBottom: '1px solid #f1f5f9' }}>제외</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleList.length === 0 ? (
+                          <tr><td colSpan={4} style={{ padding: '32px', textAlign: 'center', color: '#94a3b8' }}>검색 결과가 없습니다</td></tr>
+                        ) : visibleList.map((m, i) => {
+                          const isExcluded = excludedEmails.has(m.email)
+                          const catColor: Record<string, string> = { '결제회원': '#16a34a', '이메일+전화번호': '#d97706', '이메일만': '#7c3aed', '수기추가': '#3d4fd7' }
+                          const catBg: Record<string, string> = { '결제회원': '#dcfce7', '이메일+전화번호': '#fef3c7', '이메일만': '#ede9fe', '수기추가': '#eff2ff' }
+                          return (
+                            <tr key={m.email} style={{ borderBottom: '1px solid #f8fafc', background: isExcluded ? '#fef2f2' : 'white', opacity: isExcluded ? .55 : 1 }}>
+                              <td style={{ padding: '9px 14px', color: '#d1d5db', fontSize: 12 }}>{i + 1}</td>
+                              <td style={{ padding: '9px 14px', fontSize: 12.5, textDecoration: isExcluded ? 'line-through' : 'none', color: isExcluded ? '#94a3b8' : '#1e293b' }}>{m.email}</td>
+                              <td style={{ padding: '9px 14px' }}>
+                                <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: catBg[m.category] ?? '#f1f5f9', color: catColor[m.category] ?? '#64748b' }}>
+                                  {m.category === '이메일+전화번호' ? '📋 이메일+전화' : m.category === '결제회원' ? '💳 결제' : m.category === '이메일만' ? '✉️ 이메일만' : '✏️ 수기'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '9px 14px', textAlign: 'center' }}>
+                                {isExcluded ? (
+                                  <button onClick={() => restoreEmail(m.email)}
+                                    style={{ padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: 6, background: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', color: '#374151' }}>복원</button>
+                                ) : (
+                                  <button onClick={() => excludeEmail(m.email)}
+                                    style={{ padding: '4px 10px', border: '1px solid #fca5a5', borderRadius: 6, background: '#fef2f2', fontSize: 11, fontWeight: 700, cursor: 'pointer', color: '#dc2626' }}>제외</button>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 하단 요약 */}
+                  <div style={{ padding: '10px 16px', background: '#fafbff', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                      전체 {allList.length.toLocaleString()}명 중 {excludedCount > 0 ? <><span style={{ color: '#dc2626', fontWeight: 700 }}>{excludedCount}명 제외</span> → </> : ''}<b style={{ color: '#3d4fd7' }}>{(allList.length - excludedCount).toLocaleString()}명 발송 예정</b>
+                    </span>
+                    {excludedCount === 0 && visibleList.length > 0 && (
+                      <button onClick={() => setExcludedEmails(new Set(visibleList.map(m => m.email)))}
+                        style={{ padding: '5px 12px', border: '1px solid #fca5a5', borderRadius: 6, background: '#fef2f2', fontSize: 11, fontWeight: 700, cursor: 'pointer', color: '#dc2626' }}>
+                        검색된 {visibleList.length}명 전체 제외
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* 수기 이메일 추가 */}
+            <div style={{ background: 'white', borderRadius: 14, padding: '18px 20px', border: '1px solid #e2e8f0', marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>수기 이메일 추가</div>
               <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>쉼표·줄바꿈으로 여러 개 한번에 입력 가능</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <textarea value={extraEmailInput} onChange={e => setExtraEmailInput(e.target.value)}
                   placeholder={'email1@example.com\nemail2@example.com'}
-                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', minHeight: 72, resize: 'vertical', outline: 'none' }} />
+                  style={{ flex: 1, padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', minHeight: 64, resize: 'vertical', outline: 'none' }} />
                 <button onClick={addExtraEmail}
                   style={{ padding: '0 18px', background: '#3d4fd7', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', alignSelf: 'stretch' }}>추가</button>
               </div>
-              {extraEmails.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-                  {extraEmails.map(email => (
-                    <span key={email} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: '#eff2ff', border: '1px solid #c7d2fe', borderRadius: 20, fontSize: 12, color: '#3d4fd7' }}>
-                      {email}
-                      <button onClick={() => setExtraEmails(prev => prev.filter(e => e !== email))}
-                        style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: 0, lineHeight: 1 }}>×</button>
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* 수신자 합계 */}
+            {/* 최종 발송 수 */}
             {recipientEmails.length > 0 && (
-              <div style={{ padding: '14px 18px', background: '#eff2ff', border: '1px solid #c7d2fe', borderRadius: 10, fontSize: 14, color: '#3d4fd7', fontWeight: 600, marginBottom: 16 }}>
+              <div style={{ padding: '14px 18px', background: '#eff2ff', border: '1px solid #c7d2fe', borderRadius: 10, fontSize: 14, color: '#3d4fd7', fontWeight: 600, marginBottom: 14 }}>
                 📬 총 <span style={{ fontSize: 22, fontWeight: 900 }}>{recipientEmails.length.toLocaleString()}</span>명에게 발송됩니다
+                {excludedEmails.size > 0 && <span style={{ fontSize: 12, marginLeft: 8, color: '#dc2626', fontWeight: 700 }}>({excludedEmails.size}명 제외됨)</span>}
                 {mktOnly && <span style={{ fontSize: 12, marginLeft: 8, opacity: .8 }}>(마케팅 동의자만)</span>}
                 {extraEmails.length > 0 && <span style={{ fontSize: 12, marginLeft: 8, opacity: .8 }}>(수기 {extraEmails.length}명 포함)</span>}
               </div>
             )}
 
             <button onClick={() => setPreviewOpen(true)}
-              style={{ width: '100%', padding: '12px', border: '1.5px dashed #3d4fd7', borderRadius: 10, background: 'transparent', cursor: 'pointer', color: '#3d4fd7', fontWeight: 700, fontSize: 14, marginBottom: 28 }}>
-              🔍 메일 최종 미리보기
+              style={{ width: '100%', padding: '11px', border: '1.5px dashed #3d4fd7', borderRadius: 10, background: 'transparent', cursor: 'pointer', color: '#3d4fd7', fontWeight: 700, fontSize: 14, marginBottom: 24 }}>
+              🔍 메일 미리보기
             </button>
 
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -558,8 +674,9 @@ export default function Home() {
                 </div>
                 <button onClick={() => handleSend(sendResult.campaignId, true)} disabled={sending}
                   style={{ padding: '12px 32px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  {sending ? <><Spinner /> 발송 중...</> : `▶ 이어서 발송 (${sendResult.remaining.toLocaleString()}명)`}
+                  {sending ? <><Spinner /> 발송 중...</> : `▶ 내일 이어서 발송 (${sendResult.remaining.toLocaleString()}명 남음)`}
                 </button>
+                <p style={{ marginTop: 8, fontSize: 12, color: '#a16207' }}>내일 이 버튼을 누르거나, 발송 이력 탭에서 이어서 발송하세요.</p>
               </div>
             ) : (
               <div style={{ padding: '32px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 16, textAlign: 'center' }}>
@@ -607,10 +724,10 @@ export default function Home() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                           <StatusBadge status={c.status} />
                           <span style={{ fontSize: 15, fontWeight: 800 }}>{c.title}</span>
-                          {c.status === 'pending' && (c.pending_emails?.length ?? 0) > 0 && (
+                          {(c.status === 'pending' || c.status === 'error') && (c.pending_emails?.length ?? 0) > 0 && (
                             <span onClick={e => { e.stopPropagation(); setContinueCampaign(c) }}
-                              style={{ padding: '3px 10px', background: '#f59e0b', color: 'white', borderRadius: 20, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
-                              ▶ 이어서 발송 ({c.pending_emails!.length.toLocaleString()}명)
+                              style={{ padding: '3px 10px', background: c.status === 'error' ? '#dc2626' : '#f59e0b', color: 'white', borderRadius: 20, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+                              {c.status === 'error' ? '⚠️ 오류 — 이어서 발송' : '▶ 이어서 발송'} ({c.pending_emails!.length.toLocaleString()}명 남음)
                             </span>
                           )}
                         </div>
@@ -681,7 +798,13 @@ export default function Home() {
             <div style={{ fontSize: 40, marginBottom: 16 }}>📬</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{continueCampaign.title}</div>
             <div style={{ fontSize: 14, color: '#64748b', marginBottom: 24, lineHeight: 1.8 }}>
-              대기 중 <b style={{ color: '#d97706' }}>{(continueCampaign.pending_emails?.length ?? 0).toLocaleString()}명</b>에게<br />오늘 최대 100명을 이어서 발송합니다.
+              {continueCampaign.status === 'error' && (
+                <div style={{ padding: '10px 14px', background: '#fee2e2', borderRadius: 8, marginBottom: 12, fontSize: 13, color: '#dc2626', fontWeight: 600 }}>
+                  ⚠️ 이전 발송 중 오류가 발생했습니다.<br />발송되지 않은 회원부터 이어서 발송합니다.
+                </div>
+              )}
+              남은 수신자 <b style={{ color: continueCampaign.status === 'error' ? '#dc2626' : '#d97706' }}>{(continueCampaign.pending_emails?.length ?? 0).toLocaleString()}명</b> 중<br />
+              오늘 최대 <b>100명</b>을 발송합니다.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <Btn onClick={() => setContinueCampaign(null)}>취소</Btn>
