@@ -63,6 +63,7 @@ interface DbRow {
   member_status: string | null
   join_date: string | null
   profile_date: string | null
+  child_name: string | null
   last_pay_date: string | null
   is_paid: boolean
   watch_count: number
@@ -95,6 +96,7 @@ export async function POST(req: NextRequest) {
       const jnCol   = findCol(cols, '가입일시', '가입일')
       const pfCol   = findCol(cols, '프로필등록일시', '프로필등록일')
       const pdtCol  = findCol(cols, '최종결제일', '결제일시', '결제일')
+      const cnCol   = findCol(cols, '자녀명', '자녀이름')
       const wcCol   = findCol(cols, '영상시청횟수', '시청횟수')
       const lwCol   = findCol(cols, '최종영상시청일', '최종시청일')
 
@@ -111,6 +113,7 @@ export async function POST(req: NextRequest) {
         const ex: DbRow = merged.get(email) ?? {
           email,
           parent_name: null,
+          child_name: null,
           phone: null,
           social_type: null,
           member_status: null,
@@ -125,6 +128,7 @@ export async function POST(req: NextRequest) {
         // 기본 정보
         if (phCol && row[phCol] && !ex.phone)        ex.phone        = normPhone(row[phCol])
         if (nmCol && row[nmCol] && !ex.parent_name)  ex.parent_name  = String(row[nmCol])
+        if (cnCol && row[cnCol] && !ex.child_name)     ex.child_name   = String(row[cnCol])
         if (scCol && row[scCol] && !ex.social_type)  ex.social_type  = String(row[scCol])
 
         // 회원상태: 더 상위 상태로만 업데이트
