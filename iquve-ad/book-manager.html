@@ -139,6 +139,18 @@
     .progress-fill{height:100%;background:var(--indigo);border-radius:3px;transition:width .3s;}
     .badge-ok{background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
     .badge-err{background:#fee2e2;color:#991b1b;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
+
+    /* ── 페이지네이션 ── */
+    .pagination{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:24px;flex-wrap:wrap;}
+    .page-btn{min-width:36px;height:36px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;background:white;color:var(--dark);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;}
+    .page-btn:hover:not(:disabled){border-color:var(--indigo);color:var(--indigo);}
+    .page-btn.active{background:var(--indigo);color:white;border-color:var(--indigo);}
+    .page-btn:disabled{opacity:.4;cursor:not-allowed;}
+    .page-info{font-size:13px;color:var(--gray);padding:0 8px;}
+
+    /* ── 정렬 버튼 ── */
+    .sort-btn{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;background:white;color:var(--gray);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;}
+    .sort-btn.active{border-color:var(--indigo);background:var(--indigo-bg);color:var(--indigo);}
   </style>
 </head>
 <body>
@@ -185,8 +197,11 @@
         <option value="inactive">비활성</option>
       </select>
     </div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-secondary" onclick="loadBooks()">🔄 새로고침</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <span style="font-size:12px;font-weight:700;color:var(--gray);">정렬</span>
+      <button class="sort-btn" id="sort-abc" onclick="setSort('abc')">가나다순</button>
+      <button class="sort-btn active" id="sort-new" onclick="setSort('new')">최신순</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadBooks()" style="margin-left:4px;">🔄</button>
       <button class="btn btn-primary" onclick="openAddModal()">+ 도서 추가</button>
     </div>
   </div>
@@ -195,6 +210,9 @@
   <div id="bookGrid" class="book-grid">
     <div class="loading-wrap"><div class="spinner"></div> 불러오는 중...</div>
   </div>
+
+  <!-- 페이지네이션 -->
+  <div id="pagination" class="pagination"></div>
 
 </div>
 
@@ -403,8 +421,12 @@ const HEADERS={
 };
 
 let allBooks=[];
+let filteredBooks=[];
 let editingId=null;
 let currentTags=[];
+let currentSort='new';   // 'new' | 'abc'
+let currentPage=1;
+const PAGE_SIZE=10;
 
 // ══════════════════════════════
 // DB 조회
@@ -430,7 +452,7 @@ async function loadBooks(){
     allBooks=all;
     if(!Array.isArray(allBooks)) throw new Error('데이터 오류');
     updateStats();
-    renderBooks(allBooks);
+    filterBooks();
   }catch(e){
     document.getElementById('bookGrid').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">불러오기 실패</div><div class="empty-sub">${e.message}</div></div>`;
   }
@@ -480,19 +502,76 @@ function renderBooks(books){
 }
 
 // ══════════════════════════════
-// 검색 & 필터
+// 정렬
+// ══════════════════════════════
+function setSort(type){
+  currentSort=type;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sort-'+type).classList.add('active');
+  currentPage=1;
+  filterBooks();
+}
+
+// ══════════════════════════════
+// 검색 & 필터 & 정렬
 // ══════════════════════════════
 function filterBooks(){
   const q=document.getElementById('searchInput').value.toLowerCase();
   const dev=document.getElementById('devFilter').value;
   const status=document.getElementById('statusFilter').value;
-  const filtered=allBooks.filter(b=>{
+  filteredBooks=allBooks.filter(b=>{
     const matchQ=!q||b.title_ko?.toLowerCase().includes(q)||b.title_en?.toLowerCase().includes(q)||b.publisher?.toLowerCase().includes(q)||(b.ai_tags||[]).some(t=>t.toLowerCase().includes(q));
     const matchDev=!dev||(b.dev_main||[]).includes(dev);
     const matchStatus=!status||(status==='active'?b.is_active:!b.is_active);
     return matchQ&&matchDev&&matchStatus;
   });
-  renderBooks(filtered);
+  // 정렬
+  if(currentSort==='abc'){
+    filteredBooks.sort((a,b)=>a.title_ko.localeCompare(b.title_ko,'ko'));
+  } else {
+    filteredBooks.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  }
+  currentPage=1;
+  renderPage();
+}
+
+// ══════════════════════════════
+// 페이지 렌더링
+// ══════════════════════════════
+function renderPage(){
+  const total=filteredBooks.length;
+  const totalPages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  if(currentPage>totalPages) currentPage=totalPages;
+  const start=(currentPage-1)*PAGE_SIZE;
+  const pageBooks=filteredBooks.slice(start,start+PAGE_SIZE);
+  renderBooks(pageBooks);
+  renderPagination(total,totalPages);
+}
+
+function renderPagination(total,totalPages){
+  const pg=document.getElementById('pagination');
+  if(totalPages<=1){pg.innerHTML='';return;}
+  const from=(currentPage-1)*PAGE_SIZE+1;
+  const to=Math.min(currentPage*PAGE_SIZE,total);
+  let html=`<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  // 페이지 번호 (최대 7개 표시)
+  let start=Math.max(1,currentPage-3);
+  let end=Math.min(totalPages,start+6);
+  if(end-start<6) start=Math.max(1,end-6);
+  if(start>1){html+=`<button class="page-btn" onclick="goPage(1)">1</button>`;if(start>2)html+=`<span class="page-info">…</span>`;}
+  for(let i=start;i<=end;i++){
+    html+=`<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+  }
+  if(end<totalPages){if(end<totalPages-1)html+=`<span class="page-info">…</span>`;html+=`<button class="page-btn" onclick="goPage(${totalPages})">${totalPages}</button>`;}
+  html+=`<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+  html+=`<span class="page-info">${from}–${to} / 총 ${total}권</span>`;
+  pg.innerHTML=html;
+}
+
+function goPage(p){
+  currentPage=p;
+  renderPage();
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 
 // ══════════════════════════════

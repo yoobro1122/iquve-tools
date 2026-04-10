@@ -72,10 +72,21 @@
     .lang-btn.active{border-color:var(--indigo);background:var(--indigo-bg);color:var(--indigo);}
 
     /* ── 동화책 선택 ── */
-    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
     .book-item{border:2px solid var(--border);border-radius:12px;padding:14px 10px;cursor:pointer;transition:all .15s;text-align:center;}
     .book-item.selected{border-color:var(--indigo);background:var(--indigo-bg);}
     .book-item:hover:not(.selected){border-color:var(--indigo-light);}
+    .book-search-bar{display:flex;gap:8px;margin-bottom:10px;}
+    .book-search-input{flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;}
+    .book-search-input:focus{border-color:var(--indigo);}
+    .book-sort-btn{padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:white;color:var(--gray);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
+    .book-sort-btn.active{border-color:var(--indigo);background:var(--indigo-bg);color:var(--indigo);}
+    .book-pagination{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:10px;flex-wrap:wrap;}
+    .book-page-btn{min-width:32px;height:32px;padding:0 8px;border:1.5px solid var(--border);border-radius:7px;background:white;color:var(--dark);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
+    .book-page-btn:hover:not(:disabled){border-color:var(--indigo);color:var(--indigo);}
+    .book-page-btn.active{background:var(--indigo);color:white;border-color:var(--indigo);}
+    .book-page-btn:disabled{opacity:.4;cursor:not-allowed;}
+    .book-page-info{font-size:11px;color:var(--gray);}
     .book-cover{font-size:32px;margin-bottom:8px;}
     .book-title{font-size:12px;font-weight:700;margin-bottom:4px;line-height:1.3;}
     .book-age{font-size:11px;color:var(--gray);}
@@ -301,8 +312,14 @@
         </div>
 
         <!-- 동화책 선택 -->
-        <div id="book-panel" style="display:flex;flex-direction:column;gap:12px;">
+        <div id="book-panel" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="book-search-bar">
+            <input type="text" class="book-search-input" id="bookSearch" placeholder="도서명, 태그 검색..." oninput="filterBooksContent()">
+            <button class="book-sort-btn active" id="bsort-abc" onclick="setBookSort('abc')">가나다</button>
+            <button class="book-sort-btn" id="bsort-new" onclick="setBookSort('new')">최신순</button>
+          </div>
           <div class="book-grid" id="bookGrid"></div>
+          <div id="bookPagination" class="book-pagination"></div>
           <div id="selectedBookInfo" style="display:none;background:var(--indigo-bg);border-radius:10px;padding:14px;font-size:13px;line-height:1.8;"></div>
         </div>
 
@@ -465,10 +482,21 @@ let BOOKS = [];
 
 async function loadBooksFromDB() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/books?select=*&is_active=eq.true&order=created_at.asc`, {
-      headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
-    });
-    const rows = await res.json();
+    let all = [];
+    let from = 0;
+    const CHUNK = 1000;
+    while(true) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/books?select=*&is_active=eq.true&order=created_at.asc`,
+        { headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}`, 'Range': `${from}-${from+CHUNK-1}`, 'Range-Unit': 'items' } }
+      );
+      const chunk = await res.json();
+      if (!Array.isArray(chunk) || chunk.length === 0) break;
+      all = [...all, ...chunk];
+      if (chunk.length < CHUNK) break;
+      from += CHUNK;
+    }
+    const rows = all;
     if (Array.isArray(rows) && rows.length > 0) {
       BOOKS = rows.map(b => ({
         id: b.id,
@@ -490,7 +518,8 @@ async function loadBooksFromDB() {
   } catch(e) {
     console.warn('DB 로드 실패, 기본 데이터 사용:', e);
   }
-  renderBooks();
+  filteredBooksContent=[...BOOKS];
+  filterBooksContent();
 }
 
 // ══════════════════════════════
@@ -567,24 +596,81 @@ function switchBookTab(tab){
   document.getElementById('topic-panel').style.display=tab==='topic'?'flex':'none';
 }
 
-function renderBooks(){
+function setBookSort(type){
+  bookSort=type;
+  document.querySelectorAll('.book-sort-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('bsort-'+type)?.classList.add('active');
+  bookPage=1;
+  filterBooksContent();
+}
+
+function filterBooksContent(){
+  const q=(document.getElementById('bookSearch')?.value||'').toLowerCase();
+  filteredBooksContent=BOOKS.filter(b=>{
+    if(!q) return true;
+    return b.title?.toLowerCase().includes(q)||
+           b.titleEn?.toLowerCase().includes(q)||
+           (b.keywords||[]).some(k=>k.toLowerCase().includes(q))||
+           (b.devMain||[]).some(d=>d.toLowerCase().includes(q));
+  });
+  if(bookSort==='abc'){
+    filteredBooksContent.sort((a,b)=>a.title.localeCompare(b.title,'ko'));
+  }
+  bookPage=1;
+  renderBooksPage();
+}
+
+function renderBooksPage(){
   const grid=document.getElementById('bookGrid');
   if(!BOOKS.length){
     grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--gray);font-size:13px;">도서를 불러오는 중...</div>';
+    document.getElementById('bookPagination').innerHTML='';
     return;
   }
-  grid.innerHTML=BOOKS.map(b=>`
+  if(!filteredBooksContent.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--gray);font-size:13px;">검색 결과가 없어요</div>';
+    document.getElementById('bookPagination').innerHTML='';
+    return;
+  }
+  const total=filteredBooksContent.length;
+  const totalPages=Math.max(1,Math.ceil(total/BOOK_PAGE_SIZE));
+  if(bookPage>totalPages) bookPage=totalPages;
+  const start=(bookPage-1)*BOOK_PAGE_SIZE;
+  const pageBooks=filteredBooksContent.slice(start,start+BOOK_PAGE_SIZE);
+
+  grid.innerHTML=pageBooks.map(b=>`
     <div class="book-item ${selectedBook?.id===b.id?'selected':''}" onclick="selectBook('${b.id}')">
-      <div class="book-cover">
-        ${b.thumbnail?`<img src="${b.thumbnail}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.style.display='none'">`:b.emoji||'📖'}
+      <div class="book-cover" style="height:60px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;margin-bottom:6px;">
+        ${b.thumbnail?`<img src="${b.thumbnail}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.style.display='none';this.parentNode.innerHTML='📖'">`:b.emoji||'📖'}
       </div>
-      <div class="book-title">${b.title}</div>
-      <div class="book-age">${(b.devMain||[]).slice(0,2).join('·')}</div>
+      <div class="book-title" style="font-size:11px;">${b.title}</div>
+      <div class="book-age" style="font-size:10px;color:var(--gray);margin-top:2px;">${(b.devMain||[]).slice(0,2).join('·')}</div>
     </div>`).join('');
+
+  // 페이지네이션
+  const pg=document.getElementById('bookPagination');
+  if(totalPages<=1){
+    pg.innerHTML=`<span class="book-page-info">총 ${total}권</span>`;
+    return;
+  }
+  let html=`<button class="book-page-btn" onclick="goBookPage(${bookPage-1})" ${bookPage===1?'disabled':''}>‹</button>`;
+  const s=Math.max(1,bookPage-2), e=Math.min(totalPages,s+4);
+  for(let i=s;i<=e;i++) html+=`<button class="book-page-btn ${i===bookPage?'active':''}" onclick="goBookPage(${i})">${i}</button>`;
+  html+=`<button class="book-page-btn" onclick="goBookPage(${bookPage+1})" ${bookPage===totalPages?'disabled':''}>›</button>`;
+  html+=`<span class="book-page-info">${start+1}–${Math.min(bookPage*BOOK_PAGE_SIZE,total)} / ${total}권</span>`;
+  pg.innerHTML=html;
 }
+
+function goBookPage(p){
+  bookPage=p;
+  renderBooksPage();
+}
+
+function renderBooks(){ filterBooksContent(); } // 하위 호환
+
 function selectBook(id){
   selectedBook=BOOKS.find(b=>b.id===id)||null;
-  renderBooks();
+  renderBooksPage();
   const info=document.getElementById('selectedBookInfo');
   if(selectedBook){
     info.style.display='block';
