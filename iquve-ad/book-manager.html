@@ -412,8 +412,22 @@ let currentTags=[];
 async function loadBooks(){
   document.getElementById('bookGrid').innerHTML='<div class="loading-wrap"><div class="spinner"></div> 불러오는 중...</div>';
   try{
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/books?select=*&order=created_at.desc`,{headers:HEADERS});
-    allBooks=await res.json();
+    // Supabase 기본 한도(1000개) 초과 시 페이지네이션으로 전체 로드
+    let all=[];
+    let from=0;
+    const CHUNK=1000;
+    while(true){
+      const res=await fetch(
+        `${SUPABASE_URL}/rest/v1/books?select=*&order=created_at.desc`,
+        { headers:{...HEADERS,'Range':`${from}-${from+CHUNK-1}`,'Range-Unit':'items','Prefer':'count=exact'} }
+      );
+      const chunk=await res.json();
+      if(!Array.isArray(chunk)||chunk.length===0) break;
+      all=[...all,...chunk];
+      if(chunk.length<CHUNK) break; // 마지막 페이지
+      from+=CHUNK;
+    }
+    allBooks=all;
     if(!Array.isArray(allBooks)) throw new Error('데이터 오류');
     updateStats();
     renderBooks(allBooks);
