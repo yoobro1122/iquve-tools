@@ -25,12 +25,19 @@ function normPhone(v: unknown): string | null {
 function normDate(v: unknown): string | null {
   if (!v) return null
   const s = String(v).trim()
-  // YYYY-MM-DD HH:MM:SS 또는 YYYY-MM-DD 형식 모두 처리
-  const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (match) return `${match[1]}-${match[2]}-${match[3]}`
-  // MM/DD/YYYY 형식 (미국식)
-  const match2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
-  if (match2) return `${match2[3]}-${match2[1].padStart(2,'0')}-${match2[2].padStart(2,'0')}`
+
+  // YYYY-MM-DD (또는 YYYY-MM-DD HH:MM:SS)
+  const m1 = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`
+
+  // MM/DD/YYYY HH:MM (예: 4/10/2026 17:02)
+  const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (m2) return `${m2[3]}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`
+
+  // M/DD/YY HH:MM (예: 9/12/25 17:02) → 2000년대로 해석
+  const m3 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})/)
+  if (m3) return `20${m3[3]}-${m3[1].padStart(2,'0')}-${m3[2].padStart(2,'0')}`
+
   return null
 }
 
@@ -89,7 +96,7 @@ export async function POST(req: NextRequest) {
       const type = detectType(cols)
 
       // 컬럼 매핑
-      const eCol   = findCol(cols, '로그인ID', '이메일', 'email')
+      const eCol   = findCol(cols, '로그인ID', '로그인아이디', '이메일', 'email')
       const phCol  = findCol(cols, '휴대폰번호', '전화번호')
       const nmCol  = findCol(cols, '학부모명', '이름')
       const cnCol  = findCol(cols, '자녀이름')
@@ -104,6 +111,7 @@ export async function POST(req: NextRequest) {
       const psCol  = findCol(cols, '결제상태')
       const paCol  = findCol(cols, '결제금액')
       const pdtCol = findCol(cols, '결제일시', '결제일')
+      const mkCol  = findCol(cols, '마케팅수신동의여부', '마케팅')
 
       // 첫 행 샘플 (디버그)
       const sample: Record<string, unknown> = {}
@@ -160,6 +168,16 @@ export async function POST(req: NextRequest) {
           if (trCol  && row[trCol]  === 'Y')  existing.has_trial = true
           if (pdCol  && row[pdCol]  === 'Y')  existing.is_paid   = true
           if (existing.member_status === '유료회원') existing.is_paid = true
+          // 최종결제일 있으면 유료 회원으로 처리
+          const lastPayCol = findCol(Object.keys(row), '최종결제일', '최근결제일', '결제일')
+          if (lastPayCol && row[lastPayCol]) {
+            existing.is_paid = true
+            const pd = normDate(row[lastPayCol])
+            if (pd && (!existing.last_pay_date || pd > existing.last_pay_date)) existing.last_pay_date = pd
+          }
+          // 상품명이 '구독상품없음'이 아니면 유료로 처리
+          const prodCol = findCol(Object.keys(row), '상품명')
+          if (prodCol && row[prodCol] && String(row[prodCol]) !== '구독상품없음') existing.is_paid = true
 
           merged.set(email, existing)
           count++
