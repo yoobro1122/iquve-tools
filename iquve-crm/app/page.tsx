@@ -67,6 +67,7 @@ export default function Home() {
   const [curGroup, setCurGroup] = useState<GroupKey>('A')
   const [viewMode, setViewMode] = useState<ViewMode>('active')
   const [search, setSearch] = useState('')
+  const [dayFilter, setDayFilter] = useState<number | null>(null)
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' | 'info' } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -125,12 +126,13 @@ export default function Home() {
       list = data.groups[curGroup][viewMode === 'active' ? 'active' : 'unconverted']
     }
     const q = search.trim().toLowerCase()
-    return list.filter(m =>
-      !q ||
-      (m.email ?? '').includes(q) ||
-      (m.parent_name ?? '').includes(q) ||
-      (m.child_name ?? '').toLowerCase().includes(q)
-    )
+    return list.filter(m => {
+      if (dayFilter !== null && m.day_num !== dayFilter) return false
+      if (!q) return true
+      return (m.email ?? '').includes(q) ||
+        (m.parent_name ?? '').includes(q) ||
+        (m.child_name ?? '').toLowerCase().includes(q)
+    })
   }
 
   // ── 다운로드 ──
@@ -272,7 +274,7 @@ export default function Home() {
             const unconv = data?.groups[key].unconverted.length ?? 0
             const isCur = curGroup === key
             return (
-              <div key={key} onClick={() => { setCurGroup(key); setViewMode('active'); setSearch('') }}
+              <div key={key} onClick={() => { setCurGroup(key); setViewMode('active'); setSearch(''); setDayFilter(null) }}
                 style={{
                   background: 'white', borderRadius: 14, padding: '20px',
                   border: `2px solid ${isCur ? meta.color : '#e2e8f4'}`,
@@ -333,16 +335,20 @@ export default function Home() {
                 const cnt = data.groups[curGroup].active.filter(m => m.day_num === day).length
                 return (
                   <div key={day}
-                    onClick={() => setSearch(`d+${day}`)}
+                    onClick={() => {
+                      if (dayFilter === day) setDayFilter(null)  // 같은 거 누르면 해제
+                      else setDayFilter(day)
+                      setSearch('')
+                    }}
                     style={{
                       textAlign: 'center', padding: '8px 10px', borderRadius: 8,
-                      background: cnt > 0 ? dayBg(day) : '#f8fafc',
-                      border: `1px solid ${cnt > 0 ? dayColor(day) + '40' : '#e2e8f4'}`,
+                      background: dayFilter === day ? dayColor(day) : cnt > 0 ? dayBg(day) : '#f8fafc',
+                      border: `2px solid ${dayFilter === day ? dayColor(day) : cnt > 0 ? dayColor(day) + '40' : '#e2e8f4'}`,
                       minWidth: 48, cursor: cnt > 0 ? 'pointer' : 'default',
                       transition: 'all .15s',
                     }}>
-                    <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>D+{day}</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: cnt > 0 ? dayColor(day) : '#d1d5db', lineHeight: 1.2 }}>{cnt}</div>
+                    <div style={{ fontSize: 10, color: dayFilter === day ? 'rgba(255,255,255,.8)' : '#94a3b8', fontWeight: 700 }}>D+{day}</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: dayFilter === day ? 'white' : cnt > 0 ? dayColor(day) : '#d1d5db', lineHeight: 1.2 }}>{cnt}</div>
                   </div>
                 )
               })}
@@ -359,7 +365,7 @@ export default function Home() {
               {curGroup !== 'none' && (['active', 'unconverted'] as ViewMode[]).map(mode => {
                 const meta = GROUP_META[curGroup as 'A'|'B'|'C']
                 return (
-                  <button key={mode} onClick={() => { setViewMode(mode); setSearch('') }}
+                  <button key={mode} onClick={() => { setViewMode(mode); setSearch(''); setDayFilter(null) }}
                     style={{
                       padding: '7px 14px', border: 'none', borderRadius: 8,
                       background: viewMode === mode ? meta.bg : 'transparent',
@@ -394,6 +400,12 @@ export default function Home() {
                 style={{ padding: '8px 12px 8px 30px', border: '1.5px solid #e2e8f4', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', width: 200 }} />
             </div>
 
+            {dayFilter !== null && (
+              <span style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 12px', background: dayColor(dayFilter), color:'white', borderRadius:20, fontSize:13, fontWeight:800 }}>
+                D+{dayFilter} 필터
+                <button onClick={() => setDayFilter(null)} style={{background:'none',border:'none',color:'white',cursor:'pointer',fontSize:16,padding:0,lineHeight:1}}>×</button>
+              </span>
+            )}
             <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 10px', background: curMeta.bg, color: curMeta.color, borderRadius: 20 }}>
               {curList.length.toLocaleString()}명
             </span>
