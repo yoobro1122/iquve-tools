@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 function diffDays(dateStr: string, refDateStr: string): number {
   const [by, bm, bd] = dateStr.slice(0, 10).split('-').map(Number)
@@ -15,34 +17,46 @@ export async function GET(req: NextRequest) {
     const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const refDateStr = searchParams.get('date') ?? kstNow.toISOString().slice(0, 10)
 
+    // service_role key로 RLS 및 row limit 우회
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     const db = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      serviceKey
     )
 
-    // ── 전체 데이터 페이지네이션으로 가져오기 (1000행 제한 우회)
+    // 전체 개수 먼저 확인
+    const { count: totalCount, error: countErr } = await db
+      .from('crm_members')
+      .select('*', { count: 'exact', head: true })
+
+    if (countErr) return NextResponse.json({ error: countErr.message }, { status: 500 })
+
+    const total = totalCount ?? 0
+
+    // 페이지네이션으로 전체 데이터 가져오기
     let allRows: Record<string, unknown>[] = []
     const PAGE = 1000
-    let from = 0
-    while (true) {
+
+    for (let from = 0; from < total; from += PAGE) {
       const { data, error } = await db
         .from('crm_members')
         .select('*')
         .order('join_date', { ascending: false })
-        .range(from, from + PAGE - 1)
+        .range(from, Math.min(from + PAGE - 1, total - 1))
 
-      if (error) return NextResponse.json({ error: error.message, code: error.code }, { status: 500 })
-      if (!data || data.length === 0) break
+      if (error) return NextResponse.json({
+        error: error.message,
+        page_from: from,
+        total_count: total
+      }, { status: 500 })
 
-      allRows = allRows.concat(data)
-      if (data.length < PAGE) break  // 마지막 페이지
-      from += PAGE
+      if (data) allRows = allRows.concat(data)
     }
 
+    // 그룹 분류
     const groupA14: unknown[] = [], groupB14: unknown[] = [], groupC14: unknown[] = []
     const unconvA:  unknown[] = [], unconvB:  unknown[] = [], unconvC:  unknown[] = []
     const noGroup:  unknown[] = []
-
     let paidCount = 0
 
     for (const m of allRows) {
@@ -71,12 +85,13 @@ export async function GET(req: NextRequest) {
       if (!matched) noGroup.push({ ...m, crm_group: 'none' })
     }
 
-    const total   = allRows.length
-    const unpaid  = total - paidCount
-
     return NextResponse.json({
       ref_date: refDateStr,
-      stats: { total, paid: paidCount, unpaid },
+      stats: {
+        total: allRows.length,
+        paid: paidCount,
+        unpaid: allRows.length - paidCount,
+      },
       groups: {
         A: { active: groupA14, unconverted: unconvA },
         B: { active: groupB14, unconverted: unconvB },
@@ -84,20 +99,10 @@ export async function GET(req: NextRequest) {
         none: noGroup,
       },
       _debug: {
+        db_total_count: total,
         rows_fetched: allRows.length,
-        paid: paidCount,
-        unpaid,
-        A_active: groupA14.length,
-        A_unconv: unconvA.length,
-        none: noGroup.length,
+        using_service_key: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
         ref_date: refDateStr,
-        sample: allRows.slice(0, 3).map(m => ({
-          email: m.email,
-          join_date: m.join_date,
-          has_child: m.has_child,
-          is_paid: m.is_paid,
-          diff: m.join_date ? diffDays(String(m.join_date), refDateStr) : null,
-        })),
       },
     })
   } catch (err: unknown) {
