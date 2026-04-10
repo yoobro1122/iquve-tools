@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx'
 interface CrmMember {
   id: string; email: string; parent_name: string | null
   phone: string | null; social_type: string | null; member_status: string | null
+  child_name: string | null
   join_date: string | null; profile_date: string | null
   last_pay_date: string | null; is_paid: boolean
   watch_count: number; last_watch_date: string | null
@@ -130,7 +131,8 @@ export default function Home() {
       if (!q) return true
       return (m.email ?? '').includes(q) ||
         (m.parent_name ?? '').includes(q) ||
-        (m.member_status ?? '').toLowerCase().includes(q)
+        (m.member_status ?? '').toLowerCase().includes(q) ||
+      (m.child_name ?? '').toLowerCase().includes(q)
     })
   }
 
@@ -148,6 +150,7 @@ export default function Home() {
       [meta.refLabel]: viewMode === 'active' ? getRefDate(m, curGroup) : getRefDate(m, curGroup),
       '경과일(D+)': m.day_num ?? '',
       '가입일': m.join_date ?? '',
+      '자녀명': m.child_name ?? '',
       '회원상태': m.member_status ?? '',
       '영상시청횟수': m.watch_count ?? 0,
       '유형': viewMode === 'active' ? `D+${m.day_num} 발송대상` : '미전환',
@@ -428,7 +431,7 @@ export default function Home() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ position: 'sticky', top: 0, zIndex: 5, background: '#f8fafc', borderBottom: '1.5px solid #e2e8f4' }}>
-                    {['#', '이메일', '학부모명', '전화번호', '회원상태', curMeta.refLabel, 'D+', '영상시청'].map(h => (
+                    {['#', '이메일', '학부모명', '자녀명', '전화번호', '회원상태', curMeta.refLabel, 'D+', '영상시청'].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#7c88a4', letterSpacing: .5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -441,6 +444,7 @@ export default function Home() {
                       <td style={{ padding: '10px 14px', color: '#d1d5db', fontSize: 12 }}>{i + 1}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12.5 }}>{m.email}</td>
                       <td style={{ padding: '10px 14px', fontSize: 13 }}>{m.parent_name ?? <span style={{ color: '#d1d5db' }}>—</span>}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13 }}>{m.child_name ?? <span style={{ color: '#d1d5db' }}>—</span>}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{fmtPhone(m.phone) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#64748b' }}>{m.member_status ?? '—'}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#7c88a4' }}>{fmtDate(getRefDate(m, curGroup))}</td>
