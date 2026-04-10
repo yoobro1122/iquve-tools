@@ -8,6 +8,8 @@ import type { Campaign } from '@/lib/supabase'
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface ParsedMember { email: string; category: string; marketing: boolean }
 interface XlsxStats { total: number; paid: number; both: number; emailOnly: number; marketing: number }
+interface SendLog { email: string; error?: string; created_at: string }
+interface LogData { total: number; sent_count: number; fail_count: number; sent: SendLog[]; failed: SendLog[] }
 
 const TABS = ['① 수신자 업로드', '② 메일 작성', '③ 수신자 선택', '④ 발송 확인', '📋 발송 이력']
 const INTERNAL = new Set(['growv.com', 'growv.kr'])
@@ -104,6 +106,9 @@ export default function Home() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [historyDetail, setHistoryDetail] = useState<Campaign | null>(null)
   const [historyPreview, setHistoryPreview] = useState(false)
+  const [historyLogs, setHistoryLogs] = useState<LogData | null>(null)
+  const [logLoading, setLogLoading] = useState(false)
+  const [historyTab, setHistoryTab] = useState<'preview' | 'sent' | 'failed'>('sent')
   const [continueCampaign, setContinueCampaign] = useState<Campaign | null>(null)
 
   const xlsxFileRef = useRef<HTMLInputElement>(null)
@@ -120,6 +125,15 @@ export default function Home() {
   }
 
   useEffect(() => { loadCampaigns() }, [])
+
+  async function loadLogs(campaignId: string) {
+    setLogLoading(true); setHistoryLogs(null)
+    try {
+      const res = await fetch(`/api/send-logs?campaign_id=${campaignId}`)
+      const json = await res.json()
+      if (res.ok) setHistoryLogs(json)
+    } finally { setLogLoading(false) }
+  }
 
   // ── 수신자 엑셀 로드 (여러 파일 누적) ──
   async function handleXlsxUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -715,7 +729,7 @@ export default function Home() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {campaigns.map(c => (
-                  <div key={c.id} onClick={() => { setHistoryDetail(c); setHistoryPreview(false) }}
+                  <div key={c.id} onClick={() => { setHistoryDetail(c); setHistoryPreview(false); setHistoryTab('sent'); loadLogs(c.id) }}
                     style={{ background: 'white', borderRadius: 14, padding: '18px 22px', border: '1px solid #e2e8f0', borderLeft: `4px solid ${c.status === 'done' ? '#22c55e' : c.status === 'pending' ? '#f59e0b' : c.status === 'error' ? '#ef4444' : '#e2e8f0'}`, cursor: 'pointer', transition: 'box-shadow .15s' }}
                     onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,.1)')}
                     onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}>
@@ -759,34 +773,94 @@ export default function Home() {
       {/* ── 발송 이력 상세 모달 ── */}
       {historyDetail && (
         <div onClick={() => setHistoryDetail(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 18, width: '100%', maxWidth: 760, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,.3)' }}>
-            <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 18, width: '100%', maxWidth: 800, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,.3)' }}>
+
+            {/* 헤더 */}
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <StatusBadge status={historyDetail.status} />
                   <span style={{ fontSize: 16, fontWeight: 800 }}>{historyDetail.title}</span>
                 </div>
-                <div style={{ fontSize: 13, color: '#64748b' }}>제목: {historyDetail.subject}</div>
+                <div style={{ fontSize: 13, color: '#64748b' }}>제목: {historyDetail.subject} · {new Date(historyDetail.sent_at ?? historyDetail.created_at).toLocaleString('ko-KR')}</div>
               </div>
               <button onClick={() => setHistoryDetail(null)} style={{ border: 'none', background: '#f1f5f9', borderRadius: 8, width: 34, height: 34, cursor: 'pointer', fontSize: 20, color: '#64748b' }}>×</button>
             </div>
-            <div style={{ padding: '12px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: 20, fontSize: 13, color: '#64748b', flexWrap: 'wrap' }}>
-              <span>📮 {historyDetail.groups.join(', ') || '수기 발송'}</span>
-              <span>👥 {historyDetail.total_count.toLocaleString()}명</span>
-              <span>✅ <b style={{ color: '#15803d' }}>{historyDetail.sent_count.toLocaleString()}명</b></span>
-              {historyDetail.fail_count > 0 && <span>❌ <b style={{ color: '#dc2626' }}>{historyDetail.fail_count}명</b></span>}
-              <span>📅 {new Date(historyDetail.sent_at ?? historyDetail.created_at).toLocaleString('ko-KR')}</span>
+
+            {/* 요약 통계 */}
+            <div style={{ padding: '12px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: 16, flexShrink: 0, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: '#64748b' }}>👥 총 {historyDetail.total_count.toLocaleString()}명</span>
+              <span style={{ fontSize: 13, color: '#15803d', fontWeight: 700 }}>✅ 성공 {historyLogs?.sent_count ?? historyDetail.sent_count}명</span>
+              {(historyLogs?.fail_count ?? historyDetail.fail_count) > 0 && (
+                <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 700 }}>❌ 실패 {historyLogs?.fail_count ?? historyDetail.fail_count}명</span>
+              )}
+              {(historyLogs?.fail_count ?? 0) > 0 && (
+                <button
+                  onClick={() => {
+                    // 실패자 이메일을 수기 이메일로 복사해서 새 캠페인 준비
+                    const failEmails = historyLogs!.failed.map(l => l.email)
+                    setExtraEmails(failEmails)
+                    setHistoryDetail(null)
+                    setTab(2)
+                    showToast(`실패한 ${failEmails.length}명이 수기 이메일에 추가됐어요. 메일 작성 후 발송하세요.`, 'info')
+                  }}
+                  style={{ padding: '4px 12px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 20, fontSize: 12, fontWeight: 700, color: '#dc2626', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  🔄 실패자 재발송 준비
+                </button>
+              )}
             </div>
-            <div style={{ padding: '12px 24px', borderBottom: historyPreview ? '1px solid #e2e8f0' : 'none' }}>
-              <button onClick={() => setHistoryPreview(p => !p)}
-                style={{ padding: '8px 16px', border: '1.5px solid #c7d2fe', borderRadius: 8, background: historyPreview ? '#eff2ff' : 'white', color: '#3d4fd7', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                {historyPreview ? '▲ 닫기' : '▼ 발송된 메일 내용 보기'}
-              </button>
+
+            {/* 탭 */}
+            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+              {[
+                { key: 'sent' as const,    label: `✅ 성공 명단 (${historyLogs?.sent_count ?? '…'})` },
+                { key: 'failed' as const,  label: `❌ 실패 명단 (${historyLogs?.fail_count ?? '…'})` },
+                { key: 'preview' as const, label: '📧 메일 내용' },
+              ].map(t => (
+                <button key={t.key} onClick={() => setHistoryTab(t.key)}
+                  style={{ padding: '11px 20px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: historyTab === t.key ? 800 : 400, color: historyTab === t.key ? '#3d4fd7' : '#64748b', borderBottom: historyTab === t.key ? '2.5px solid #3d4fd7' : '2.5px solid transparent', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  {t.label}
+                </button>
+              ))}
             </div>
-            {historyPreview
-              ? <div style={{ flex: 1, overflow: 'auto' }}><iframe srcDoc={historyDetail.html_content} style={{ width: '100%', height: '100%', minHeight: 480, border: 'none' }} sandbox="allow-same-origin" /></div>
-              : <div style={{ padding: 24, color: '#94a3b8', fontSize: 14, textAlign: 'center' }}>위 버튼을 눌러 발송된 메일 내용을 확인하세요</div>
-            }
+
+            {/* 탭 내용 */}
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              {historyTab === 'preview' ? (
+                <iframe srcDoc={historyDetail.html_content} style={{ width: '100%', height: '100%', minHeight: 480, border: 'none' }} sandbox="allow-same-origin" />
+              ) : logLoading ? (
+                <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>⏳ 로딩 중...</div>
+              ) : !historyLogs ? (
+                <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>발송 로그를 불러올 수 없습니다.</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', position: 'sticky', top: 0 }}>
+                      <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>#</th>
+                      <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>이메일</th>
+                      {historyTab === 'failed' && <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>오류 내용</th>}
+                      <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>발송 시각</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(historyTab === 'sent' ? historyLogs.sent : historyLogs.failed).length === 0 ? (
+                      <tr><td colSpan={4} style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>
+                        {historyTab === 'sent' ? '성공한 발송이 없습니다' : '실패한 발송이 없습니다 🎉'}
+                      </td></tr>
+                    ) : (historyTab === 'sent' ? historyLogs.sent : historyLogs.failed).map((log, i) => (
+                      <tr key={log.email} style={{ borderBottom: '1px solid #f3f6fb' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f8faff')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'white')}>
+                        <td style={{ padding: '10px 20px', color: '#d1d5db', fontSize: 12 }}>{i + 1}</td>
+                        <td style={{ padding: '10px 20px', fontSize: 12.5 }}>{log.email}</td>
+                        {historyTab === 'failed' && <td style={{ padding: '10px 20px', fontSize: 12, color: '#dc2626', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(log as SendLog).error ?? '—'}</td>}
+                        <td style={{ padding: '10px 20px', fontSize: 12, color: '#94a3b8' }}>{new Date(log.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       )}
