@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>콘텐츠 메이커 · iQUVE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --indigo:#3d4fd7; --indigo-light:#a8b4ff; --indigo-bg:#eef0fd;
+      --dark:#1a1f36; --gray:#64748b; --border:#e2e8f0; --bg:#f1f3f9;
+      --success:#10b981; --warn:#f59e0b; --r:14px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--dark);min-height:100vh;}
+
+    /* ── 헤더 ── */
+    header{background:white;border-bottom:1px solid var(--border);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+    .hl{display:flex;align-items:center;gap:14px;}
+    .back{font-size:13px;color:var(--gray);text-decoration:none;}
+    .back:hover{color:var(--indigo);}
+    .logo{font-size:20px;font-weight:900;color:var(--indigo);}
+    .logo em{color:var(--indigo-light);font-style:normal;}
+    .ptitle{font-size:14px;color:var(--gray);font-weight:600;}
+    .slink{font-size:13px;font-weight:700;color:var(--indigo);text-decoration:none;display:flex;align-items:center;gap:6px;padding:7px 16px;border:1.5px solid var(--indigo-light);background:var(--indigo-bg);border-radius:8px;transition:all .15s;}
+    .slink:hover{background:#dde1fa;}
+
+    /* ── 메인 탭 ── */
+    .main-tabs{display:flex;background:white;border-bottom:2px solid var(--border);padding:0 28px;}
+    .main-tab{padding:15px 22px;font-size:15px;font-weight:700;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;display:flex;align-items:center;gap:8px;}
+    .main-tab.active{color:var(--indigo);border-bottom-color:var(--indigo);}
+
+    /* ── 서브 탭 (AI/직접작성) ── */
+    .sub-tabs{display:flex;gap:8px;margin-bottom:4px;}
+    .sub-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:700;border-radius:9px;cursor:pointer;border:2px solid var(--border);background:white;color:var(--gray);transition:all .15s;font-family:inherit;}
+    .sub-tab.active{border-color:var(--indigo);background:var(--indigo-bg);color:var(--indigo);}
+
+    /* ── 레이아웃 ── */
+    .container{max-width:1100px;margin:0 auto;padding:20px 24px;display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;}
+    .tab-content{display:none;flex-direction:column;gap:16px;}
+    .tab-content.active{display:flex;}
+    .sub-panel{display:none;flex-direction:column;gap:14px;}
+    .sub-panel.active{display:flex;}
+
+    /* ── 카드 ── */
+    .card{background:white;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;}
+    .card-hd{padding:16px 20px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+    .card-hd h2{font-size:15px;font-weight:800;}
+    .card-bd{padding:20px;display:flex;flex-direction:column;gap:14px;}
+
+    /* ── 폼 ── */
+    label{display:block;font-size:12px;font-weight:700;color:var(--gray);margin-bottom:5px;}
+    input[type=text],textarea,select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;color:var(--dark);outline:none;transition:border-color .15s;background:white;}
+    input[type=text]:focus,textarea:focus,select:focus{border-color:var(--indigo);}
+    textarea{resize:vertical;line-height:1.6;}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+    .field{display:flex;flex-direction:column;gap:5px;}
+    .hint{font-size:12px;color:var(--gray);}
+
+    /* ── 버튼 ── */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 18px;border-radius:9px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;border:none;transition:all .15s;}
+    .btn-primary{background:var(--indigo);color:white;width:100%;}
+    .btn-primary:hover:not(:disabled){background:#2f3eb8;}
+    .btn-secondary{background:var(--indigo-bg);color:var(--indigo);width:100%;}
+    .btn-secondary:hover{background:#dde1fa;}
+    .btn:disabled{opacity:.5;cursor:not-allowed;}
+
+    /* ── 언어 선택 ── */
+    .lang-grid{display:flex;gap:8px;flex-wrap:wrap;}
+    .lang-btn{padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;background:white;color:var(--gray);transition:all .15s;font-family:inherit;}
+    .lang-btn.active{border-color:var(--indigo);background:var(--indigo-bg);color:var(--indigo);}
+
+    /* ── 동화책 선택 ── */
+    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+    .book-item{border:2px solid var(--border);border-radius:12px;padding:14px 10px;cursor:pointer;transition:all .15s;text-align:center;}
+    .book-item.selected{border-color:var(--indigo);background:var(--indigo-bg);}
+    .book-item:hover:not(.selected){border-color:var(--indigo-light);}
+    .book-cover{font-size:32px;margin-bottom:8px;}
+    .book-title{font-size:12px;font-weight:700;margin-bottom:4px;line-height:1.3;}
+    .book-age{font-size:11px;color:var(--gray);}
+    .book-none{border-color:var(--border);background:var(--bg);}
+
+    /* ── 활동지 유형 ── */
+    .type-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .type-item{border:2px solid var(--border);border-radius:10px;padding:14px 12px;cursor:pointer;transition:all .15s;text-align:center;}
+    .type-item.selected{border-color:var(--indigo);background:var(--indigo-bg);}
+    .type-icon{font-size:26px;margin-bottom:6px;}
+    .type-name{font-size:13px;font-weight:700;}
+    .type-desc{font-size:11px;color:var(--gray);margin-top:3px;}
+
+    /* ── 슬라이드 편집기 ── */
+    .slide-list{display:flex;flex-direction:column;gap:10px;}
+    .slide-item{border:1.5px solid var(--border);border-radius:12px;overflow:hidden;}
+    .slide-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg);cursor:pointer;}
+    .slide-hl{display:flex;align-items:center;gap:10px;}
+    .slide-num{width:26px;height:26px;background:var(--indigo);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+    .slide-type-label{font-size:13px;font-weight:700;}
+    .slide-preview{font-size:11px;color:var(--gray);margin-top:2px;}
+    .slide-del{background:none;border:none;color:var(--gray);cursor:pointer;font-size:15px;}
+    .slide-del:hover{color:#ef4444;}
+    .slide-bd{padding:16px;border-top:1px solid var(--border);display:none;}
+    .slide-bd.open{display:block;}
+    .slide-fields{display:flex;flex-direction:column;gap:10px;}
+    .add-slide-btn{display:flex;align-items:center;justify-content:center;gap:6px;border:2px dashed var(--border);border-radius:12px;padding:13px;font-size:13px;font-weight:700;color:var(--gray);cursor:pointer;background:none;width:100%;transition:all .15s;font-family:inherit;margin-top:4px;}
+    .add-slide-btn:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-bg);}
+
+    /* ── 직접작성 활동지 ── */
+    .act-section{border:1.5px solid var(--border);border-radius:12px;padding:16px;}
+    .act-section-title{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+    .content-rows{display:flex;flex-direction:column;gap:8px;}
+    .content-row{display:flex;gap:8px;align-items:center;}
+    .content-row input{flex:1;}
+    .row-del{background:none;border:1px solid var(--border);border-radius:6px;padding:8px 10px;cursor:pointer;color:var(--gray);font-size:13px;}
+    .row-del:hover{border-color:#ef4444;color:#ef4444;}
+    .add-row-mini{font-size:13px;font-weight:700;color:var(--indigo);background:var(--indigo-bg);border:none;padding:8px 14px;border-radius:7px;cursor:pointer;font-family:inherit;margin-top:4px;}
+
+    /* ── AI 결과 ── */
+    .ai-result{background:var(--indigo-bg);border-radius:11px;padding:16px;margin-top:4px;}
+    .ai-result-label{font-size:11px;font-weight:700;color:var(--indigo);margin-bottom:8px;}
+    .ai-result-text{font-size:13px;line-height:1.9;white-space:pre-wrap;color:var(--dark);}
+
+    /* ── 로그 ── */
+    .log-box{background:#0f172a;border-radius:10px;padding:13px;font-size:12px;font-family:monospace;color:#94a3b8;max-height:150px;overflow-y:auto;margin-top:12px;}
+    .log-line{margin-bottom:3px;line-height:1.5;}
+    .log-line.ok{color:#4ade80;} .log-line.info{color:#60a5fa;} .log-line.err{color:#f87171;}
+
+    /* ── 상태 ── */
+    .api-status-box{font-size:12px;color:var(--gray);padding:11px 13px;background:var(--bg);border-radius:9px;line-height:1.9;}
+    .api-banner{margin:12px 24px 0;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;}
+    .api-banner.ok{background:#d1fae5;color:#065f46;}
+    .api-banner.warn{background:#fef3c7;color:#92400e;}
+    .api-banner a{color:inherit;font-weight:800;text-decoration:underline;}
+
+    .spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    @media(max-width:780px){.container{grid-template-columns:1fr;}.row2,.row3{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="hl">
+    <a href="../index.html" class="back">← 홈</a>
+    <div class="logo">i<em>Q</em>UVE</div>
+    <div class="ptitle">콘텐츠 메이커</div>
+  </div>
+  <a href="settings.html" class="slink">⚙️ API 설정</a>
+</header>
+
+<div id="apiBanner" class="api-banner warn">
+  ⚠️ API 키 확인 중... <a href="settings.html">API 설정 →</a>
+</div>
+
+<div class="main-tabs">
+  <div class="main-tab active" onclick="switchMain('card')">📰 카드뉴스</div>
+  <div class="main-tab" onclick="switchMain('activity')">✏️ 활동지</div>
+</div>
+
+<div class="container">
+<div style="display:flex;flex-direction:column;gap:16px;">
+
+<!-- ══════════════════════════════════════
+     카드뉴스 탭
+══════════════════════════════════════ -->
+<div id="tab-card" class="tab-content active">
+
+  <!-- 서브 탭 -->
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="switchSub('card','ai')">✨ AI로 만들기</button>
+    <button class="sub-tab" onclick="switchSub('card','manual')">✏️ 직접 작성하기</button>
+  </div>
+
+  <!-- AI로 만들기 -->
+  <div id="card-ai" class="sub-panel active">
+    <div class="card">
+      <div class="card-hd"><span>✨</span><h2>AI 카드뉴스 생성</h2></div>
+      <div class="card-bd">
+        <div class="row2">
+          <div class="field"><label>콘텐츠 유형</label>
+            <select id="c-type">
+              <option value="info">정보성 콘텐츠</option>
+              <option value="promo">iQUVE 홍보</option>
+              <option value="tip">육아·교육 팁</option>
+              <option value="event">이벤트 안내</option>
+              <option value="story">동화책 소개</option>
+            </select>
+          </div>
+          <div class="field"><label>슬라이드 수</label>
+            <select id="c-count">
+              <option value="3">3장</option>
+              <option value="5" selected>5장</option>
+              <option value="7">7장</option>
+              <option value="10">10장</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>주제 / 핵심 메시지</label>
+          <input type="text" id="c-topic" placeholder="예: 아이의 언어 발달을 돕는 5가지 방법">
+        </div>
+        <div class="field"><label>타겟 독자</label>
+          <input type="text" id="c-target" value="4~8세 자녀를 둔 부모">
+        </div>
+        <div class="field"><label>추가 요청사항</label>
+          <textarea id="c-note" rows="2" placeholder="예: 따뜻한 톤, 통계 수치 포함, 영어 단어 병기 등"></textarea>
+        </div>
+        <button class="btn btn-secondary" onclick="genCardAI()" id="c-ai-btn">✨ AI로 카드뉴스 생성</button>
+        <div id="c-ai-result" style="display:none;" class="ai-result">
+          <div class="ai-result-label">✨ 생성 완료 — 슬라이드 편집기에 자동 적용됐어요</div>
+        </div>
+      </div>
+    </div>
+    <!-- 슬라이드 미리보기 (AI 생성 후) -->
+    <div class="card" id="c-slide-preview" style="display:none;">
+      <div class="card-hd"><span>🗂️</span><h2>생성된 슬라이드 확인 & 편집</h2></div>
+      <div class="card-bd">
+        <div class="slide-list" id="c-slide-list"></div>
+        <button class="add-slide-btn" onclick="addCardSlide()">+ 슬라이드 추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 직접 작성하기 -->
+  <div id="card-manual" class="sub-panel">
+    <div class="card">
+      <div class="card-hd"><span>✏️</span><h2>직접 슬라이드 작성</h2></div>
+      <div class="card-bd">
+        <div class="hint" style="background:var(--indigo-bg);padding:10px 14px;border-radius:8px;color:var(--indigo);font-weight:600;">
+          💡 슬라이드를 추가하고 각 칸을 직접 채워주세요. 피그마에서 [ ] 태그 위치에 내용이 들어가요.
+        </div>
+        <div class="slide-list" id="c-manual-list"></div>
+        <button class="add-slide-btn" onclick="addCardSlideManual()">+ 슬라이드 추가</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-card -->
+
+
+<!-- ══════════════════════════════════════
+     활동지 탭
+══════════════════════════════════════ -->
+<div id="tab-activity" class="tab-content">
+
+  <!-- 서브 탭 -->
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="switchSub('activity','ai')">✨ AI로 만들기</button>
+    <button class="sub-tab" onclick="switchSub('activity','manual')">✏️ 직접 작성하기</button>
+  </div>
+
+  <!-- AI로 만들기 -->
+  <div id="activity-ai" class="sub-panel active">
+
+    <!-- 활동지 유형 -->
+    <div class="card">
+      <div class="card-hd"><span>🎨</span><h2>활동지 유형</h2></div>
+      <div class="card-bd">
+        <div class="type-grid">
+          <div class="type-item selected" onclick="selType(this,'coloring')">
+            <div class="type-icon">🖍️</div><div class="type-name">색칠공부</div>
+            <div class="type-desc">도안 + 색칠 영역</div>
+          </div>
+          <div class="type-item" onclick="selType(this,'maze')">
+            <div class="type-icon">🌀</div><div class="type-name">미로 찾기</div>
+            <div class="type-desc">START→END 미로</div>
+          </div>
+          <div class="type-item" onclick="selType(this,'writing')">
+            <div class="type-icon">✏️</div><div class="type-name">따라쓰기</div>
+            <div class="type-desc">단어·문장 따라쓰기</div>
+          </div>
+          <div class="type-item" onclick="selType(this,'dotline')">
+            <div class="type-icon">🔵</div><div class="type-name">점선 잇기</div>
+            <div class="type-desc">점 이어 그림 완성</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 언어 선택 -->
+    <div class="card">
+      <div class="card-hd"><span>🌍</span><h2>언어 선택</h2></div>
+      <div class="card-bd">
+        <div class="lang-grid">
+          <button class="lang-btn active" onclick="selLang(this,'ko')">🇰🇷 한국어</button>
+          <button class="lang-btn" onclick="selLang(this,'en')">🇺🇸 English</button>
+          <button class="lang-btn" onclick="selLang(this,'ja')">🇯🇵 日本語</button>
+          <button class="lang-btn" onclick="selLang(this,'es')">🇪🇸 Español</button>
+          <button class="lang-btn" onclick="selLang(this,'zh')">🇨🇳 中文</button>
+        </div>
+        <p class="hint">선택한 언어로 활동지 내용(지시문, 단어, 문장 등)이 생성돼요</p>
+      </div>
+    </div>
+
+    <!-- 동화책 or 직접 주제 -->
+    <div class="card">
+      <div class="card-hd"><span>📚</span><h2>콘텐츠 기반 선택</h2></div>
+      <div class="card-bd">
+        <div class="sub-tabs" style="margin-bottom:12px;">
+          <button class="sub-tab active" onclick="switchBookTab('book')">📖 iQUVE 동화책</button>
+          <button class="sub-tab" onclick="switchBookTab('topic')">💬 직접 주제 입력</button>
+        </div>
+
+        <!-- 동화책 선택 -->
+        <div id="book-panel" style="display:flex;flex-direction:column;gap:12px;">
+          <div class="book-grid" id="bookGrid"></div>
+          <div id="selectedBookInfo" style="display:none;background:var(--indigo-bg);border-radius:10px;padding:14px;font-size:13px;line-height:1.8;"></div>
+        </div>
+
+        <!-- 직접 주제 입력 -->
+        <div id="topic-panel" style="display:none;flex-direction:column;gap:12px;">
+          <div class="field"><label>주제</label>
+            <input type="text" id="a-topic" placeholder="예: 숲 속 동물, 바다 생물, 과일과 채소">
+          </div>
+        </div>
+
+        <div class="row3">
+          <div class="field"><label>대상 연령</label>
+            <select id="a-age">
+              <option value="3~4">3~4세</option>
+              <option value="4~5">4~5세</option>
+              <option value="5~6" selected>5~6세</option>
+              <option value="6~7">6~7세</option>
+              <option value="7~8">7~8세</option>
+            </select>
+          </div>
+          <div class="field"><label>난이도</label>
+            <select id="a-level">
+              <option value="easy">쉬움 ⭐</option>
+              <option value="normal" selected>보통 ⭐⭐</option>
+              <option value="hard">어려움 ⭐⭐⭐</option>
+            </select>
+          </div>
+          <div class="field"><label>활동지 수</label>
+            <select id="a-count">
+              <option value="1" selected>1장</option>
+              <option value="2">2장</option>
+              <option value="3">3장</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>추가 요청사항</label>
+          <textarea id="a-note" rows="2" placeholder="예: iQUVE 토끼 캐릭터 포함, 숫자 1~10, 특정 단어 포함"></textarea>
+        </div>
+        <button class="btn btn-secondary" onclick="genActivityAI()" id="a-ai-btn">✨ AI로 활동지 내용 생성</button>
+        <div id="a-ai-result" style="display:none;" class="ai-result">
+          <div class="ai-result-label">✨ AI 생성 결과</div>
+          <div id="a-ai-text" class="ai-result-text"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /activity-ai -->
+
+  <!-- 직접 작성하기 -->
+  <div id="activity-manual" class="sub-panel">
+    <div class="card">
+      <div class="card-hd"><span>🌍</span><h2>언어 선택</h2></div>
+      <div class="card-bd">
+        <div class="lang-grid">
+          <button class="lang-btn active" onclick="selLangManual(this,'ko')">🇰🇷 한국어</button>
+          <button class="lang-btn" onclick="selLangManual(this,'en')">🇺🇸 English</button>
+          <button class="lang-btn" onclick="selLangManual(this,'ja')">🇯🇵 日本語</button>
+          <button class="lang-btn" onclick="selLangManual(this,'es')">🇪🇸 Español</button>
+          <button class="lang-btn" onclick="selLangManual(this,'zh')">🇨🇳 中文</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><span>✏️</span><h2>활동지 직접 작성</h2></div>
+      <div class="card-bd">
+        <div class="row2">
+          <div class="field"><label>활동지 유형</label>
+            <select id="am-type">
+              <option value="coloring">🖍️ 색칠공부</option>
+              <option value="maze">🌀 미로찾기</option>
+              <option value="writing">✏️ 따라쓰기</option>
+              <option value="dotline">🔵 점선잇기</option>
+            </select>
+          </div>
+          <div class="field"><label>대상 연령</label>
+            <select id="am-age">
+              <option value="3~4">3~4세</option>
+              <option value="4~5">4~5세</option>
+              <option value="5~6" selected>5~6세</option>
+              <option value="6~7">6~7세</option>
+              <option value="7~8">7~8세</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>활동지 제목</label>
+          <input type="text" id="am-title" placeholder="예: 토끼와 친구들 색칠공부">
+        </div>
+        <div class="act-section">
+          <div class="act-section-title">📝 내용 항목 <span style="font-size:11px;font-weight:400;color:var(--gray);">(따라쓰기/점선잇기: 단어·문장 / 색칠·미로: 도안 설명)</span></div>
+          <div class="content-rows" id="am-rows"></div>
+          <button class="add-row-mini" onclick="addManualRow()">+ 항목 추가</button>
+        </div>
+        <div class="field"><label>아이에게 보여줄 안내 문구</label>
+          <input type="text" id="am-guide" placeholder="예: 예쁘게 색칠해봐요!">
+        </div>
+        <div class="field"><label>도안/이미지 설명 (피그마 배치용)</label>
+          <textarea id="am-image" rows="2" placeholder="예: 숲 속에서 뛰노는 토끼 캐릭터, 꽃과 나무 포함"></textarea>
+        </div>
+      </div>
+    </div>
+  </div><!-- /activity-manual -->
+
+</div><!-- /tab-activity -->
+
+</div><!-- /main left -->
+
+<!-- ── 우측 패널 ── -->
+<div style="display:flex;flex-direction:column;gap:14px;">
+  <div class="card" style="position:sticky;top:68px;">
+    <div class="card-hd"><span>🎨</span><h2>피그마로 내보내기</h2></div>
+    <div class="card-bd" style="gap:12px;">
+      <div class="api-status-box" id="apiStatusBox">
+        <div id="figmaStatus">🔑 Figma: 확인 중...</div>
+        <div id="geminiStatus">🤖 Gemini: 확인 중...</div>
+      </div>
+      <div class="field"><label>피그마 파일</label>
+        <select id="figmaTarget" onchange="onFileSelect()">
+          <option value="CaPkjrFwlGO4WqVUVXKSBI">iQUVE 콘텐츠 메이커</option>
+          <option value="custom">직접 입력</option>
+        </select>
+      </div>
+      <div id="customKeyWrap" style="display:none;">
+        <input type="text" id="customKey" placeholder="피그마 파일 키">
+      </div>
+      <div class="field"><label>페이지 이름</label>
+        <input type="text" id="figmaPage" value="카드뉴스">
+      </div>
+      <button class="btn btn-primary" onclick="exportToFigma()" id="exportBtn">🚀 피그마에 생성하기</button>
+      <a id="figmaLink" href="https://www.figma.com/design/CaPkjrFwlGO4WqVUVXKSBI" target="_blank"
+         class="btn btn-secondary" style="text-decoration:none;text-align:center;">🔗 피그마 파일 열기</a>
+      <div id="logBox" class="log-box" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ══════════════════════════════
+// 상수 & 상태
+// ══════════════════════════════
+const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
+const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
+const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
+let CFG={};
+let currentMain='card';
+let actType='coloring';
+let actLang='ko';
+let actLangManual='ko';
+let selectedBook=null;
+let cardSlides=[];
+let cardSlideIdx=0;
+let manualRows=[];
+let bookTab='book';
+
+// ══════════════════════════════
+// iQUVE 동화책 DB (Supabase)
+// ══════════════════════════════
+let BOOKS = [];
+
+async function loadBooksFromDB() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/books?select=*&is_active=eq.true&order=created_at.asc`, {
+      headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
+    });
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows.length > 0) {
+      BOOKS = rows.map(b => ({
+        id: b.id,
+        emoji: b.thumbnail_url ? null : '📖',
+        thumbnail: b.thumbnail_url,
+        title: b.title_ko,
+        titleEn: b.title_en,
+        publisher: b.publisher,
+        devMain: b.dev_main || [],
+        devSub: b.dev_sub || [],
+        keywords: b.ai_tags || [],
+        summary: b.story || '',
+        description: b.description || '',
+        learning: b.learning_points || '',
+        vocabLevel: b.vocab_level || 1,
+        sentenceLevel: b.sentence_level || 1,
+      }));
+    }
+  } catch(e) {
+    console.warn('DB 로드 실패, 기본 데이터 사용:', e);
+  }
+  renderBooks();
+}
+
+// ══════════════════════════════
+// 언어 설정
+// ══════════════════════════════
+const LANG_INFO={
+  ko:{name:'한국어',flag:'🇰🇷',instruction:'한국어로 작성해주세요'},
+  en:{name:'영어(English)',flag:'🇺🇸',instruction:'Please write in English'},
+  ja:{name:'일본어(日本語)',flag:'🇯🇵',instruction:'日本語で書いてください'},
+  es:{name:'스페인어(Español)',flag:'🇪🇸',instruction:'Por favor escriba en español'},
+  zh:{name:'중국어(中文)',flag:'🇨🇳',instruction:'请用中文写'},
+};
+
+// ══════════════════════════════
+// 설정 로드
+// ══════════════════════════════
+async function loadConfig(){
+  try{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/api_config?select=key_name,key_value`,{
+      headers:{'apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`}
+    });
+    const rows=await res.json();
+    if(Array.isArray(rows)) rows.forEach(r=>{
+      if(r.key_name==='figma_token') CFG.figmaToken=r.key_value;
+      if(r.key_name==='figma_file_key') CFG.figmaFileKey=r.key_value;
+      if(r.key_name==='gemini_key') CFG.geminiKey=r.key_value;
+    });
+  }catch(e){}
+  updateStatusUI();
+}
+function updateStatusUI(){
+  const hF=!!CFG.figmaToken,hG=!!CFG.geminiKey,ok=hF&&hG;
+  const b=document.getElementById('apiBanner');
+  b.className='api-banner '+(ok?'ok':'warn');
+  b.innerHTML=ok?'✅ API 연동 완료 — 피그마 생성 준비됐어요!':'⚠️ API 키가 설정되지 않았어요. <a href="settings.html">API 설정 →</a>';
+  const fs=document.getElementById('figmaStatus');
+  const gs=document.getElementById('geminiStatus');
+  fs.textContent=hF?'🔑 Figma: 연결됨 ✓':'🔑 Figma: 미설정';
+  fs.style.color=hF?'#065f46':'#92400e';
+  gs.textContent=hG?'🤖 Gemini: 연결됨 ✓':'🤖 Gemini: 미설정';
+  gs.style.color=hG?'#065f46':'#92400e';
+}
+loadConfig();
+loadBooksFromDB();
+
+// ══════════════════════════════
+// 탭 전환
+// ══════════════════════════════
+function switchMain(tab){
+  currentMain=tab;
+  document.querySelectorAll('.main-tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='card'?0:1)));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('figmaPage').value=tab==='card'?'카드뉴스':'활동지';
+}
+function switchSub(main,sub){
+  const panels=document.querySelectorAll(`#tab-${main} .sub-panel`);
+  const tabs=document.querySelectorAll(`#tab-${main} .sub-tab`);
+  panels.forEach(p=>p.classList.remove('active'));
+  tabs.forEach(t=>t.classList.remove('active'));
+  document.getElementById(`${main}-${sub}`).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ══════════════════════════════
+// 동화책 패널
+// ══════════════════════════════
+function switchBookTab(tab){
+  bookTab=tab;
+  document.querySelectorAll('#tab-activity .sub-panel:first-of-type .sub-tab').forEach((t,i)=>{
+    t.classList.toggle('active',i===(tab==='book'?0:1));
+  });
+  document.getElementById('book-panel').style.display=tab==='book'?'flex':'none';
+  document.getElementById('topic-panel').style.display=tab==='topic'?'flex':'none';
+}
+
+function renderBooks(){
+  const grid=document.getElementById('bookGrid');
+  if(!BOOKS.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--gray);font-size:13px;">도서를 불러오는 중...</div>';
+    return;
+  }
+  grid.innerHTML=BOOKS.map(b=>`
+    <div class="book-item ${selectedBook?.id===b.id?'selected':''}" onclick="selectBook('${b.id}')">
+      <div class="book-cover">
+        ${b.thumbnail?`<img src="${b.thumbnail}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.style.display='none'">`:b.emoji||'📖'}
+      </div>
+      <div class="book-title">${b.title}</div>
+      <div class="book-age">${(b.devMain||[]).slice(0,2).join('·')}</div>
+    </div>`).join('');
+}
+function selectBook(id){
+  selectedBook=BOOKS.find(b=>b.id===id)||null;
+  renderBooks();
+  const info=document.getElementById('selectedBookInfo');
+  if(selectedBook){
+    info.style.display='block';
+    info.innerHTML=`<b>📖 ${selectedBook.title}</b>${selectedBook.titleEn?` <span style="color:var(--gray);font-size:12px;">(${selectedBook.titleEn})</span>`:''}<br>
+    ${selectedBook.summary?`📝 ${selectedBook.summary}<br>`:''}
+    ${selectedBook.devMain?.length?`🎯 발달영역: ${selectedBook.devMain.join(', ')}<br>`:''}
+    ${selectedBook.keywords?.length?`🏷️ 키워드: ${selectedBook.keywords.join(', ')}`:''}`;
+  } else {
+    info.style.display='none';
+  }
+}
+
+// ══════════════════════════════
+// 언어 선택
+// ══════════════════════════════
+function selLang(el,lang){
+  document.querySelectorAll('#activity-ai .lang-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  actLang=lang;
+}
+function selLangManual(el,lang){
+  document.querySelectorAll('#activity-manual .lang-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  actLangManual=lang;
+}
+function selType(el,type){
+  document.querySelectorAll('.type-item').forEach(i=>i.classList.remove('selected'));
+  el.classList.add('selected');
+  actType=type;
+}
+
+// ══════════════════════════════
+// 카드뉴스 AI 생성
+// ══════════════════════════════
+const SLIDE_TYPES={
+  cover:{label:'표지',icon:'🖼️',fields:['category','title','subtitle','date']},
+  body:{label:'본문',icon:'📄',fields:['section_title','image_note','body','point']},
+  tip:{label:'팁 카드',icon:'💡',fields:['tip_number','tip_title','tip_body']},
+  closing:{label:'마무리',icon:'🎯',fields:['closing','cta','button_text','account']},
+};
+const FIELD_LABELS={
+  category:'카테고리',title:'제목',subtitle:'부제목',date:'날짜·출처',
+  section_title:'소제목',image_note:'이미지 설명',body:'본문 내용',point:'핵심 포인트',
+  tip_number:'팁 번호',tip_title:'팁 제목',tip_body:'팁 내용',
+  closing:'마무리 메시지',cta:'행동 유도 문구',button_text:'버튼 텍스트',account:'링크·계정',
+};
+
+async function genCardAI(){
+  if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
+  const btn=document.getElementById('c-ai-btn');
+  btn.innerHTML='<div class="spinner"></div> 생성 중...';btn.disabled=true;
+  const count=parseInt(document.getElementById('c-count').value);
+  const type=document.getElementById('c-type').value;
+  const topic=document.getElementById('c-topic').value||'iQUVE 동화책 앱 소개';
+  const target=document.getElementById('c-target').value;
+  const note=document.getElementById('c-note').value;
+  const typeLabel={info:'정보성',promo:'iQUVE 홍보',tip:'육아·교육 팁',event:'이벤트 안내',story:'동화책 소개'}[type];
+
+  const prompt=`iQUVE(4~8세 AI 대화형 동화책 앱)의 ${typeLabel} 카드뉴스를 만들어주세요.
+주제: ${topic} / 타겟: ${target} / 슬라이드: ${count}장
+추가요청: ${note||'없음'}
+
+표지 1장 + 본문 ${count-2}장 + 마무리 1장 구성으로
+아래 JSON 배열만 출력하세요:
+[
+  {"type":"cover","category":"카테고리(10자이내)","title":"제목(20자이내)","subtitle":"부제목(30자이내)","date":"iQUVE · 그로비교육"},
+  {"type":"body","section_title":"소제목(15자이내)","image_note":"이미지설명(20자이내)","body":"본문(70자이내)","point":"핵심포인트(40자이내)"},
+  {"type":"closing","closing":"마무리(20자이내)","cta":"행동유도(20자이내)","button_text":"버튼(10자이내)","account":"@iquve_official"}
+]`;
+
+  try{
+    const data=await callProxy('text',{contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.8}});
+    if(data.error)throw new Error(data.error);
+    const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    let parsed;
+    try{parsed=JSON.parse(raw.trim());}catch{const m=raw.match(/\[[\s\S]*\]/);if(!m)throw new Error('파싱 실패');parsed=JSON.parse(m[0]);}
+    cardSlides=[];cardSlideIdx=0;
+    parsed.forEach(s=>addCardSlide(s.type||'body',s));
+    document.getElementById('c-ai-result').style.display='block';
+    document.getElementById('c-slide-preview').style.display='block';
+  }catch(e){alert('오류: '+e.message);}
+  finally{btn.innerHTML='✨ AI로 카드뉴스 생성';btn.disabled=false;}
+}
+
+function addCardSlide(type='body',data={}){
+  const idx=cardSlideIdx++;
+  cardSlides.push({idx,type,data:{...data}});
+  renderCardSlides('c-slide-list');
+}
+function addCardSlideManual(){
+  const idx=cardSlideIdx++;
+  cardSlides.push({idx,type:'body',data:{}});
+  renderCardSlides('c-manual-list');
+  document.getElementById('c-slide-preview')?.style && (document.getElementById('c-slide-preview').style.display='none');
+}
+function renderCardSlides(listId){
+  const list=document.getElementById(listId);
+  if(!list)return;
+  list.innerHTML='';
+  cardSlides.forEach((s,i)=>{
+    const t=SLIDE_TYPES[s.type]||SLIDE_TYPES.body;
+    const prev=s.data.title||s.data.section_title||s.data.tip_title||s.data.closing||'';
+    const div=document.createElement('div');
+    div.className='slide-item';
+    div.innerHTML=`
+      <div class="slide-hd" onclick="toggleSlide(${i},'${listId}')">
+        <div class="slide-hl">
+          <div class="slide-num">${i+1}</div>
+          <div><div class="slide-type-label">${t.icon} ${t.label}</div>
+          ${prev?`<div class="slide-preview">${prev.slice(0,28)}${prev.length>28?'...':''}</div>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select onchange="changeSlideType(${i},this.value,'${listId}')" onclick="event.stopPropagation()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;font-family:inherit;">
+            ${Object.entries(SLIDE_TYPES).map(([k,v])=>`<option value="${k}"${k===s.type?' selected':''}>${v.icon} ${v.label}</option>`).join('')}
+          </select>
+          <button class="slide-del" onclick="event.stopPropagation();removeSlide(${i},'${listId}')">✕</button>
+        </div>
+      </div>
+      <div class="slide-bd" id="sbody-${listId}-${i}">
+        <div class="slide-fields">
+          ${t.fields.map(f=>`<div class="field"><label>${FIELD_LABELS[f]||f}</label>
+            ${f==='body'||f==='tip_body'||f==='point'
+              ?`<textarea rows="3" onchange="updSlide(${i},'${f}',this.value)">${s.data[f]||''}</textarea>`
+              :`<input type="text" value="${(s.data[f]||'').replace(/"/g,'&quot;')}" onchange="updSlide(${i},'${f}',this.value)" placeholder="${FIELD_LABELS[f]||f}">`
+            }</div>`).join('')}
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+function toggleSlide(i,listId){document.getElementById(`sbody-${listId}-${i}`)?.classList.toggle('open');}
+function changeSlideType(i,type,listId){cardSlides[i].type=type;cardSlides[i].data={};renderCardSlides(listId);}
+function removeSlide(i,listId){cardSlides.splice(i,1);renderCardSlides(listId);}
+function updSlide(i,f,v){cardSlides[i].data[f]=v;}
+
+// 초기 슬라이드
+addCardSlide('cover',{category:'iQUVE',title:'제목을 입력해주세요',date:'iQUVE · 그로비교육'});
+addCardSlide('body',{section_title:'소제목',body:'본문 내용을 입력해주세요.'});
+addCardSlide('closing',{closing:'감사해요!',button_text:'앱 다운로드',account:'@iquve_official'});
+renderCardSlides('c-manual-list');
+
+// ══════════════════════════════
+// 활동지 AI 생성
+// ══════════════════════════════
+async function genActivityAI(){
+  if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
+  const btn=document.getElementById('a-ai-btn');
+  btn.innerHTML='<div class="spinner"></div> 생성 중...';btn.disabled=true;
+
+  const typeLabel={coloring:'색칠공부',maze:'미로찾기',writing:'따라쓰기',dotline:'점선잇기'}[actType];
+  const age=document.getElementById('a-age').value;
+  const level=document.getElementById('a-level').value;
+  const count=document.getElementById('a-count').value;
+  const note=document.getElementById('a-note').value;
+  const lang=LANG_INFO[actLang];
+  const levelLabel={easy:'쉬움',normal:'보통',hard:'어려움'}[level];
+
+  let topicContext='';
+  if(bookTab==='book'&&selectedBook){
+    topicContext=`iQUVE 동화책 "${selectedBook.title}" 기반
+스토리: ${selectedBook.summary}
+발달영역: ${(selectedBook.devMain||[]).join(', ')}
+키워드: ${(selectedBook.keywords||[]).join(', ')}
+${selectedBook.learning?'이런 점을 배워요: '+selectedBook.learning:''}`;
+  } else {
+    topicContext=`주제: ${document.getElementById('a-topic').value||'동물 친구들'}`;
+  }
+
+  const prompt=`iQUVE 유아 교육 ${typeLabel} 활동지를 기획해주세요.
+${topicContext}
+대상: ${age}세 / 난이도: ${levelLabel} / 수량: ${count}장
+언어: ${lang.name} (${lang.instruction})
+추가요청: ${note||'없음'}
+
+${lang.instruction}. 활동지 내용을 상세히 작성해주세요:
+
+1. 활동지 제목 (${lang.name})
+2. 아이에게 보여줄 안내 문구 (1문장, ${lang.name})
+3. ${typeLabel==='따라쓰기'?`따라쓸 단어/문장 ${count==='1'?'8개':count==='2'?'각 8개':'각 6개'} (${lang.name})`:
+   typeLabel==='점선잇기'?`점선으로 이을 그림 요소 설명 ${count}개`:
+   typeLabel==='미로찾기'?`미로 난이도 설명과 힌트 요소`:
+   `색칠 도안에 포함될 요소 목록과 배색 가이드`}
+4. 도안/이미지 설명 (Figma 배치 참고용, 한국어로)
+5. 부모/교사를 위한 활동 활용 팁 (한국어로)`;
+
+  try{
+    const data=await callProxy('text',{contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.85}});
+    if(data.error)throw new Error(data.error);
+    const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    document.getElementById('a-ai-text').textContent=raw;
+    document.getElementById('a-ai-result').style.display='block';
+  }catch(e){alert('오류: '+e.message);}
+  finally{btn.innerHTML='✨ AI로 활동지 내용 생성';btn.disabled=false;}
+}
+
+// ══════════════════════════════
+// 직접작성 활동지 행 관리
+// ══════════════════════════════
+function addManualRow(value=''){
+  const idx=manualRows.length;
+  manualRows.push(value);
+  const row=document.createElement('div');
+  row.className='content-row';
+  row.id=`mrow-${idx}`;
+  row.innerHTML=`<input type="text" value="${value.replace(/"/g,'&quot;')}" placeholder="내용 입력..." onchange="manualRows[${idx}]=this.value">
+    <button class="row-del" onclick="removeManualRow(${idx})">✕</button>`;
+  document.getElementById('am-rows').appendChild(row);
+}
+function removeManualRow(idx){
+  document.getElementById(`mrow-${idx}`)?.remove();
+  manualRows[idx]=null;
+}
+// 초기 3개
+['항목 1','항목 2','항목 3'].forEach(v=>addManualRow(v));
+
+// ══════════════════════════════
+// 프록시 호출
+// ══════════════════════════════
+async function callProxy(type,payload){
+  const res=await fetch(PROXY,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`},
+    body:JSON.stringify({type,payload}),
+  });
+  return res.json();
+}
+
+// ══════════════════════════════
+// 로그
+// ══════════════════════════════
+function log(msg,type='info'){
+  const b=document.getElementById('logBox');
+  b.style.display='block';
+  b.innerHTML+=`<div class="log-line ${type}">[${new Date().toLocaleTimeString('ko')}] ${msg}</div>`;
+  b.scrollTop=b.scrollHeight;
+}
+
+// ══════════════════════════════
+// 피그마 파일 선택
+// ══════════════════════════════
+function onFileSelect(){
+  const v=document.getElementById('figmaTarget').value;
+  document.getElementById('customKeyWrap').style.display=v==='custom'?'block':'none';
+  if(v!=='custom') document.getElementById('figmaLink').href=`https://www.figma.com/design/${v}`;
+}
+function getFigmaKey(){
+  const v=document.getElementById('figmaTarget').value;
+  if(v==='custom') return document.getElementById('customKey').value.trim().replace(/.*\/design\/([^/?]+).*/,'$1');
+  return v;
+}
+
+// ══════════════════════════════
+// 피그마 내보내기
+// ══════════════════════════════
+async function exportToFigma(){
+  await loadConfig();
+  if(!CFG.figmaToken){alert('Figma 토큰을 API 설정에서 입력해주세요.');return;}
+  const fileKey=getFigmaKey();
+  if(!fileKey){alert('피그마 파일 키를 선택하거나 입력해주세요.');return;}
+
+  const btn=document.getElementById('exportBtn');
+  btn.innerHTML='<div class="spinner"></div> 생성 중...';btn.disabled=true;
+  document.getElementById('logBox').innerHTML='';
+
+  try{
+    const pageName=document.getElementById('figmaPage').value||'콘텐츠';
+    let code='';
+    if(currentMain==='card'){
+      const isAI=document.querySelector('#tab-card .sub-tab.active')?.textContent?.includes('AI');
+      code=generateCardCode(cardSlides,pageName);
+    } else {
+      const isAI=document.querySelector('#tab-activity .sub-tab.active')?.textContent?.includes('AI');
+      if(isAI){
+        const aiText=document.getElementById('a-ai-text').textContent;
+        const type=actType;
+        const age=document.getElementById('a-age').value;
+        const lang=LANG_INFO[actLang];
+        const bookInfo=selectedBook?`${selectedBook.emoji} ${selectedBook.title}`:'';
+        code=generateActivityCode({type,aiText,age,lang,bookInfo,pageName});
+      } else {
+        const type=document.getElementById('am-type').value;
+        const age=document.getElementById('am-age').value;
+        const title=document.getElementById('am-title').value||'활동지';
+        const guide=document.getElementById('am-guide').value||'함께 해봐요!';
+        const image=document.getElementById('am-image').value;
+        const rows=manualRows.filter(Boolean);
+        const lang=LANG_INFO[actLangManual];
+        code=generateActivityCodeManual({type,age,title,guide,image,rows,lang,pageName});
+      }
+    }
+
+    await navigator.clipboard.writeText(code);
+    log('📋 피그마 플러그인 코드가 클립보드에 복사됐어요!','ok');
+    showFigmaModal(code,fileKey);
+  }catch(e){log('오류: '+e.message,'err');alert('오류: '+e.message);}
+  finally{btn.innerHTML='🚀 피그마에 생성하기';btn.disabled=false;}
+}
+
+// ══════════════════════════════
+// 피그마 코드 생성 - 카드뉴스
+// ══════════════════════════════
+function generateCardCode(slides,pageName){
+  const slideJson=JSON.stringify(slides.map(s=>({type:s.type,...s.data})));
+  return `// iQUVE 카드뉴스 자동 생성
+// Figma > Plugins > Development > Open Console 에서 실행
+(async()=>{
+const W=1080,H=1350;
+const slides=${slideJson};
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Bold"});
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Regular"});
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Medium"});
+const INDIGO={r:61/255,g:79/255,b:215/255};
+const IL={r:168/255,g:180/255,b:255/255};
+const W_={r:1,g:1,b:1};
+const DARK={r:26/255,g:31/255,b:54/255};
+const YELLOW={r:250/255,g:180/255,b:0/255};
+let page=figma.root.children.find(p=>p.name==="${pageName}");
+if(!page){page=figma.createPage();page.name="${pageName}";}
+await figma.setCurrentPageAsync(page);
+function txt(p,s,sz,st,c,x,y,w,align){
+  if(!s)return;
+  const t=figma.createText();p.appendChild(t);
+  t.fontName={family:"Noto Sans KR",style:st||"Regular"};
+  t.characters=String(s);t.fontSize=sz;
+  t.fills=[{type:"SOLID",color:c}];
+  t.x=x;t.y=y;t.resize(w,sz+24);
+  t.textAutoResize="HEIGHT";
+  if(align)t.textAlignHorizontal=align;
+  return t;
+}
+function rct(p,c,x,y,w,h,op,r){
+  const rc=figma.createRectangle();p.appendChild(rc);
+  rc.fills=[{type:"SOLID",color:c,opacity:op??1}];
+  rc.x=x;rc.y=y;rc.resize(w,h);
+  if(r)rc.cornerRadius=r;return rc;
+}
+for(let i=0;i<slides.length;i++){
+  const s=slides[i];
+  const fr=figma.createFrame();page.appendChild(fr);
+  fr.name=String(i+1).padStart(2,'0')+"_"+s.type;
+  fr.resize(W,H);fr.x=i*(W+60);fr.y=0;fr.clipsContent=true;
+  if(s.type==="cover"){
+    fr.fills=[{type:"SOLID",color:INDIGO}];
+    const e=figma.createEllipse();fr.appendChild(e);
+    e.fills=[{type:"SOLID",color:W_,opacity:0.06}];e.resize(700,700);e.x=400;e.y=-100;
+    rct(fr,W_,60,60,140,44,0.15,22);
+    txt(fr,"iQUVE",22,"Bold",W_,82,72,100);
+    rct(fr,YELLOW,60,160,s.category?s.category.length*22+40:220,50,1,25);
+    txt(fr,s.category||"",24,"Bold",DARK,78,173,400);
+    txt(fr,s.title||"",84,"Bold",W_,60,256,960);
+    txt(fr,s.subtitle||"",40,"Regular",IL,60,510,960);
+    rct(fr,W_,60,640,100,5,0.25,3);
+    txt(fr,s.date||"iQUVE · 그로비교육",30,"Regular",{r:0.7,g:0.75,b:1},60,1285,700);
+    txt(fr,String(i+1).padStart(2,'0'),110,"Bold",W_,820,1190,220);
+  } else if(s.type==="body"){
+    fr.fills=[{type:"SOLID",color:W_}];
+    rct(fr,INDIGO,0,0,W,18);
+    txt(fr,String(i+1).padStart(2,'0'),56,"Bold",{r:0.92,g:0.93,b:0.98},900,44,140);
+    txt(fr,s.section_title||"",64,"Bold",DARK,60,78,960);
+    rct(fr,INDIGO,60,162,88,9,1,4);
+    rct(fr,{r:0.94,g:0.95,b:0.99},60,200,960,510,1,24);
+    txt(fr,s.image_note?"[ "+s.image_note+" ]":"[ 이미지 영역 ]",32,"Regular",{r:0.68,g:0.7,b:0.82},0,420,W,"CENTER");
+    txt(fr,s.body||"",38,"Regular",DARK,60,760,960);
+    rct(fr,INDIGO,60,1010,960,250,0.08,20);
+    txt(fr,s.point||"",36,"Regular",INDIGO,90,1050,900);
+    txt(fr,"iQUVE",24,"Regular",{r:0.7,g:0.72,b:0.8},60,1306,300);
+  } else if(s.type==="tip"){
+    fr.fills=[{type:"SOLID",color:W_}];
+    rct(fr,YELLOW,0,0,W,18);
+    rct(fr,{r:1,g:0.97,b:0.88},60,60,120,120,1,60);
+    txt(fr,s.tip_number||String(i),56,"Bold",{r:0.9,g:0.6,b:0.1},87,83,80,"CENTER");
+    txt(fr,s.tip_title||"",64,"Bold",DARK,60,220,960);
+    rct(fr,YELLOW,60,302,88,9,0.5,4);
+    txt(fr,s.tip_body||"",40,"Regular",DARK,60,340,960);
+  } else if(s.type==="closing"){
+    fr.fills=[{type:"SOLID",color:INDIGO}];
+    const e2=figma.createEllipse();fr.appendChild(e2);
+    e2.fills=[{type:"SOLID",color:W_,opacity:0.05}];e2.resize(600,600);e2.x=-150;e2.y=800;
+    rct(fr,W_,60,60,140,44,0.15,22);
+    txt(fr,"iQUVE",22,"Bold",W_,82,72,100);
+    txt(fr,s.closing||"감사해요!",94,"Bold",W_,60,340,960);
+    txt(fr,s.cta||"",40,"Medium",IL,60,700,960);
+    rct(fr,W_,60,810,520,104,1,52);
+    txt(fr,s.button_text||"",34,"Bold",INDIGO,100,836,360,"CENTER");
+    txt(fr,s.account||"",30,"Regular",{r:0.68,g:0.73,b:1},60,1274,700);
+  }
+}
+figma.viewport.scrollAndZoomIntoView(page.children);
+figma.notify("✅ 카드뉴스 "+slides.length+"장 생성 완료!");
+})();`;
+}
+
+// ══════════════════════════════
+// 피그마 코드 생성 - 활동지 AI
+// ══════════════════════════════
+function generateActivityCode({type,aiText,age,lang,bookInfo,pageName}){
+  const typeLabel={coloring:'색칠공부',maze:'미로찾기',writing:'따라쓰기',dotline:'점선잇기'}[type];
+  const colors={
+    coloring:{hc:'{r:1,g:0.96,b:0.86}',ac:'{r:0.95,g:0.6,b:0.1}'},
+    maze:    {hc:'{r:0.9,g:1,b:0.95}', ac:'{r:0.1,g:0.6,b:0.4}'},
+    writing: {hc:'{r:0.9,g:0.95,b:1}', ac:'{r:61/255,g:79/255,b:215/255}'},
+    dotline: {hc:'{r:0.95,g:0.9,b:1}', ac:'{r:0.5,g:0.2,b:0.8}'},
+  }[type]||{hc:'{r:0.94,g:0.95,b:0.99}',ac:'{r:61/255,g:79/255,b:215/255}'};
+  const safeAI=aiText.slice(0,300).replace(/`/g,"'").replace(/\\/g,"\\\\").replace(/\n/g,"\\n");
+
+  return `// iQUVE 활동지 자동 생성 — ${typeLabel} (${lang.name})
+// Figma > Plugins > Development > Open Console 에서 실행
+(async()=>{
+const W=1080,H=1350;
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Bold"});
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Regular"});
+const W_={r:1,g:1,b:1};
+const DARK={r:26/255,g:31/255,b:54/255};
+const GRAY={r:0.68,g:0.7,b:0.74};
+const AC=${colors.ac};
+const HC=${colors.hc};
+let page=figma.root.children.find(p=>p.name==="${pageName}");
+if(!page){page=figma.createPage();page.name="${pageName}";}
+await figma.setCurrentPageAsync(page);
+function txt(p,s,sz,st,c,x,y,w,align){
+  if(!s)return;
+  const t=figma.createText();p.appendChild(t);
+  t.fontName={family:"Noto Sans KR",style:st||"Regular"};
+  t.characters=String(s);t.fontSize=sz;
+  t.fills=[{type:"SOLID",color:c}];
+  t.x=x;t.y=y;t.resize(w,sz+24);
+  t.textAutoResize="HEIGHT";
+  if(align)t.textAlignHorizontal=align;
+}
+function rct(p,c,x,y,w,h,op,r){
+  const rc=figma.createRectangle();p.appendChild(rc);
+  rc.fills=[{type:"SOLID",color:c,opacity:op??1}];
+  rc.x=x;rc.y=y;rc.resize(w,h);
+  if(r)rc.cornerRadius=r;return rc;
+}
+const n=page.children.length;
+const fr=figma.createFrame();
+page.appendChild(fr);
+fr.name="${typeLabel}_${lang.flag||lang.name}_${age}세";
+fr.resize(W,H);fr.x=n*(W+60);fr.y=0;
+fr.fills=[{type:"SOLID",color:W_}];fr.clipsContent=true;
+// 헤더
+rct(fr,HC,0,0,W,215);
+txt(fr,"${typeLabel} ${lang.flag||''}",68,"Bold",AC,60,54,700);
+${bookInfo?`txt(fr,"📖 ${bookInfo}",30,"Regular",DARK,60,148,700);`:''}
+txt(fr,"${age}세",32,"Bold",W_,62,160,80);
+rct(fr,AC,856,68,184,54,1,27);
+txt(fr,"${lang.flag||''} ${age}세+",28,"Bold",W_,870,82,164,"CENTER");
+// 메인 콘텐츠 영역
+rct(fr,{r:0.98,g:0.98,b:0.98},60,244,960,860,1,24);
+const border=figma.createRectangle();
+fr.appendChild(border);border.resize(960,860);border.x=60;border.y=244;
+border.fills=[];border.strokes=[{type:"SOLID",color:AC,opacity:0.3}];
+border.strokeWeight=3;border.cornerRadius=24;
+txt(fr,"[ ${typeLabel} 도안/콘텐츠 영역 ]\\n\\nAI 생성 내용 참고:\\n${safeAI}",28,"Regular",{r:0.62,g:0.65,b:0.72},100,540,860,"CENTER");
+${type==='maze'?`
+rct(fr,AC,60,252,150,56,1,28);
+txt(fr,"START",26,"Bold",W_,72,266,126,"CENTER");
+rct(fr,{r:0.9,g:0.2,b:0.2},870,252,150,56,1,28);
+txt(fr,"END",26,"Bold",W_,882,266,126,"CENTER");`:''}
+${type==='writing'?`
+[310,430,550,670,790].forEach((y,i)=>{
+  rct(fr,{r:0.94,g:0.96,b:1},60,y,960,84,1,12);
+  txt(fr,"따라쓰기 "+(i+1),28,"Regular",{r:0.72,g:0.75,b:0.9},80,y+26,920);
+});`:''}
+// 하단
+rct(fr,AC,60,1145,960,3,0.2);
+txt(fr,"${lang.instruction==='Please write in English'?'Name':'이름'}: _____________    Date: _____________",30,"Regular",{r:0.5,g:0.52,b:0.58},60,1168,960);
+txt(fr,"iQUVE 대화하는 동화책  ·  학습자료 무단 배포 금지",24,"Regular",GRAY,0,1302,W,"CENTER");
+figma.viewport.scrollAndZoomIntoView([fr]);
+figma.notify("✅ ${typeLabel} 활동지 생성 완료!");
+})();`;
+}
+
+// ══════════════════════════════
+// 피그마 코드 생성 - 활동지 직접작성
+// ══════════════════════════════
+function generateActivityCodeManual({type,age,title,guide,image,rows,lang,pageName}){
+  const typeLabel={coloring:'색칠공부',maze:'미로찾기',writing:'따라쓰기',dotline:'점선잇기'}[type];
+  const safeRows=JSON.stringify(rows.filter(Boolean).map(r=>r.slice(0,50)));
+  const safeImg=(image||'도안 영역').slice(0,100).replace(/`/g,"'");
+
+  return `// iQUVE 활동지 직접작성 — ${typeLabel} (${lang.name})
+// Figma > Plugins > Development > Open Console 에서 실행
+(async()=>{
+const W=1080,H=1350;
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Bold"});
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Regular"});
+const W_={r:1,g:1,b:1};
+const DARK={r:26/255,g:31/255,b:54/255};
+const GRAY={r:0.68,g:0.7,b:0.74};
+const INDIGO={r:61/255,g:79/255,b:215/255};
+let page=figma.root.children.find(p=>p.name==="${pageName}");
+if(!page){page=figma.createPage();page.name="${pageName}";}
+await figma.setCurrentPageAsync(page);
+function txt(p,s,sz,st,c,x,y,w,align){
+  if(!s)return;
+  const t=figma.createText();p.appendChild(t);
+  t.fontName={family:"Noto Sans KR",style:st||"Regular"};
+  t.characters=String(s);t.fontSize=sz;
+  t.fills=[{type:"SOLID",color:c}];
+  t.x=x;t.y=y;t.resize(w,sz+24);
+  t.textAutoResize="HEIGHT";
+  if(align)t.textAlignHorizontal=align;
+}
+function rct(p,c,x,y,w,h,op,r){
+  const rc=figma.createRectangle();p.appendChild(rc);
+  rc.fills=[{type:"SOLID",color:c,opacity:op??1}];
+  rc.x=x;rc.y=y;rc.resize(w,h);
+  if(r)rc.cornerRadius=r;return rc;
+}
+const n=page.children.length;
+const fr=figma.createFrame();
+page.appendChild(fr);
+fr.name="${title||typeLabel}_${lang.flag||lang.name}";
+fr.resize(W,H);fr.x=n*(W+60);fr.y=0;
+fr.fills=[{type:"SOLID",color:W_}];fr.clipsContent=true;
+rct(fr,{r:0.9,g:0.95,b:1},0,0,W,215);
+txt(fr,"${title||typeLabel}",64,"Bold",INDIGO,60,54,900);
+txt(fr,"${age}세 · ${lang.name}",32,"Regular",DARK,60,148,500);
+rct(fr,INDIGO,856,68,184,54,1,27);
+txt(fr,"${lang.flag||''} ${age}세+",28,"Bold",W_,870,82,164,"CENTER");
+rct(fr,{r:0.98,g:0.98,b:0.98},60,244,960,${type==='writing'?650:840},1,24);
+const border=figma.createRectangle();
+fr.appendChild(border);border.resize(960,${type==='writing'?650:840});border.x=60;border.y=244;
+border.fills=[];border.strokes=[{type:"SOLID",color:INDIGO,opacity:0.3}];
+border.strokeWeight=3;border.cornerRadius=24;
+txt(fr,"[ ${safeImg} ]",30,"Regular",{r:0.65,g:0.68,b:0.78},80,${type==='writing'?310:580},900,"CENTER");
+${type==='writing'?`
+const rows=${safeRows};
+rows.forEach((row,i)=>{
+  rct(fr,{r:0.94,g:0.96,b:1},60,920+i*90,960,72,1,10);
+  txt(fr,row,36,"Regular",{r:0.55,g:0.6,b:0.78},80,938+i*90,920);
+});`:''}
+txt(fr,"${guide||'함께 해봐요!'}",34,"Regular",DARK,60,1140,960,"CENTER");
+rct(fr,INDIGO,60,1196,960,3,0.2);
+txt(fr,"이름: _____________    날짜: _____________",30,"Regular",{r:0.5,g:0.52,b:0.58},60,1215,960);
+txt(fr,"iQUVE 대화하는 동화책  ·  학습자료 무단 배포 금지",24,"Regular",GRAY,0,1302,W,"CENTER");
+figma.viewport.scrollAndZoomIntoView([fr]);
+figma.notify("✅ ${typeLabel} 활동지 생성 완료!");
+})();`;
+}
+
+// ══════════════════════════════
+// 피그마 가이드 모달
+// ══════════════════════════════
+function showFigmaModal(code,fileKey){
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+  const safeCode=code.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  modal.innerHTML=`
+    <div style="background:white;border-radius:20px;padding:32px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;">
+      <h2 style="font-size:20px;font-weight:900;margin-bottom:8px;">🎨 피그마에 붙여넣기</h2>
+      <p style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.7;">코드가 클립보드에 복사됐어요!<br>아래 순서대로 피그마에서 실행해주세요.</p>
+      <ol style="font-size:14px;line-height:2.2;color:#1a1f36;padding-left:20px;margin-bottom:20px;">
+        <li>아래 <b>피그마 파일 열기</b> 클릭</li>
+        <li>메뉴 → <b>Plugins → Development → Open Console</b></li>
+        <li>콘솔창에 복사된 코드 붙여넣기 <b>(Ctrl+V / Cmd+V)</b></li>
+        <li>Enter 실행 → 프레임 자동 생성!</li>
+      </ol>
+      <div style="background:#0f172a;border-radius:10px;padding:14px;font-size:11px;font-family:monospace;color:#94a3b8;max-height:140px;overflow-y:auto;margin-bottom:20px;white-space:pre-wrap;">${safeCode.slice(0,400)}...</div>
+      <div style="display:flex;gap:10px;margin-bottom:10px;">
+        <button id="copyAgainBtn" style="flex:1;padding:13px;background:#3d4fd7;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">📋 코드 다시 복사</button>
+        <a href="https://www.figma.com/design/${fileKey}" target="_blank" style="flex:1;padding:13px;background:#eef0fd;color:#3d4fd7;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">🔗 피그마 열기</a>
+      </div>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;padding:11px;background:none;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#64748b;cursor:pointer;font-family:inherit;">닫기</button>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#copyAgainBtn').onclick=()=>{
+    navigator.clipboard.writeText(code);
+    modal.querySelector('#copyAgainBtn').textContent='✅ 복사됨!';
+    setTimeout(()=>modal.querySelector('#copyAgainBtn').textContent='📋 코드 다시 복사',2000);
+  };
+}
+</script>
+</body>
+</html>

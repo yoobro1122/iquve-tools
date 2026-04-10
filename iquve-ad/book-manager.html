@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>도서 관리 · iQUVE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --indigo:#3d4fd7; --indigo-light:#a8b4ff; --indigo-bg:#eef0fd;
+      --dark:#1a1f36; --gray:#64748b; --border:#e2e8f0; --bg:#f1f3f9;
+      --success:#10b981; --danger:#ef4444; --warn:#f59e0b; --r:14px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--dark);min-height:100vh;}
+
+    header{background:white;border-bottom:1px solid var(--border);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+    .hl{display:flex;align-items:center;gap:14px;}
+    .back{font-size:13px;color:var(--gray);text-decoration:none;}
+    .back:hover{color:var(--indigo);}
+    .logo{font-size:20px;font-weight:900;color:var(--indigo);}
+    .logo em{color:var(--indigo-light);font-style:normal;}
+    .ptitle{font-size:14px;color:var(--gray);font-weight:600;}
+
+    .container{max-width:1200px;margin:0 auto;padding:24px;}
+
+    /* ── 상단 액션바 ── */
+    .action-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;}
+    .search-wrap{display:flex;gap:10px;flex:1;max-width:500px;}
+    .search-input{flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;outline:none;}
+    .search-input:focus{border-color:var(--indigo);}
+    .filter-select{padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;outline:none;background:white;color:var(--dark);}
+
+    /* ── 버튼 ── */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 18px;border-radius:9px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;border:none;transition:all .15s;}
+    .btn-primary{background:var(--indigo);color:white;}
+    .btn-primary:hover{background:#2f3eb8;}
+    .btn-secondary{background:var(--indigo-bg);color:var(--indigo);}
+    .btn-secondary:hover{background:#dde1fa;}
+    .btn-danger{background:#fee2e2;color:var(--danger);}
+    .btn-danger:hover{background:#fecaca;}
+    .btn-success{background:#d1fae5;color:#065f46;}
+    .btn-sm{padding:6px 12px;font-size:12px;}
+    .btn:disabled{opacity:.5;cursor:not-allowed;}
+
+    /* ── 통계 카드 ── */
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+    .stat-card{background:white;border-radius:var(--r);border:1px solid var(--border);padding:18px 20px;}
+    .stat-num{font-size:32px;font-weight:900;color:var(--indigo);}
+    .stat-label{font-size:13px;color:var(--gray);margin-top:4px;}
+
+    /* ── 도서 그리드 ── */
+    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+    .book-card{background:white;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;transition:all .18s;}
+    .book-card:hover{box-shadow:0 4px 20px rgba(61,79,215,.12);transform:translateY(-2px);}
+    .book-thumb{height:160px;background:var(--indigo-bg);display:flex;align-items:center;justify-content:center;font-size:60px;position:relative;overflow:hidden;}
+    .book-thumb img{width:100%;height:100%;object-fit:cover;}
+    .book-badge{position:absolute;top:10px;right:10px;background:var(--indigo);color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;}
+    .book-badge.inactive{background:var(--gray);}
+    .book-info{padding:16px;}
+    .book-title{font-size:15px;font-weight:800;margin-bottom:3px;}
+    .book-title-en{font-size:12px;color:var(--gray);margin-bottom:10px;}
+    .book-publisher{font-size:12px;color:var(--gray);margin-bottom:8px;}
+    .dev-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+    .dev-tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--indigo-bg);color:var(--indigo);}
+    .dev-tag.sub{background:#f0fdf4;color:#065f46;}
+    .level-row{display:flex;gap:8px;margin-bottom:10px;}
+    .level-badge{font-size:11px;padding:3px 9px;border-radius:6px;background:var(--bg);color:var(--gray);font-weight:600;}
+    .book-actions{display:flex;gap:8px;}
+
+    /* ── 모달 ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
+    .modal{background:white;border-radius:20px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;}
+    .modal-hd{padding:24px 28px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:white;z-index:10;}
+    .modal-hd h2{font-size:18px;font-weight:900;}
+    .modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray);padding:4px;}
+    .modal-bd{padding:24px 28px;display:flex;flex-direction:column;gap:16px;}
+    .modal-ft{padding:16px 28px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;}
+
+    /* ── 폼 ── */
+    label{display:block;font-size:12px;font-weight:700;color:var(--gray);margin-bottom:5px;}
+    input[type=text],input[type=url],input[type=number],textarea,select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;color:var(--dark);outline:none;transition:border-color .15s;background:white;}
+    input:focus,textarea:focus,select:focus{border-color:var(--indigo);}
+    textarea{resize:vertical;line-height:1.6;}
+    .field{display:flex;flex-direction:column;gap:5px;}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+    /* ── 발달영역 체크박스 ── */
+    .dev-section{border:1.5px solid var(--border);border-radius:10px;padding:14px;}
+    .dev-section-title{font-size:13px;font-weight:700;margin-bottom:10px;color:var(--dark);}
+    .dev-checks{display:flex;flex-wrap:wrap;gap:8px;}
+    .dev-check{display:flex;align-items:center;gap:6px;padding:7px 13px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;user-select:none;}
+    .dev-check input{display:none;}
+    .dev-check.checked{border-color:var(--indigo);background:var(--indigo-bg);color:var(--indigo);}
+    .dev-check.sub.checked{border-color:var(--success);background:#d1fae5;color:#065f46;}
+
+    /* ── AI 태그 ── */
+    .tag-input-wrap{display:flex;gap:8px;}
+    .tag-input-wrap input{flex:1;}
+    .tags-display{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+    .tag-item{display:flex;align-items:center;gap:5px;background:var(--indigo-bg);color:var(--indigo);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+    .tag-del{background:none;border:none;cursor:pointer;color:var(--indigo);font-size:14px;padding:0;line-height:1;}
+
+    /* ── 레벨 슬라이더 ── */
+    .level-wrap{display:flex;align-items:center;gap:12px;}
+    .level-wrap input[type=range]{flex:1;accent-color:var(--indigo);}
+    .level-val{font-size:16px;font-weight:900;color:var(--indigo);min-width:20px;}
+    .level-stars{font-size:14px;color:var(--warn);}
+
+    /* ── 로딩 ── */
+    .spinner{display:inline-block;width:20px;height:20px;border:2px solid rgba(61,79,215,.3);border-top-color:var(--indigo);border-radius:50%;animation:spin .6s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .loading-wrap{display:flex;align-items:center;justify-content:center;padding:60px;gap:12px;color:var(--gray);}
+
+    /* ── 토스트 ── */
+    .toast{position:fixed;bottom:24px;right:24px;background:#1a1f36;color:white;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;z-index:99999;animation:toastIn .2s ease;max-width:320px;}
+    .toast.ok{background:#065f46;}
+    .toast.err{background:#991b1b;}
+    @keyframes toastIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+
+    /* ── 빈 상태 ── */
+    .empty-state{text-align:center;padding:60px 20px;color:var(--gray);}
+    .empty-icon{font-size:48px;margin-bottom:14px;}
+    .empty-text{font-size:16px;font-weight:700;margin-bottom:6px;color:var(--dark);}
+    .empty-sub{font-size:14px;}
+
+    /* ── 엑셀 업로드 ── */
+    .upload-zone{border:2px dashed var(--border);border-radius:14px;padding:40px 24px;text-align:center;cursor:pointer;transition:all .15s;}
+    .upload-zone:hover,.upload-zone.drag{border-color:var(--indigo);background:var(--indigo-bg);}
+    .upload-zone.done{border-color:var(--success);background:#f0fdf4;}
+    .preview-table{width:100%;border-collapse:collapse;font-size:12px;}
+    .preview-table th{background:var(--bg);padding:7px 10px;text-align:left;font-weight:700;border:1px solid var(--border);white-space:nowrap;}
+    .preview-table td{padding:6px 10px;border:1px solid var(--border);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .preview-table tr:hover td{background:var(--indigo-bg);}
+    .preview-wrap{max-height:260px;overflow:auto;border-radius:10px;border:1px solid var(--border);margin-top:8px;}
+    .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px;}
+    .progress-fill{height:100%;background:var(--indigo);border-radius:3px;transition:width .3s;}
+    .badge-ok{background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
+    .badge-err{background:#fee2e2;color:#991b1b;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="hl">
+    <a href="../index.html" class="back">← 홈</a>
+    <div class="logo">i<em>Q</em>UVE</div>
+    <div class="ptitle">도서 관리</div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="content-maker.html" class="btn btn-secondary btn-sm">✏️ 콘텐츠 메이커</a>
+    <button class="btn btn-secondary btn-sm" onclick="downloadTemplate()">📥 엑셀 템플릿</button>
+    <button class="btn btn-secondary btn-sm" onclick="openUploadModal()">📤 엑셀 일괄 업로드</button>
+    <button class="btn btn-primary" onclick="openAddModal()">+ 도서 추가</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- 통계 -->
+  <div class="stats">
+    <div class="stat-card"><div class="stat-num" id="statTotal">-</div><div class="stat-label">전체 도서</div></div>
+    <div class="stat-card"><div class="stat-num" id="statActive">-</div><div class="stat-label">활성 도서</div></div>
+    <div class="stat-card"><div class="stat-num" id="statLang">-</div><div class="stat-label">한·영 양국어</div></div>
+    <div class="stat-card"><div class="stat-num" id="statDev">5</div><div class="stat-label">발달 영역</div></div>
+  </div>
+
+  <!-- 액션바 -->
+  <div class="action-bar">
+    <div class="search-wrap">
+      <input type="text" class="search-input" id="searchInput" placeholder="도서명, 태그, 출판사 검색..." oninput="filterBooks()">
+      <select class="filter-select" id="devFilter" onchange="filterBooks()">
+        <option value="">전체 발달영역</option>
+        <option value="사회성">사회성</option>
+        <option value="언어">언어</option>
+        <option value="인지">인지</option>
+        <option value="정서">정서</option>
+        <option value="창의사고력">창의사고력</option>
+      </select>
+      <select class="filter-select" id="statusFilter" onchange="filterBooks()">
+        <option value="">전체</option>
+        <option value="active">활성</option>
+        <option value="inactive">비활성</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary" onclick="loadBooks()">🔄 새로고침</button>
+      <button class="btn btn-primary" onclick="openAddModal()">+ 도서 추가</button>
+    </div>
+  </div>
+
+  <!-- 도서 그리드 -->
+  <div id="bookGrid" class="book-grid">
+    <div class="loading-wrap"><div class="spinner"></div> 불러오는 중...</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════
+     엑셀 일괄 업로드 모달
+══════════════════════════════ -->
+<div id="uploadModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeUploadModal()">
+  <div class="modal" style="max-width:780px;">
+    <div class="modal-hd">
+      <h2>📤 엑셀 일괄 업로드</h2>
+      <button class="modal-close" onclick="closeUploadModal()">✕</button>
+    </div>
+    <div class="modal-bd">
+
+      <!-- 업로드 존 -->
+      <div class="upload-zone" id="uploadZone"
+           onclick="document.getElementById('xlsxFile').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleXlsxDrop(event)">
+        <div style="font-size:40px;margin-bottom:10px;">📊</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px;">엑셀 파일을 드래그하거나 클릭해서 업로드</div>
+        <div style="font-size:13px;color:var(--gray);">.xlsx / .xls 파일 지원 · 한 번에 최대 500개</div>
+        <input type="file" id="xlsxFile" accept=".xlsx,.xls" style="display:none" onchange="handleXlsxFile(event)">
+      </div>
+
+      <!-- 컬럼 안내 -->
+      <div style="background:var(--bg);border-radius:10px;padding:14px;font-size:12px;line-height:1.8;">
+        <div style="font-weight:700;margin-bottom:6px;">📋 엑셀 컬럼 순서 (1행은 헤더)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px;">
+          <span>A: <b>도서명(한국어)</b> *필수</span>
+          <span>B: 도서명(영어)</span>
+          <span>C: 출판사</span>
+          <span>D: 썸네일URL</span>
+          <span>E: 발달주영역 (쉼표로 구분)</span>
+          <span>F: 발달부영역 (쉼표로 구분)</span>
+          <span>G: AI태그 (쉼표로 구분)</span>
+          <span>H: 스토리 줄거리</span>
+          <span>I: 어휘난이도 (1~5)</span>
+          <span>J: 문장난이도 (1~5)</span>
+          <span>K: 책소개</span>
+          <span>L: 이런점을배워요</span>
+        </div>
+      </div>
+
+      <!-- 미리보기 -->
+      <div id="previewSection" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-weight:700;font-size:14px;">📄 미리보기</div>
+          <div id="previewCount" style="font-size:13px;color:var(--gray);"></div>
+        </div>
+        <div class="preview-wrap">
+          <table class="preview-table" id="previewTable"></table>
+        </div>
+      </div>
+
+      <!-- 업로드 진행 -->
+      <div id="uploadProgress" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div style="font-size:13px;font-weight:700;" id="progressText">업로드 중...</div>
+          <div style="font-size:13px;color:var(--gray);" id="progressCount"></div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div id="uploadLog" style="margin-top:12px;background:#0f172a;border-radius:10px;padding:12px;max-height:140px;overflow-y:auto;font-size:12px;font-family:monospace;color:#94a3b8;"></div>
+      </div>
+
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-secondary" onclick="closeUploadModal()">닫기</button>
+      <button class="btn btn-secondary" onclick="downloadTemplate()">📥 템플릿 다운로드</button>
+      <button class="btn btn-primary" onclick="startBulkUpload()" id="uploadStartBtn" disabled>
+        🚀 업로드 시작
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     도서 추가/수정 모달
+══════════════════════════════ -->
+<div id="modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="modalTitle">도서 추가</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-bd">
+
+      <!-- 기본 정보 -->
+      <div class="row2">
+        <div class="field"><label>도서명 (한국어) *</label><input type="text" id="f-title-ko" placeholder="예: 토끼와 마법 숲"></div>
+        <div class="field"><label>도서명 (영어)</label><input type="text" id="f-title-en" placeholder="예: The Rabbit and the Magic Forest"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>출판사</label><input type="text" id="f-publisher" placeholder="예: 그로비교육"></div>
+        <div class="field"><label>썸네일 URL</label><input type="url" id="f-thumbnail" placeholder="https://..."></div>
+      </div>
+
+      <!-- 발달 주영역 -->
+      <div class="dev-section">
+        <div class="dev-section-title">발달 주영역 (복수 선택 가능)</div>
+        <div class="dev-checks" id="mainDevChecks">
+          <label class="dev-check" onclick="toggleDev(this,'main')"><input type="checkbox" value="사회성">🤝 사회성</label>
+          <label class="dev-check" onclick="toggleDev(this,'main')"><input type="checkbox" value="언어">💬 언어</label>
+          <label class="dev-check" onclick="toggleDev(this,'main')"><input type="checkbox" value="인지">🧠 인지</label>
+          <label class="dev-check" onclick="toggleDev(this,'main')"><input type="checkbox" value="정서">❤️ 정서</label>
+          <label class="dev-check" onclick="toggleDev(this,'main')"><input type="checkbox" value="창의사고력">✨ 창의사고력</label>
+        </div>
+      </div>
+
+      <!-- 발달 부영역 -->
+      <div class="dev-section">
+        <div class="dev-section-title">발달 부영역 (복수 선택 가능)</div>
+        <div class="dev-checks" id="subDevChecks">
+          <!-- 사회성 -->
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="우정">우정</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="협력">협력</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="배려">배려</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="공감">공감</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="규칙준수">규칙준수</label>
+          <!-- 언어 -->
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="어휘">어휘</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="의사소통">의사소통</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="듣기">듣기</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="말하기">말하기</label>
+          <!-- 인지 -->
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="색깔인지">색깔인지</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="수개념">수개념</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="상상력">상상력</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="문제해결">문제해결</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="집중력">집중력</label>
+          <!-- 정서 -->
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="감정표현">감정표현</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="자존감">자존감</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="회복탄력성">회복탄력성</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="감사">감사</label>
+          <!-- 창의 -->
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="음악">음악</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="미술">미술</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="꿈">꿈</label>
+          <label class="dev-check sub" onclick="toggleDev(this,'sub')"><input type="checkbox" value="호기심">호기심</label>
+        </div>
+      </div>
+
+      <!-- AI 태그 -->
+      <div class="field">
+        <label>AI 태그</label>
+        <div class="tag-input-wrap">
+          <input type="text" id="f-tag-input" placeholder="태그 입력 후 Enter 또는 추가" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag();}">
+          <button class="btn btn-secondary" onclick="addTag()" style="width:auto;padding:10px 16px;">추가</button>
+        </div>
+        <div class="tags-display" id="tagDisplay"></div>
+      </div>
+
+      <!-- 스토리 -->
+      <div class="field"><label>스토리 줄거리</label><textarea id="f-story" rows="3" placeholder="간략한 스토리 줄거리를 입력해주세요"></textarea></div>
+
+      <!-- 난이도 -->
+      <div class="row2">
+        <div class="field">
+          <label>어휘 난이도</label>
+          <div class="level-wrap">
+            <input type="range" id="f-vocab" min="1" max="5" value="3" oninput="updateLevel('vocab')">
+            <span class="level-val" id="vocab-val">3</span>
+            <span class="level-stars" id="vocab-stars">⭐⭐⭐</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>문장 난이도</label>
+          <div class="level-wrap">
+            <input type="range" id="f-sentence" min="1" max="5" value="3" oninput="updateLevel('sentence')">
+            <span class="level-val" id="sentence-val">3</span>
+            <span class="level-stars" id="sentence-stars">⭐⭐⭐</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 책소개 & 이런점을배워요 -->
+      <div class="field"><label>책 소개</label><textarea id="f-desc" rows="3" placeholder="책 소개 텍스트"></textarea></div>
+      <div class="field"><label>이런 점을 배워요</label><textarea id="f-learning" rows="2" placeholder="예: 친구와 사이좋게 지내는 방법을 배워요"></textarea></div>
+
+      <!-- 활성 여부 -->
+      <div style="display:flex;align-items:center;gap:12px;">
+        <label style="margin:0;cursor:pointer;display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="f-active" checked style="width:auto;accent-color:var(--indigo);">
+          <span style="font-size:14px;font-weight:600;">활성화 (콘텐츠 메이커에서 사용)</span>
+        </label>
+      </div>
+
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveBook()" id="saveBtn">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
+const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
+
+const HEADERS={
+  'Content-Type':'application/json',
+  'apikey':ANON_KEY,
+  'Authorization':`Bearer ${ANON_KEY}`,
+};
+
+let allBooks=[];
+let editingId=null;
+let currentTags=[];
+
+// ══════════════════════════════
+// DB 조회
+// ══════════════════════════════
+async function loadBooks(){
+  document.getElementById('bookGrid').innerHTML='<div class="loading-wrap"><div class="spinner"></div> 불러오는 중...</div>';
+  try{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/books?select=*&order=created_at.desc`,{headers:HEADERS});
+    allBooks=await res.json();
+    if(!Array.isArray(allBooks)) throw new Error('데이터 오류');
+    updateStats();
+    renderBooks(allBooks);
+  }catch(e){
+    document.getElementById('bookGrid').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">불러오기 실패</div><div class="empty-sub">${e.message}</div></div>`;
+  }
+}
+
+function updateStats(){
+  document.getElementById('statTotal').textContent=allBooks.length;
+  document.getElementById('statActive').textContent=allBooks.filter(b=>b.is_active).length;
+  document.getElementById('statLang').textContent=allBooks.filter(b=>b.title_en).length;
+}
+
+function renderBooks(books){
+  const grid=document.getElementById('bookGrid');
+  if(!books.length){
+    grid.innerHTML='<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-text">등록된 도서가 없어요</div><div class="empty-sub">+ 도서 추가 버튼으로 첫 도서를 등록해보세요</div></div>';
+    return;
+  }
+  const DEV_COLORS={'사회성':'#3b82f6','언어':'#8b5cf6','인지':'#f59e0b','정서':'#ec4899','창의사고력':'#10b981'};
+  grid.innerHTML=books.map(b=>`
+    <div class="book-card">
+      <div class="book-thumb">
+        ${b.thumbnail_url?`<img src="${b.thumbnail_url}" alt="${b.title_ko}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`:''}
+        <div style="font-size:52px;${b.thumbnail_url?'display:none;':''}">📖</div>
+        <div class="book-badge ${b.is_active?'':'inactive'}">${b.is_active?'활성':'비활성'}</div>
+      </div>
+      <div class="book-info">
+        <div class="book-title">${b.title_ko}</div>
+        ${b.title_en?`<div class="book-title-en">${b.title_en}</div>`:''}
+        ${b.publisher?`<div class="book-publisher">📌 ${b.publisher}</div>`:''}
+        <div class="dev-tags">
+          ${(b.dev_main||[]).map(d=>`<span class="dev-tag">${d}</span>`).join('')}
+          ${(b.dev_sub||[]).slice(0,3).map(d=>`<span class="dev-tag sub">${d}</span>`).join('')}
+          ${(b.dev_sub||[]).length>3?`<span class="dev-tag sub">+${b.dev_sub.length-3}</span>`:''}
+        </div>
+        <div class="level-row">
+          <span class="level-badge">어휘 ${'⭐'.repeat(b.vocab_level||1)}</span>
+          <span class="level-badge">문장 ${'⭐'.repeat(b.sentence_level||1)}</span>
+        </div>
+        ${b.story?`<div style="font-size:12px;color:var(--gray);line-height:1.6;margin-bottom:10px;">${b.story.slice(0,60)}${b.story.length>60?'...':''}</div>`:''}
+        <div class="book-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openEditModal('${b.id}')">✏️ 수정</button>
+          <button class="btn ${b.is_active?'btn-secondary':'btn-success'} btn-sm" onclick="toggleActive('${b.id}',${!b.is_active})">${b.is_active?'비활성화':'활성화'}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteBook('${b.id}','${b.title_ko}')">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════
+// 검색 & 필터
+// ══════════════════════════════
+function filterBooks(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const dev=document.getElementById('devFilter').value;
+  const status=document.getElementById('statusFilter').value;
+  const filtered=allBooks.filter(b=>{
+    const matchQ=!q||b.title_ko?.toLowerCase().includes(q)||b.title_en?.toLowerCase().includes(q)||b.publisher?.toLowerCase().includes(q)||(b.ai_tags||[]).some(t=>t.toLowerCase().includes(q));
+    const matchDev=!dev||(b.dev_main||[]).includes(dev);
+    const matchStatus=!status||(status==='active'?b.is_active:!b.is_active);
+    return matchQ&&matchDev&&matchStatus;
+  });
+  renderBooks(filtered);
+}
+
+// ══════════════════════════════
+// 모달 열기/닫기
+// ══════════════════════════════
+function openAddModal(){
+  editingId=null;
+  document.getElementById('modalTitle').textContent='도서 추가';
+  resetForm();
+  document.getElementById('modal').style.display='flex';
+}
+
+function openEditModal(id){
+  editingId=id;
+  const b=allBooks.find(b=>b.id===id);
+  if(!b)return;
+  document.getElementById('modalTitle').textContent='도서 수정';
+  resetForm();
+  document.getElementById('f-title-ko').value=b.title_ko||'';
+  document.getElementById('f-title-en').value=b.title_en||'';
+  document.getElementById('f-publisher').value=b.publisher||'';
+  document.getElementById('f-thumbnail').value=b.thumbnail_url||'';
+  document.getElementById('f-story').value=b.story||'';
+  document.getElementById('f-vocab').value=b.vocab_level||3;
+  document.getElementById('f-sentence').value=b.sentence_level||3;
+  document.getElementById('f-desc').value=b.description||'';
+  document.getElementById('f-learning').value=b.learning_points||'';
+  document.getElementById('f-active').checked=b.is_active!==false;
+  updateLevel('vocab');updateLevel('sentence');
+  // 발달 주영역
+  document.querySelectorAll('#mainDevChecks .dev-check').forEach(el=>{
+    const v=el.querySelector('input').value;
+    const checked=(b.dev_main||[]).includes(v);
+    el.querySelector('input').checked=checked;
+    el.classList.toggle('checked',checked);
+  });
+  // 발달 부영역
+  document.querySelectorAll('#subDevChecks .dev-check').forEach(el=>{
+    const v=el.querySelector('input').value;
+    const checked=(b.dev_sub||[]).includes(v);
+    el.querySelector('input').checked=checked;
+    el.classList.toggle('checked',checked);
+  });
+  // 태그
+  currentTags=[...(b.ai_tags||[])];
+  renderTags();
+  document.getElementById('modal').style.display='flex';
+}
+
+function closeModal(){document.getElementById('modal').style.display='none';}
+
+function resetForm(){
+  ['f-title-ko','f-title-en','f-publisher','f-thumbnail','f-story','f-desc','f-learning'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-vocab').value=3;
+  document.getElementById('f-sentence').value=3;
+  document.getElementById('f-active').checked=true;
+  document.getElementById('f-tag-input').value='';
+  currentTags=[];renderTags();
+  updateLevel('vocab');updateLevel('sentence');
+  document.querySelectorAll('.dev-check').forEach(el=>{el.querySelector('input').checked=false;el.classList.remove('checked');});
+}
+
+// ══════════════════════════════
+// 발달영역 토글
+// ══════════════════════════════
+function toggleDev(el,type){
+  setTimeout(()=>{
+    const checked=el.querySelector('input').checked;
+    el.classList.toggle('checked',checked);
+  },0);
+}
+
+// ══════════════════════════════
+// 태그 관리
+// ══════════════════════════════
+function addTag(){
+  const input=document.getElementById('f-tag-input');
+  const val=input.value.trim();
+  if(!val||currentTags.includes(val))return;
+  currentTags.push(val);
+  renderTags();
+  input.value='';
+}
+function removeTag(tag){
+  currentTags=currentTags.filter(t=>t!==tag);
+  renderTags();
+}
+function renderTags(){
+  document.getElementById('tagDisplay').innerHTML=currentTags.map(t=>`
+    <div class="tag-item">${t}<button class="tag-del" onclick="removeTag('${t}')">✕</button></div>`).join('');
+}
+
+// ══════════════════════════════
+// 레벨 업데이트
+// ══════════════════════════════
+function updateLevel(type){
+  const v=document.getElementById(`f-${type}`).value;
+  document.getElementById(`${type}-val`).textContent=v;
+  document.getElementById(`${type}-stars`).textContent='⭐'.repeat(parseInt(v));
+}
+
+// ══════════════════════════════
+// 저장 (추가/수정)
+// ══════════════════════════════
+async function saveBook(){
+  const titleKo=document.getElementById('f-title-ko').value.trim();
+  if(!titleKo){toast('도서명(한국어)은 필수예요','err');return;}
+
+  const mainDev=[...document.querySelectorAll('#mainDevChecks input:checked')].map(i=>i.value);
+  const subDev=[...document.querySelectorAll('#subDevChecks input:checked')].map(i=>i.value);
+
+  const payload={
+    title_ko:titleKo,
+    title_en:document.getElementById('f-title-en').value.trim()||null,
+    publisher:document.getElementById('f-publisher').value.trim()||null,
+    thumbnail_url:document.getElementById('f-thumbnail').value.trim()||null,
+    dev_main:mainDev,
+    dev_sub:subDev,
+    ai_tags:currentTags,
+    story:document.getElementById('f-story').value.trim()||null,
+    vocab_level:parseInt(document.getElementById('f-vocab').value),
+    sentence_level:parseInt(document.getElementById('f-sentence').value),
+    description:document.getElementById('f-desc').value.trim()||null,
+    learning_points:document.getElementById('f-learning').value.trim()||null,
+    is_active:document.getElementById('f-active').checked,
+  };
+
+  const btn=document.getElementById('saveBtn');
+  btn.innerHTML='<div class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:white;width:14px;height:14px;"></div> 저장 중...';
+  btn.disabled=true;
+
+  try{
+    let res;
+    if(editingId){
+      res=await fetch(`${SUPABASE_URL}/rest/v1/books?id=eq.${editingId}`,{
+        method:'PATCH',
+        headers:{...HEADERS,'Prefer':'return=minimal'},
+        body:JSON.stringify(payload),
+      });
+    } else {
+      res=await fetch(`${SUPABASE_URL}/rest/v1/books`,{
+        method:'POST',
+        headers:{...HEADERS,'Prefer':'return=minimal'},
+        body:JSON.stringify(payload),
+      });
+    }
+    if(res.ok||res.status===201||res.status===204){
+      toast(editingId?'수정됐어요 ✓':'추가됐어요 ✓','ok');
+      closeModal();
+      await loadBooks();
+    } else {
+      const err=await res.text();
+      throw new Error(err);
+    }
+  }catch(e){
+    toast('저장 실패: '+e.message,'err');
+  }finally{
+    btn.innerHTML='💾 저장';btn.disabled=false;
+  }
+}
+
+// ══════════════════════════════
+// 활성/비활성 토글
+// ══════════════════════════════
+async function toggleActive(id,active){
+  try{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/books?id=eq.${id}`,{
+      method:'PATCH',
+      headers:{...HEADERS,'Prefer':'return=minimal'},
+      body:JSON.stringify({is_active:active}),
+    });
+    if(res.ok||res.status===204){
+      toast(active?'활성화됐어요':'비활성화됐어요','ok');
+      await loadBooks();
+    }
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+
+// ══════════════════════════════
+// 삭제
+// ══════════════════════════════
+async function deleteBook(id,title){
+  if(!confirm(`"${title}" 도서를 삭제할까요?\n이 작업은 되돌릴 수 없어요.`))return;
+  try{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/books?id=eq.${id}`,{
+      method:'DELETE',
+      headers:HEADERS,
+    });
+    if(res.ok||res.status===204){
+      toast('삭제됐어요','ok');
+      await loadBooks();
+    }
+  }catch(e){toast('삭제 실패: '+e.message,'err');}
+}
+
+// ══════════════════════════════
+// 토스트
+// ══════════════════════════════
+function toast(msg,type=''){
+  const t=document.createElement('div');
+  t.className='toast '+(type==='ok'?'ok':type==='err'?'err':'');
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+// ── 초기 로드 ──
+loadBooks();
+
+// ══════════════════════════════
+// 엑셀 템플릿 다운로드
+// ══════════════════════════════
+function downloadTemplate(){
+  const wb=XLSX.utils.book_new();
+  const header=[
+    ['도서명(한국어)','도서명(영어)','출판사','썸네일URL',
+     '발달주영역','발달부영역','AI태그',
+     '스토리 줄거리','어휘난이도','문장난이도','책소개','이런점을배워요']
+  ];
+  const sample=[
+    '토끼와 마법 숲','The Rabbit and Magic Forest','그로비교육','https://example.com/thumb.jpg',
+    '사회성,언어','우정,의사소통','토끼,숲,모험,우정',
+    '호기심 많은 토끼 쿠키가 마법 숲을 탐험하며 친구들을 만나는 이야기',2,2,
+    '처음 만나는 친구에게 용기 있게 다가가는 쿠키의 이야기',
+    '새로운 환경에 적응하는 방법과 친구 사귀기의 소중함을 배워요'
+  ];
+  const ws=XLSX.utils.aoa_to_sheet([header[0],sample]);
+  // 컬럼 너비 설정
+  ws['!cols']=[
+    {wch:20},{wch:30},{wch:14},{wch:40},
+    {wch:20},{wch:24},{wch:24},
+    {wch:50},{wch:10},{wch:10},{wch:50},{wch:50}
+  ];
+  XLSX.utils.book_append_sheet(wb,ws,'도서목록');
+  XLSX.writeFile(wb,'iQUVE_도서_업로드_템플릿.xlsx');
+  toast('템플릿이 다운로드됐어요!','ok');
+}
+
+// ══════════════════════════════
+// 엑셀 업로드 모달
+// ══════════════════════════════
+let parsedBooks=[];
+
+function openUploadModal(){
+  parsedBooks=[];
+  document.getElementById('previewSection').style.display='none';
+  document.getElementById('uploadProgress').style.display='none';
+  document.getElementById('uploadStartBtn').disabled=true;
+  document.getElementById('uploadZone').className='upload-zone';
+  document.getElementById('xlsxFile').value='';
+  document.getElementById('uploadModal').style.display='flex';
+}
+function closeUploadModal(){
+  document.getElementById('uploadModal').style.display='none';
+}
+
+function handleXlsxDrop(e){
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  const file=e.dataTransfer.files[0];
+  if(file) parseXlsx(file);
+}
+function handleXlsxFile(e){
+  const file=e.target.files[0];
+  if(file) parseXlsx(file);
+}
+
+function parseXlsx(file){
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'binary'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+
+      if(rows.length<2){toast('데이터가 없어요. 2행부터 데이터를 입력해주세요.','err');return;}
+
+      const dataRows=rows.slice(1).filter(r=>r[0]&&String(r[0]).trim()); // 도서명 있는 행만
+      if(!dataRows.length){toast('유효한 데이터가 없어요.','err');return;}
+
+      parsedBooks=dataRows.map((r,i)=>({
+        _idx:i+2, // 엑셀 행 번호 (헤더=1)
+        title_ko:String(r[0]||'').trim(),
+        title_en:String(r[1]||'').trim()||null,
+        publisher:String(r[2]||'').trim()||null,
+        thumbnail_url:String(r[3]||'').trim()||null,
+        dev_main:parseTags(r[4]),
+        dev_sub:parseTags(r[5]),
+        ai_tags:parseTags(r[6]),
+        story:String(r[7]||'').trim()||null,
+        vocab_level:parseInt(r[8])||1,
+        sentence_level:parseInt(r[9])||1,
+        description:String(r[10]||'').trim()||null,
+        learning_points:String(r[11]||'').trim()||null,
+        is_active:true,
+      }));
+
+      renderPreview(parsedBooks);
+      document.getElementById('uploadZone').className='upload-zone done';
+      document.getElementById('uploadStartBtn').disabled=false;
+      toast(`${parsedBooks.length}개 도서 파싱 완료!`,'ok');
+    }catch(e){
+      toast('파일 파싱 실패: '+e.message,'err');
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function parseTags(val){
+  if(!val) return [];
+  return String(val).split(/[,，、]/).map(s=>s.trim()).filter(Boolean);
+}
+
+function renderPreview(books){
+  const section=document.getElementById('previewSection');
+  section.style.display='block';
+  document.getElementById('previewCount').textContent=`총 ${books.length}개`;
+
+  const validCount=books.filter(b=>b.title_ko).length;
+  const table=document.getElementById('previewTable');
+  table.innerHTML=`
+    <thead><tr>
+      <th>행</th><th>상태</th><th>도서명(한)</th><th>도서명(영)</th>
+      <th>출판사</th><th>발달주영역</th><th>AI태그</th>
+      <th>어휘</th><th>문장</th>
+    </tr></thead>
+    <tbody>
+      ${books.map(b=>{
+        const hasTitle=!!b.title_ko;
+        const badge=hasTitle?'<span class="badge-ok">✓ 정상</span>':'<span class="badge-err">✕ 도서명 없음</span>';
+        return `<tr>
+          <td>${b._idx}</td>
+          <td>${badge}</td>
+          <td><b>${b.title_ko||'-'}</b></td>
+          <td>${b.title_en||'-'}</td>
+          <td>${b.publisher||'-'}</td>
+          <td>${(b.dev_main||[]).join(', ')||'-'}</td>
+          <td>${(b.ai_tags||[]).slice(0,3).join(', ')||'-'}</td>
+          <td>${'⭐'.repeat(b.vocab_level||1)}</td>
+          <td>${'⭐'.repeat(b.sentence_level||1)}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>`;
+}
+
+// ══════════════════════════════
+// 일괄 업로드 실행
+// ══════════════════════════════
+async function startBulkUpload(){
+  const validBooks=parsedBooks.filter(b=>b.title_ko);
+  if(!validBooks.length){toast('업로드할 도서가 없어요.','err');return;}
+  if(!confirm(`${validBooks.length}개 도서를 Supabase에 업로드할까요?`))return;
+
+  document.getElementById('uploadStartBtn').disabled=true;
+  document.getElementById('previewSection').style.display='none';
+  document.getElementById('uploadProgress').style.display='block';
+
+  const log=document.getElementById('uploadLog');
+  const fill=document.getElementById('progressFill');
+  const progressText=document.getElementById('progressText');
+  const progressCount=document.getElementById('progressCount');
+  log.innerHTML='';
+
+  let success=0,fail=0;
+
+  for(let i=0;i<validBooks.length;i++){
+    const b=validBooks[i];
+    const pct=Math.round(((i)/validBooks.length)*100);
+    fill.style.width=pct+'%';
+    progressCount.textContent=`${i}/${validBooks.length}`;
+    progressText.textContent=`업로드 중... (${i+1}/${validBooks.length})`;
+
+    const {_idx,...payload}=b;
+    try{
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/books`,{
+        method:'POST',
+        headers:{...HEADERS,'Prefer':'return=minimal'},
+        body:JSON.stringify(payload),
+      });
+      if(res.ok||res.status===201){
+        success++;
+        log.innerHTML+=`<div style="color:#4ade80">[행${_idx}] ✓ ${b.title_ko}</div>`;
+      } else {
+        const err=await res.text();
+        fail++;
+        log.innerHTML+=`<div style="color:#f87171">[행${_idx}] ✗ ${b.title_ko} — ${err.slice(0,80)}</div>`;
+      }
+    }catch(e){
+      fail++;
+      log.innerHTML+=`<div style="color:#f87171">[행${_idx}] ✗ ${b.title_ko} — ${e.message}</div>`;
+    }
+    log.scrollTop=log.scrollHeight;
+  }
+
+  // 완료
+  fill.style.width='100%';
+  progressText.textContent=`완료! ✅ 성공 ${success}개 / 실패 ${fail}개`;
+  progressCount.textContent='';
+  log.innerHTML+=`<div style="color:#60a5fa;margin-top:6px;">━━━ 업로드 완료 ━━━</div>`;
+  toast(`업로드 완료! 성공 ${success}개, 실패 ${fail}개`,'ok');
+  document.getElementById('uploadStartBtn').disabled=false;
+  await loadBooks();
+}
+</script>
+</body>
+</html>
