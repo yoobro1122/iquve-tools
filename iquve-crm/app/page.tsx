@@ -25,21 +25,21 @@ interface ApiData {
 const GROUP_META = {
   A: {
     icon: '🆕', label: '가입 후 유도', color: '#0284c7', bg: '#e0f2fe',
-    desc: '가입 후 자녀 미등록 · 기준: 가입일 D+1~14',
+    desc: '자녀 미등록 · 기준: 가입일 D+1~14',
     unconvDesc: '가입 후 14일 초과 · 자녀 미등록 상태',
     refLabel: '가입일',
   },
   B: {
     icon: '👶', label: '자녀등록 후 시청유도', color: '#6d28d9', bg: '#ede9fe',
-    desc: '자녀 등록 완료 · 기준: 프로필등록일 D+1~14',
-    unconvDesc: '자녀등록 후 14일 초과 · 미결제 상태',
+    desc: '자녀 등록 완료 + 영상 미시청 · 기준: 프로필등록일 D+1~14',
+    unconvDesc: '프로필등록 후 14일 초과 · 미시청 상태',
     refLabel: '프로필등록일',
   },
   C: {
-    icon: '▶️', label: '체험 후 결제유도', color: '#b45309', bg: '#fef3c7',
-    desc: '체험 시작 완료 · 기준: 체험시작일 D+1~14',
-    unconvDesc: '체험시작 후 14일 초과 · 미결제 상태',
-    refLabel: '체험시작일',
+    icon: '▶️', label: '시청 후 결제유도', color: '#b45309', bg: '#fef3c7',
+    desc: '자녀 등록 + 영상 시청 완료 · 기준: 최종시청일 D+1~14',
+    unconvDesc: '시청 후 14일 초과 · 미결제 상태',
+    refLabel: '최종시청일',
   },
 } as const
 
@@ -80,7 +80,7 @@ export default function Home() {
     setLoading(true)
     try {
       const d = date ?? refDate
-      const res = await fetch(`/api/members?date=${d}`)
+      const res = await fetch(`/api/members?date=${d}&_t=${Date.now()}`)  // 캐시 방지
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setData(json)
@@ -163,8 +163,8 @@ export default function Home() {
 
   function getRefDate(m: CrmMember, g: GroupKey): string {
     if (g === 'A') return m.join_date ?? ''
-    if (g === 'B') return m.profile_date ?? ''
-    if (g === 'C') return m.trial_start ?? ''
+    if (g === 'B') return m.profile_date ?? m.join_date ?? ''
+    if (g === 'C') return (m as unknown as Record<string, unknown>)['last_watch_date'] as string ?? m.profile_date ?? m.join_date ?? ''
     return m.join_date ?? ''
   }
 
@@ -288,7 +288,7 @@ export default function Home() {
                   <span style={{ fontSize: 34, fontWeight: 900, color: meta.color, lineHeight: 1 }}>{active.toLocaleString()}</span>
                   <span style={{ fontSize: 13, color: '#7c88a4' }}>명 발송대상</span>
                 </div>
-                <div style={{ fontSize: 12, color: '#7c88a4', marginBottom: 10 }}>{meta.desc}</div>
+                <div style={{ fontSize: 11, color: '#7c88a4', marginBottom: 10, lineHeight: 1.5 }}>{meta.desc}</div>
                 <button
                   onClick={e => { e.stopPropagation(); setCurGroup(key); setViewMode('unconverted'); setSearch('') }}
                   style={{
@@ -428,7 +428,7 @@ export default function Home() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ position: 'sticky', top: 0, zIndex: 5, background: '#f8fafc', borderBottom: '1.5px solid #e2e8f4' }}>
-                    {['#', '이메일', '학부모명', '자녀이름', '전화번호', curMeta.refLabel, 'D+', '가입일', '체험'].map(h => (
+                    {['#', '이메일', '학부모명', '자녀이름', '전화번호', curMeta.refLabel, 'D+'].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#7c88a4', letterSpacing: .5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -455,10 +455,7 @@ export default function Home() {
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: '#7c88a4' }}>{fmtDate(m.join_date)}</td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        {m.has_trial ? <span style={{ fontSize: 13 }}>✅</span> : <span style={{ color: '#d1d5db' }}>—</span>}
-                      </td>
+
                     </tr>
                   ))}
                 </tbody>
