@@ -17,6 +17,7 @@ export interface CrmMember {
   last_pay_date: string | null
   is_paid: boolean
   watch_count: number
+  child_name: string | null
   last_watch_date: string | null
   created_at: string
   updated_at: string
