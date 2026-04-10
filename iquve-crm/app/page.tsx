@@ -5,12 +5,11 @@ import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CrmMember {
-  id: string; email: string; parent_name: string | null; child_name: string | null
+  id: string; email: string; parent_name: string | null
   phone: string | null; social_type: string | null; member_status: string | null
   join_date: string | null; profile_date: string | null
-  trial_start: string | null; trial_end: string | null
-  has_child: boolean; has_trial: boolean; is_paid: boolean
-  pay_count: number; pay_total: number; last_pay_date: string | null
+  last_pay_date: string | null; is_paid: boolean
+  watch_count: number; last_watch_date: string | null
   day_num?: number; crm_group?: string
 }
 
@@ -24,21 +23,21 @@ interface ApiData {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const GROUP_META = {
   A: {
-    icon: '🆕', label: '가입 후 유도', color: '#0284c7', bg: '#e0f2fe',
-    desc: '자녀 미등록 · 기준: 가입일 D+1~14',
-    unconvDesc: '가입 후 14일 초과 · 자녀 미등록 상태',
+    icon: '🆕', label: '가입 후 자녀등록 유도', color: '#0284c7', bg: '#e0f2fe',
+    desc: '프로필 미등록 회원 · 기준: 가입일 D+1~14',
+    unconvDesc: '가입 후 14일 초과 · 프로필 미등록',
     refLabel: '가입일',
   },
   B: {
-    icon: '👶', label: '자녀등록 후 시청유도', color: '#6d28d9', bg: '#ede9fe',
-    desc: '자녀 등록 완료 + 영상 미시청 · 기준: 프로필등록일 D+1~14',
-    unconvDesc: '프로필등록 후 14일 초과 · 미시청 상태',
+    icon: '👶', label: '시청 유도', color: '#6d28d9', bg: '#ede9fe',
+    desc: '자녀등록 완료 + 영상 미시청 · 기준: 프로필등록일 D+1~14',
+    unconvDesc: '프로필등록 후 14일 초과 · 미시청',
     refLabel: '프로필등록일',
   },
   C: {
-    icon: '▶️', label: '시청 후 결제유도', color: '#b45309', bg: '#fef3c7',
-    desc: '자녀 등록 + 영상 시청 완료 · 기준: 최종시청일 D+1~14',
-    unconvDesc: '시청 후 14일 초과 · 미결제 상태',
+    icon: '▶️', label: '결제 유도', color: '#b45309', bg: '#fef3c7',
+    desc: '자녀등록 + 영상시청 완료 · 기준: 최종시청일 D+1~14',
+    unconvDesc: '시청 후 14일 초과 · 미결제',
     refLabel: '최종시청일',
   },
 } as const
@@ -131,7 +130,7 @@ export default function Home() {
       if (!q) return true
       return (m.email ?? '').includes(q) ||
         (m.parent_name ?? '').includes(q) ||
-        (m.child_name ?? '').toLowerCase().includes(q)
+        (m.member_status ?? '').toLowerCase().includes(q)
     })
   }
 
@@ -145,11 +144,12 @@ export default function Home() {
       '그룹': curGroup,
       '이메일': m.email,
       '학부모명': m.parent_name ?? '',
-      '자녀이름': m.child_name ?? '',
       '전화번호': fmtPhone(m.phone),
       [meta.refLabel]: viewMode === 'active' ? getRefDate(m, curGroup) : getRefDate(m, curGroup),
       '경과일(D+)': m.day_num ?? '',
       '가입일': m.join_date ?? '',
+      '회원상태': m.member_status ?? '',
+      '영상시청횟수': m.watch_count ?? 0,
       '유형': viewMode === 'active' ? `D+${m.day_num} 발송대상` : '미전환',
     }))
     const wb = XLSX.utils.book_new()
@@ -164,7 +164,7 @@ export default function Home() {
   function getRefDate(m: CrmMember, g: GroupKey): string {
     if (g === 'A') return m.join_date ?? ''
     if (g === 'B') return m.profile_date ?? m.join_date ?? ''
-    if (g === 'C') return (m as unknown as Record<string, unknown>)['last_watch_date'] as string ?? m.profile_date ?? m.join_date ?? ''
+    if (g === 'C') return m.last_watch_date ?? m.profile_date ?? m.join_date ?? ''
     return m.join_date ?? ''
   }
 
@@ -428,7 +428,7 @@ export default function Home() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ position: 'sticky', top: 0, zIndex: 5, background: '#f8fafc', borderBottom: '1.5px solid #e2e8f4' }}>
-                    {['#', '이메일', '학부모명', '자녀이름', '전화번호', curMeta.refLabel, 'D+'].map(h => (
+                    {['#', '이메일', '학부모명', '전화번호', '회원상태', curMeta.refLabel, 'D+', '영상시청'].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#7c88a4', letterSpacing: .5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -441,8 +441,8 @@ export default function Home() {
                       <td style={{ padding: '10px 14px', color: '#d1d5db', fontSize: 12 }}>{i + 1}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12.5 }}>{m.email}</td>
                       <td style={{ padding: '10px 14px', fontSize: 13 }}>{m.parent_name ?? <span style={{ color: '#d1d5db' }}>—</span>}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13 }}>{m.child_name ?? <span style={{ color: '#d1d5db' }}>—</span>}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{fmtPhone(m.phone) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: '#64748b' }}>{m.member_status ?? '—'}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#7c88a4' }}>{fmtDate(getRefDate(m, curGroup))}</td>
                       <td style={{ padding: '10px 14px' }}>
                         {m.day_num !== undefined ? (
@@ -454,6 +454,11 @@ export default function Home() {
                             +{Math.round((new Date().getTime() - new Date(getRefDate(m, curGroup)).getTime()) / 86400000)}일
                           </span>
                         )}
+                      </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12 }}>
+                        {(m.watch_count ?? 0) > 0
+                          ? <span style={{ color: '#7c3aed', fontWeight: 700 }}>{m.watch_count}회</span>
+                          : <span style={{ color: '#d1d5db' }}>—</span>}
                       </td>
 
                     </tr>
