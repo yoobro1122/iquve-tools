@@ -58,7 +58,12 @@ export default function Home() {
   const [data, setData] = useState<ApiData | null>(null)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [refDate, setRefDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [refDate, setRefDate] = useState(() => {
+    // 한국 시간(UTC+9) 기준 오늘 날짜
+    const now = new Date()
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+    return kst.toISOString().slice(0, 10)
+  })
   const [curGroup, setCurGroup] = useState<GroupKey>('A')
   const [viewMode, setViewMode] = useState<ViewMode>('active')
   const [search, setSearch] = useState('')
@@ -186,7 +191,7 @@ export default function Home() {
 
   const curList = getCurrentList()
   const curMeta = curGroup === 'none' ? NONE_META : GROUP_META[curGroup as 'A'|'B'|'C']
-  const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+  const today = new Date(new Date().getTime() + 9*60*60*1000).toISOString().slice(0,10).replace(/-/g,'.')  + ' (KST)'
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
