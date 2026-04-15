@@ -72,11 +72,11 @@
     .lang-btn.active{border-color:var(--indigo);background:var(--indigo-bg);color:var(--indigo);}
 
     /* ── 동화책 선택 ── */
-    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
+    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;}
     .book-item{border:2px solid var(--border);border-radius:12px;padding:14px 10px;cursor:pointer;transition:all .15s;text-align:center;}
     .book-item.selected{border-color:var(--indigo);background:var(--indigo-bg);}
     .book-item:hover:not(.selected){border-color:var(--indigo-light);}
-    .book-search-bar{display:flex;gap:8px;margin-bottom:10px;}
+    .book-search-bar{display:flex;gap:8px;margin-bottom:8px;}
     .book-search-input{flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;}
     .book-search-input:focus{border-color:var(--indigo);}
     .book-sort-btn{padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:white;color:var(--gray);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
@@ -312,19 +312,19 @@
         </div>
 
         <!-- 동화책 선택 -->
-        <div id="book-panel" style="display:flex;flex-direction:column;gap:8px;">
+        <div id="book-panel" style="display:block;">
           <div class="book-search-bar">
             <input type="text" class="book-search-input" id="bookSearch" placeholder="도서명, 태그 검색..." oninput="filterBooksContent()">
             <button class="book-sort-btn active" id="bsort-abc" onclick="setBookSort('abc')">가나다</button>
             <button class="book-sort-btn" id="bsort-new" onclick="setBookSort('new')">최신순</button>
           </div>
-          <div class="book-grid" id="bookGrid"></div>
+          <div class="book-grid" id="bookGrid" style="margin-bottom:8px;"></div>
           <div id="bookPagination" class="book-pagination"></div>
-          <div id="selectedBookInfo" style="display:none;background:var(--indigo-bg);border-radius:10px;padding:14px;font-size:13px;line-height:1.8;"></div>
+          <div id="selectedBookInfo" style="display:none;background:var(--indigo-bg);border-radius:10px;padding:14px;font-size:13px;line-height:1.8;margin-top:8px;"></div>
         </div>
 
         <!-- 직접 주제 입력 -->
-        <div id="topic-panel" style="display:none;flex-direction:column;gap:12px;">
+        <div id="topic-panel" style="display:none;flex-direction:column;gap:12px;margin-top:4px;">
           <div class="field"><label>주제</label>
             <input type="text" id="a-topic" placeholder="예: 숲 속 동물, 바다 생물, 과일과 채소">
           </div>
@@ -474,6 +474,10 @@ let cardSlides=[];
 let cardSlideIdx=0;
 let manualRows=[];
 let bookTab='book';
+let bookSort='abc';
+let bookPage=1;
+const BOOK_PAGE_SIZE=15;
+let filteredBooksContent=[];
 
 // ══════════════════════════════
 // iQUVE 동화책 DB (Supabase)
@@ -592,8 +596,8 @@ function switchBookTab(tab){
   document.querySelectorAll('#tab-activity .sub-panel:first-of-type .sub-tab').forEach((t,i)=>{
     t.classList.toggle('active',i===(tab==='book'?0:1));
   });
-  document.getElementById('book-panel').style.display=tab==='book'?'flex':'none';
-  document.getElementById('topic-panel').style.display=tab==='topic'?'flex':'none';
+  document.getElementById('book-panel').style.display=tab==='book'?'block':'none';
+  document.getElementById('topic-panel').style.display=tab==='topic'?'block':'none';
 }
 
 function setBookSort(type){

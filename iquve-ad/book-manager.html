@@ -51,7 +51,7 @@
     .stat-label{font-size:13px;color:var(--gray);margin-top:4px;}
 
     /* ── 도서 그리드 ── */
-    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+    .book-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
     .book-card{background:white;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;transition:all .18s;}
     .book-card:hover{box-shadow:0 4px 20px rgba(61,79,215,.12);transform:translateY(-2px);}
     .book-thumb{height:160px;background:var(--indigo-bg);display:flex;align-items:center;justify-content:center;font-size:60px;position:relative;overflow:hidden;}
@@ -426,7 +426,7 @@ let editingId=null;
 let currentTags=[];
 let currentSort='new';   // 'new' | 'abc'
 let currentPage=1;
-const PAGE_SIZE=10;
+const PAGE_SIZE=9;
 
 // ══════════════════════════════
 // DB 조회
