@@ -368,7 +368,8 @@
           <div id="a-ai-text" class="ai-result-text"></div>
           <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;" onclick="genActivityImage()" id="a-img-btn">🎨 Imagen 3으로 이미지 생성</button>
-            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;background:#f0fdf4;color:#065f46;" onclick="copyImagePrompt()" id="a-prompt-btn">📋 이미지 프롬프트 복사</button>
+            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;background:#f0fdf4;color:#065f46;" onclick="openAIStudio()" id="a-studio-btn">🔗 AI Studio에서 만들기</button>
+            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;background:#fef9ee;color:#92400e;" onclick="copyImagePrompt()" id="a-prompt-btn">📋 프롬프트만 복사</button>
           </div>
           <div id="a-img-result" style="display:none;margin-top:12px;">
             <div style="font-size:11px;font-weight:700;color:var(--indigo);margin-bottom:8px;">🖼️ 생성된 이미지</div>
@@ -924,6 +925,19 @@ STRICT REQUIREMENTS:
   return prompt.trim();
 }
 
+function openAIStudio(){
+  const prompt = buildImagePrompt();
+  navigator.clipboard.writeText(prompt).then(()=>{
+    const btn = document.getElementById('a-studio-btn');
+    const orig = btn.textContent;
+    btn.textContent = '✅ 프롬프트 복사됨! AI Studio 열기...';
+    setTimeout(()=>{
+      window.open('https://aistudio.google.com/prompts/new_chat', '_blank');
+      btn.textContent = orig;
+    }, 800);
+  });
+}
+
 function copyImagePrompt(){
   const prompt = buildImagePrompt();
   document.getElementById('a-prompt-box').textContent = prompt;
@@ -943,14 +957,48 @@ async function genActivityImage(){
   if(!aiText){ alert('먼저 AI로 활동지 내용을 생성해주세요.'); return; }
 
   const btn = document.getElementById('a-img-btn');
-  btn.innerHTML = '<div class="spinner" style="border-color:rgba(61,79,215,.3);border-top-color:var(--indigo);"></div> 생성 중...';
   btn.disabled = true;
 
   try{
     const key = await getGeminiKey();
     const prompt = buildImagePrompt();
 
-    // Imagen 3 호출 (고품질 도안 생성)
+    // 1차: Imagen 3 시도
+    btn.innerHTML = '<div class="spinner" style="border-color:rgba(61,79,215,.3);border-top-color:var(--indigo);"></div> Imagen 3 생성 중...';
+    let imgSrc = await tryImagen3(key, prompt);
+
+    // 2차: Imagen 3 실패 시 나노바나나(gemini-2.5-flash-image) 폴백
+    if(!imgSrc){
+      btn.innerHTML = '<div class="spinner" style="border-color:rgba(61,79,215,.3);border-top-color:var(--indigo);"></div> 나노바나나로 재시도 중...';
+      imgSrc = await tryNanoBanana(key, prompt);
+    }
+
+    if(!imgSrc) throw new Error('이미지 생성에 실패했어요. 프롬프트를 복사해서 AI Studio에서 직접 만들어주세요.');
+
+    const grid = document.getElementById('a-img-grid');
+    grid.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'gen-img-item';
+    div.innerHTML = `
+      <img src="${imgSrc}" alt="생성된 활동지 이미지">
+      <div class="gen-img-actions">
+        <a href="${imgSrc}" download="iquve_activity.png" class="gen-img-dl">⬇️ 다운로드</a>
+      </div>`;
+    grid.appendChild(div);
+    document.getElementById('a-img-result').style.display = 'block';
+
+  } catch(e){
+    const msg = e.message || JSON.stringify(e);
+    alert('이미지 생성 오류: ' + msg);
+  } finally{
+    btn.innerHTML = '🎨 이미지 생성 (Imagen 3 → 나노바나나)';
+    btn.disabled = false;
+  }
+}
+
+// Imagen 3 시도 — 실패 시 null 반환
+async function tryImagen3(key, prompt){
+  try{
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${key}`,
       {
@@ -958,46 +1006,37 @@ async function genActivityImage(){
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instances: [{ prompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: '1:1',
-            safetySetting: 'block_only_high',
-            personGeneration: 'allow_all'
-          }
+          parameters: { sampleCount:1, aspectRatio:'1:1', safetySetting:'block_only_high', personGeneration:'allow_all' }
         })
       }
     );
     const data = await res.json();
+    if(data.error) return null;  // 503/429 등 → 폴백
+    const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+    return b64 ? `data:image/png;base64,${b64}` : null;
+  } catch(e){ return null; }
+}
 
-    if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-
-    const predictions = data.predictions || [];
-    if(!predictions.length) throw new Error('이미지가 생성되지 않았어요. 응답: ' + JSON.stringify(data).slice(0,200));
-
-    const grid = document.getElementById('a-img-grid');
-    grid.innerHTML = '';
-    predictions.forEach((p, i) => {
-      if(!p.bytesBase64Encoded) return;
-      const src = `data:image/png;base64,${p.bytesBase64Encoded}`;
-      const div = document.createElement('div');
-      div.className = 'gen-img-item';
-      div.innerHTML = `
-        <img src="${src}" alt="생성된 활동지 이미지 ${i+1}">
-        <div class="gen-img-actions">
-          <a href="${src}" download="iquve_activity_${i+1}.png" class="gen-img-dl">⬇️ 다운로드</a>
-        </div>`;
-      grid.appendChild(div);
-    });
-
-    document.getElementById('a-img-result').style.display = 'block';
-
-  } catch(e){
-    const msg = e.message || JSON.stringify(e);
-    alert('이미지 생성 오류: ' + msg);
-  } finally{
-    btn.innerHTML = '🎨 Imagen 3으로 이미지 생성';
-    btn.disabled = false;
-  }
+// 나노바나나 시도 — 실패 시 null 반환
+async function tryNanoBanana(key, prompt){
+  try{
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['IMAGE'] }
+        })
+      }
+    );
+    const data = await res.json();
+    if(data.error) return null;
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const img = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+    return img ? `data:${img.inlineData.mimeType};base64,${img.inlineData.data}` : null;
+  } catch(e){ return null; }
 }
 
 // ══════════════════════════════
