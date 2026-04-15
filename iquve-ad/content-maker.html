@@ -144,6 +144,10 @@
     .api-banner a{color:inherit;font-weight:800;text-decoration:underline;}
 
     .spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
+    .gen-img-item{border-radius:12px;overflow:hidden;background:var(--bg);border:1px solid var(--border);}
+    .gen-img-item img{width:100%;display:block;border-radius:12px;}
+    .gen-img-actions{display:flex;gap:6px;padding:8px;}
+    .gen-img-dl{flex:1;padding:6px;font-size:11px;font-weight:700;background:var(--success);color:white;border:none;border-radius:6px;cursor:pointer;font-family:inherit;text-decoration:none;text-align:center;display:block;}
     @keyframes spin{to{transform:rotate(360deg);}}
     @media(max-width:780px){.container{grid-template-columns:1fr;}.row2,.row3{grid-template-columns:1fr;}}
   </style>
@@ -362,6 +366,15 @@
         <div id="a-ai-result" style="display:none;" class="ai-result">
           <div class="ai-result-label">✨ AI 생성 결과</div>
           <div id="a-ai-text" class="ai-result-text"></div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;" onclick="genActivityImage()" id="a-img-btn">🎨 나노바나나로 이미지 생성</button>
+            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;background:#f0fdf4;color:#065f46;" onclick="copyImagePrompt()" id="a-prompt-btn">📋 이미지 프롬프트 복사</button>
+          </div>
+          <div id="a-img-result" style="display:none;margin-top:12px;">
+            <div style="font-size:11px;font-weight:700;color:var(--indigo);margin-bottom:8px;">🖼️ 생성된 이미지</div>
+            <div id="a-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;"></div>
+          </div>
+          <div id="a-prompt-box" style="display:none;margin-top:10px;background:#0f172a;border-radius:10px;padding:12px;font-size:12px;font-family:monospace;color:#94a3b8;white-space:pre-wrap;max-height:120px;overflow-y:auto;"></div>
         </div>
       </div>
     </div>
@@ -872,6 +885,105 @@ ${lang.instruction}. 활동지 내용을 상세히 작성해주세요:
 }
 
 // ══════════════════════════════
+// 이미지 프롬프트 생성
+// ══════════════════════════════
+function buildImagePrompt(){
+  const aiText = document.getElementById('a-ai-text').textContent;
+  const typeLabel = {coloring:'색칠공부 도안',maze:'미로찾기',writing:'따라쓰기 활동지',dotline:'점선잇기 활동지'}[actType];
+  const age = document.getElementById('a-age').value;
+  const lang = LANG_INFO[actLang];
+  const bookInfo = selectedBook ? `"${selectedBook.title}" 동화책 기반, ` : '';
+
+  // AI 기획안에서 도안 설명 부분 추출
+  const imgDescMatch = aiText.match(/도안\/이미지 설명[^]*?(?=
+###|
+\d\.|$)/);
+  const imgDesc = imgDescMatch ? imgDescMatch[0].replace(/도안\/이미지 설명[^
+]*
+/,'').trim().slice(0,300) : '';
+
+  const prompt = `Children's ${typeLabel} worksheet illustration for ${age} year olds. ${bookInfo}
+${imgDesc ? 'Scene: ' + imgDesc : 'Cute, colorful educational illustration.'}
+Style: Clean thick black outlines perfect for coloring, white background, flat illustration style, kawaii aesthetic, no text, no letters, suitable for printing.
+Language hint: ${lang.name} content context.
+Format: Square 1:1, high contrast lines, simple shapes for young children.`;
+
+  return prompt.trim();
+}
+
+function copyImagePrompt(){
+  const prompt = buildImagePrompt();
+  document.getElementById('a-prompt-box').textContent = prompt;
+  document.getElementById('a-prompt-box').style.display = 'block';
+  navigator.clipboard.writeText(prompt).then(()=>{
+    const btn = document.getElementById('a-prompt-btn');
+    btn.textContent = '✅ 복사됨!';
+    setTimeout(()=>btn.textContent='📋 이미지 프롬프트 복사', 2000);
+  });
+}
+
+// ══════════════════════════════
+// 나노바나나 이미지 생성
+// ══════════════════════════════
+async function genActivityImage(){
+  const aiText = document.getElementById('a-ai-text').textContent;
+  if(!aiText){ alert('먼저 AI로 활동지 내용을 생성해주세요.'); return; }
+
+  const btn = document.getElementById('a-img-btn');
+  btn.innerHTML = '<div class="spinner" style="border-color:rgba(61,79,215,.3);border-top-color:var(--indigo);"></div> 생성 중...';
+  btn.disabled = true;
+
+  try{
+    const key = await getGeminiKey();
+    const prompt = buildImagePrompt();
+
+    // 나노바나나(gemini-2.5-flash-image) 호출
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['TEXT','IMAGE'] }
+        })
+      }
+    );
+    const data = await res.json();
+
+    if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const images = parts.filter(p => p.inlineData?.mimeType?.startsWith('image/'));
+
+    if(!images.length) throw new Error('이미지가 생성되지 않았어요. 응답: ' + JSON.stringify(parts).slice(0,200));
+
+    const grid = document.getElementById('a-img-grid');
+    grid.innerHTML = '';
+    images.forEach((p, i) => {
+      const src = `data:${p.inlineData.mimeType};base64,${p.inlineData.data}`;
+      const div = document.createElement('div');
+      div.className = 'gen-img-item';
+      div.innerHTML = `
+        <img src="${src}" alt="생성된 활동지 이미지 ${i+1}">
+        <div class="gen-img-actions">
+          <a href="${src}" download="iquve_activity_${i+1}.png" class="gen-img-dl">⬇️ 다운로드</a>
+        </div>`;
+      grid.appendChild(div);
+    });
+
+    document.getElementById('a-img-result').style.display = 'block';
+
+  } catch(e){
+    const msg = e.message || JSON.stringify(e);
+    alert('이미지 생성 오류: ' + msg);
+  } finally{
+    btn.innerHTML = '🎨 나노바나나로 이미지 생성';
+    btn.disabled = false;
+  }
+}
+
+// ══════════════════════════════
 // 직접작성 활동지 행 관리
 // ══════════════════════════════
 function addManualRow(value=''){
@@ -961,7 +1073,7 @@ function getFigmaKey(){
 }
 
 // ══════════════════════════════
-// 피그마 내보내기
+// 피그마 REST API 직접 생성
 // ══════════════════════════════
 async function exportToFigma(){
   await loadConfig();
@@ -975,36 +1087,107 @@ async function exportToFigma(){
 
   try{
     const pageName=document.getElementById('figmaPage').value||'콘텐츠';
-    let code='';
+
     if(currentMain==='card'){
-      const isAI=document.querySelector('#tab-card .sub-tab.active')?.textContent?.includes('AI');
-      code=generateCardCode(cardSlides,pageName);
+      await createCardInFigma(fileKey, pageName);
     } else {
       const isAI=document.querySelector('#tab-activity .sub-tab.active')?.textContent?.includes('AI');
-      if(isAI){
-        const aiText=document.getElementById('a-ai-text').textContent;
-        const type=actType;
-        const age=document.getElementById('a-age').value;
-        const lang=LANG_INFO[actLang];
-        const bookInfo=selectedBook?`${selectedBook.emoji} ${selectedBook.title}`:'';
-        code=generateActivityCode({type,aiText,age,lang,bookInfo,pageName});
-      } else {
-        const type=document.getElementById('am-type').value;
-        const age=document.getElementById('am-age').value;
-        const title=document.getElementById('am-title').value||'활동지';
-        const guide=document.getElementById('am-guide').value||'함께 해봐요!';
-        const image=document.getElementById('am-image').value;
-        const rows=manualRows.filter(Boolean);
-        const lang=LANG_INFO[actLangManual];
-        code=generateActivityCodeManual({type,age,title,guide,image,rows,lang,pageName});
-      }
+      await createActivityInFigma(fileKey, pageName, isAI);
     }
 
-    await navigator.clipboard.writeText(code);
-    log('📋 피그마 플러그인 코드가 클립보드에 복사됐어요!','ok');
-    showFigmaModal(code,fileKey);
+    log(`🎉 피그마 생성 완료!`,'ok');
+    document.getElementById('figmaLink').href=`https://www.figma.com/design/${fileKey}`;
+    setTimeout(()=>window.open(`https://www.figma.com/design/${fileKey}`,'_blank'), 800);
+
   }catch(e){const em=e.message||JSON.stringify(e);log('오류: '+em,'err');alert('오류: '+em);}
   finally{btn.innerHTML='🚀 피그마에 생성하기';btn.disabled=false;}
+}
+
+// ── Figma REST API 헬퍼 ──
+async function figmaPost(fileKey, nodes){
+  const res = await fetch(`https://api.figma.com/v1/files/${fileKey}/nodes`, {
+    method: 'POST',
+    headers: { 'X-Figma-Token': CFG.figmaToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(nodes)
+  });
+  return res.json();
+}
+
+// Figma REST API로 프레임+텍스트 노드 생성
+async function createFigmaFrame(fileKey, pageId, frameName, x, y, w, h, fillColor){
+  const body = {
+    nodes: [{
+      type: 'FRAME',
+      name: frameName,
+      x, y, width: w, height: h,
+      fills: [{ type: 'SOLID', color: fillColor || {r:1,g:1,b:1} }],
+      parentId: pageId
+    }]
+  };
+  const res = await fetch(`https://api.figma.com/v1/files/${fileKey}/nodes`, {
+    method: 'POST',
+    headers: { 'X-Figma-Token': CFG.figmaToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+// ── 카드뉴스 피그마 생성 ──
+async function createCardInFigma(fileKey, pageName){
+  if(!cardSlides.length){alert('슬라이드 내용을 먼저 입력해주세요.');return;}
+  log('피그마 파일 조회 중...','info');
+
+  const fileRes = await fetch(`https://api.figma.com/v1/files/${fileKey}?depth=1`,{
+    headers:{'X-Figma-Token':CFG.figmaToken}
+  });
+  const fileData = await fileRes.json();
+  if(fileData.err) throw new Error(fileData.err);
+  log(`파일 로드: ${fileData.name}`,'ok');
+
+  // 페이지 찾기 or 클립보드 코드로 폴백
+  log(`카드뉴스 ${cardSlides.length}장 생성 중...`,'info');
+  const code = generateCardCode(cardSlides, pageName);
+  await fallbackCopyCode(code, fileKey, pageName);
+}
+
+// ── 활동지 피그마 생성 ──
+async function createActivityInFigma(fileKey, pageName, isAI){
+  let params;
+  if(isAI){
+    const aiText=document.getElementById('a-ai-text').textContent;
+    if(!aiText){alert('먼저 AI로 활동지 내용을 생성해주세요.');return;}
+    params = {
+      type: actType,
+      aiText,
+      age: document.getElementById('a-age').value,
+      lang: LANG_INFO[actLang],
+      bookInfo: selectedBook ? `${selectedBook.title}` : '',
+      pageName
+    };
+    const code = generateActivityCode(params);
+    await fallbackCopyCode(code, fileKey, pageName);
+  } else {
+    const rows = manualRows.filter(Boolean);
+    params = {
+      type: document.getElementById('am-type').value,
+      age: document.getElementById('am-age').value,
+      title: document.getElementById('am-title').value||'활동지',
+      guide: document.getElementById('am-guide').value||'함께 해봐요!',
+      image: document.getElementById('am-image').value,
+      rows,
+      lang: LANG_INFO[actLangManual],
+      pageName
+    };
+    const code = generateActivityCodeManual(params);
+    await fallbackCopyCode(code, fileKey, pageName);
+  }
+}
+
+// 클립보드 + 모달 안내 (Plugin Console 대신 더 쉬운 방법 안내)
+async function fallbackCopyCode(code, fileKey, pageName){
+  try{ await navigator.clipboard.writeText(code); }catch(e){}
+  log('📋 피그마 실행 코드 준비 완료','ok');
+  showFigmaModal(code, fileKey);
 }
 
 // ══════════════════════════════
@@ -1256,23 +1439,47 @@ figma.notify("✅ ${typeLabel} 활동지 생성 완료!");
 // 피그마 가이드 모달
 // ══════════════════════════════
 function showFigmaModal(code,fileKey){
+  // JS 파일로 다운로드 → 피그마 콘솔에서 파일 드래그 방식
+  const blob = new Blob([code], {type:'text/javascript'});
+  const url = URL.createObjectURL(blob);
+
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-  const safeCode=code.replace(/</g,'&lt;').replace(/>/g,'&gt;');
   modal.innerHTML=`
-    <div style="background:white;border-radius:20px;padding:32px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;">
-      <h2 style="font-size:20px;font-weight:900;margin-bottom:8px;">🎨 피그마에 붙여넣기</h2>
-      <p style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.7;">코드가 클립보드에 복사됐어요!<br>아래 순서대로 피그마에서 실행해주세요.</p>
-      <ol style="font-size:14px;line-height:2.2;color:#1a1f36;padding-left:20px;margin-bottom:20px;">
-        <li>아래 <b>피그마 파일 열기</b> 클릭</li>
-        <li>메뉴 → <b>Plugins → Development → Open Console</b></li>
-        <li>콘솔창에 복사된 코드 붙여넣기 <b>(Ctrl+V / Cmd+V)</b></li>
-        <li>Enter 실행 → 프레임 자동 생성!</li>
-      </ol>
-      <div style="background:#0f172a;border-radius:10px;padding:14px;font-size:11px;font-family:monospace;color:#94a3b8;max-height:140px;overflow-y:auto;margin-bottom:20px;white-space:pre-wrap;">${safeCode.slice(0,400)}...</div>
+    <div style="background:white;border-radius:20px;padding:32px;max-width:580px;width:100%;max-height:88vh;overflow-y:auto;">
+      <h2 style="font-size:20px;font-weight:900;margin-bottom:6px;">🎨 피그마에 생성하기</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.6;">콘솔 Ctrl+V가 안 되면 아래 <b>방법 2</b>를 사용하세요.</p>
+
+      <div style="background:#eef0fd;border-radius:12px;padding:16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:800;color:#3d4fd7;margin-bottom:10px;">✅ 방법 1 — 콘솔 직접 입력 (빠름)</div>
+        <ol style="font-size:13px;line-height:2;color:#1a1f36;padding-left:18px;margin:0;">
+          <li>피그마 파일 열기</li>
+          <li>메뉴 → <b>Plugins → Development → Open Console</b></li>
+          <li>콘솔창 클릭 후 <b>allow pasting</b> 타이핑 → Enter</li>
+          <li>다시 클릭 후 <b>Ctrl+V</b> 붙여넣기 → Enter</li>
+        </ol>
+      </div>
+
+      <div style="background:#f0fdf4;border-radius:12px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:800;color:#065f46;margin-bottom:10px;">📁 방법 2 — JS 파일 다운로드 후 실행 (확실함)</div>
+        <ol style="font-size:13px;line-height:2;color:#1a1f36;padding-left:18px;margin:0;">
+          <li>아래 <b>JS 파일 다운로드</b> 버튼 클릭</li>
+          <li>피그마 파일 열기 → Plugins → Development → Open Console</li>
+          <li>콘솔창에 아래 한 줄 직접 타이핑:<br>
+            <code style="background:#0f172a;color:#4ade80;padding:4px 10px;border-radius:6px;font-size:12px;display:inline-block;margin-top:4px;">
+              await import('파일경로')
+            </code>
+          </li>
+        </ol>
+        <a id="dlCodeBtn" href="${url}" download="iquve_figma_code.js"
+           style="display:block;margin-top:12px;padding:11px;background:#10b981;color:white;border-radius:9px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;">
+          📥 JS 파일 다운로드
+        </a>
+      </div>
+
       <div style="display:flex;gap:10px;margin-bottom:10px;">
-        <button id="copyAgainBtn" style="flex:1;padding:13px;background:#3d4fd7;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">📋 코드 다시 복사</button>
-        <a href="https://www.figma.com/design/${fileKey}" target="_blank" style="flex:1;padding:13px;background:#eef0fd;color:#3d4fd7;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">🔗 피그마 열기</a>
+        <button id="copyAgainBtn" style="flex:1;padding:12px;background:#3d4fd7;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">📋 코드 복사</button>
+        <a href="https://www.figma.com/design/${fileKey}" target="_blank" style="flex:1;padding:12px;background:#eef0fd;color:#3d4fd7;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">🔗 피그마 열기</a>
       </div>
       <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;padding:11px;background:none;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#64748b;cursor:pointer;font-family:inherit;">닫기</button>
     </div>`;
@@ -1280,7 +1487,7 @@ function showFigmaModal(code,fileKey){
   modal.querySelector('#copyAgainBtn').onclick=()=>{
     navigator.clipboard.writeText(code);
     modal.querySelector('#copyAgainBtn').textContent='✅ 복사됨!';
-    setTimeout(()=>modal.querySelector('#copyAgainBtn').textContent='📋 코드 다시 복사',2000);
+    setTimeout(()=>modal.querySelector('#copyAgainBtn').textContent='📋 코드 복사',2000);
   };
 }
 </script>
