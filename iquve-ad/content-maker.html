@@ -1007,19 +1007,13 @@ function removeManualRow(idx){
 // Gemini 직접 호출 (브라우저 → Gemini API)
 // Edge Function은 키 전달용으로만 사용
 // ══════════════════════════════
-let _geminiKey = null;
-
+// Gemini 키는 loadConfig에서 CFG.geminiKey로 이미 로드됨
 async function getGeminiKey(){
-  if(_geminiKey) return _geminiKey;
-  const res=await fetch(PROXY,{
-    method:'POST',
-    headers:{'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`},
-    body:JSON.stringify({}),
-  });
-  const data=await res.json();
-  if(data.error) throw new Error(data.error);
-  _geminiKey=data.gemini_key;
-  return _geminiKey;
+  if(CFG.geminiKey) return CFG.geminiKey;
+  // 혹시 아직 로드 안 됐으면 다시 시도
+  await loadConfig();
+  if(CFG.geminiKey) return CFG.geminiKey;
+  throw new Error('Gemini API 키가 설정되지 않았어요. API 설정에서 키를 저장해주세요.');
 }
 
 async function callProxy(type,payload){
