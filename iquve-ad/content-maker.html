@@ -1033,7 +1033,7 @@ async function callProxy(type,payload){
   }
 
   // 텍스트 생성 - Gemini 직접 호출
-  const models=['gemini-2.5-flash','gemini-2.0-flash'];
+  const models=['gemini-2.5-flash'];
   let lastRes=null;
   for(const model of models){
     const res=await fetch(
