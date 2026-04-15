@@ -895,12 +895,16 @@ function buildImagePrompt(){
   const bookInfo = selectedBook ? `"${selectedBook.title}" 동화책 기반, ` : '';
 
   // AI 기획안에서 도안 설명 부분 추출
-  const imgDescMatch = aiText.match(/도안\/이미지 설명[^]*?(?=
-###|
-\d\.|$)/);
-  const imgDesc = imgDescMatch ? imgDescMatch[0].replace(/도안\/이미지 설명[^
-]*
-/,'').trim().slice(0,300) : '';
+
+  // AI 기획안에서 도안 설명 부분 추출 (문자열 처리)
+  let imgDesc = '';
+  const imgIdx = aiText.indexOf('도안');
+  if(imgIdx > -1) {
+    const imgSec = aiText.slice(imgIdx, imgIdx+500);
+    const imgEndIdx = imgSec.search(/###|\n\d\./);
+    imgDesc = (imgEndIdx > -1 ? imgSec.slice(0,imgEndIdx) : imgSec).slice(0,300).trim();
+  }
+
 
   const prompt = `Children's ${typeLabel} worksheet illustration for ${age} year olds. ${bookInfo}
 ${imgDesc ? 'Scene: ' + imgDesc : 'Cute, colorful educational illustration.'}
