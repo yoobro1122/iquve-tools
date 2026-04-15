@@ -505,7 +505,7 @@ async function loadBooksFromDB() {
       BOOKS = rows.map(b => ({
         id: b.id,
         emoji: b.thumbnail_url ? null : '📖',
-        thumbnail: b.thumbnail_url,
+        thumbnail: b.thumbnail_url ? (b.thumbnail_url.startsWith('http') ? b.thumbnail_url : 'https://iquve-tools.vercel.app' + b.thumbnail_url) : null,
         title: b.title_ko,
         titleEn: b.title_en,
         publisher: b.publisher,
@@ -747,7 +747,7 @@ async function genCardAI(){
 
   try{
     const data=await callProxy('text',{contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.8}});
-    if(data.error)throw new Error(data.error);
+    if(data.error)throw new Error(typeof data.error==='object'?JSON.stringify(data.error):String(data.error));
     const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
     let parsed;
     try{parsed=JSON.parse(raw.trim());}catch{const m=raw.match(/\[[\s\S]*\]/);if(!m)throw new Error('파싱 실패');parsed=JSON.parse(m[0]);}
@@ -755,7 +755,7 @@ async function genCardAI(){
     parsed.forEach(s=>addCardSlide(s.type||'body',s));
     document.getElementById('c-ai-result').style.display='block';
     document.getElementById('c-slide-preview').style.display='block';
-  }catch(e){alert('오류: '+e.message);}
+  }catch(e){alert('오류: '+(e.message||JSON.stringify(e)));}
   finally{btn.innerHTML='✨ AI로 카드뉴스 생성';btn.disabled=false;}
 }
 
@@ -863,11 +863,11 @@ ${lang.instruction}. 활동지 내용을 상세히 작성해주세요:
 
   try{
     const data=await callProxy('text',{contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.85}});
-    if(data.error)throw new Error(data.error);
+    if(data.error)throw new Error(typeof data.error==='object'?JSON.stringify(data.error):String(data.error));
     const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
     document.getElementById('a-ai-text').textContent=raw;
     document.getElementById('a-ai-result').style.display='block';
-  }catch(e){alert('오류: '+e.message);}
+  }catch(e){alert('오류: '+(e.message||JSON.stringify(e)));}
   finally{btn.innerHTML='✨ AI로 활동지 내용 생성';btn.disabled=false;}
 }
 
@@ -892,15 +892,48 @@ function removeManualRow(idx){
 ['항목 1','항목 2','항목 3'].forEach(v=>addManualRow(v));
 
 // ══════════════════════════════
-// 프록시 호출
+// Gemini 직접 호출 (브라우저 → Gemini API)
+// Edge Function은 키 전달용으로만 사용
 // ══════════════════════════════
-async function callProxy(type,payload){
+let _geminiKey = null;
+
+async function getGeminiKey(){
+  if(_geminiKey) return _geminiKey;
   const res=await fetch(PROXY,{
     method:'POST',
     headers:{'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`},
-    body:JSON.stringify({type,payload}),
+    body:JSON.stringify({}),
   });
-  return res.json();
+  const data=await res.json();
+  if(data.error) throw new Error(data.error);
+  _geminiKey=data.gemini_key;
+  return _geminiKey;
+}
+
+async function callProxy(type,payload){
+  const key=await getGeminiKey();
+
+  if(type==='image'){
+    // Imagen API (유료 플랜 필요)
+    const res=await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${key}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}
+    );
+    return res.json();
+  }
+
+  // 텍스트 생성 - Gemini 직접 호출
+  const models=['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-pro'];
+  let lastRes=null;
+  for(const model of models){
+    const res=await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}
+    );
+    lastRes=await res.json();
+    if(res.ok) return lastRes;
+  }
+  return lastRes;
 }
 
 // ══════════════════════════════
@@ -970,7 +1003,7 @@ async function exportToFigma(){
     await navigator.clipboard.writeText(code);
     log('📋 피그마 플러그인 코드가 클립보드에 복사됐어요!','ok');
     showFigmaModal(code,fileKey);
-  }catch(e){log('오류: '+e.message,'err');alert('오류: '+e.message);}
+  }catch(e){const em=e.message||JSON.stringify(e);log('오류: '+em,'err');alert('오류: '+em);}
   finally{btn.innerHTML='🚀 피그마에 생성하기';btn.disabled=false;}
 }
 
