@@ -894,8 +894,6 @@ function buildImagePrompt(){
   const lang = LANG_INFO[actLang];
   const bookInfo = selectedBook ? `"${selectedBook.title}" 동화책 기반, ` : '';
 
-  // AI 기획안에서 도안 설명 부분 추출
-
   // AI 기획안에서 도안 설명 부분 추출 (문자열 처리)
   let imgDesc = '';
   const imgIdx = aiText.indexOf('도안');
@@ -906,11 +904,22 @@ function buildImagePrompt(){
   }
 
 
-  const prompt = `Children's ${typeLabel} worksheet illustration for ${age} year olds. ${bookInfo}
-${imgDesc ? 'Scene: ' + imgDesc : 'Cute, colorful educational illustration.'}
-Style: Clean thick black outlines perfect for coloring, white background, flat illustration style, kawaii aesthetic, no text, no letters, suitable for printing.
-Language hint: ${lang.name} content context.
-Format: Square 1:1, high contrast lines, simple shapes for young children.`;
+  const prompt = `IMPORTANT: DO NOT include any text, letters, numbers, words, labels, captions, titles, or writing of any kind in the image. Pure illustration only.
+
+Create a children's ${typeLabel} worksheet illustration for ${age} year olds. ${bookInfo}
+${imgDesc ? 'Scene description: ' + imgDesc : 'Cute, colorful educational illustration with simple characters.'}
+
+STRICT REQUIREMENTS:
+- ABSOLUTELY NO text, letters, numbers, words, or any written characters anywhere in the image
+- ABSOLUTELY NO labels, titles, captions, watermarks, or annotations
+- Clean thick black outlines perfect for a coloring worksheet
+- Pure white background
+- Flat kawaii illustration style
+- Simple bold shapes easy for young children to color
+- High contrast black lines on white, no gray areas
+- Square composition 1:1 ratio
+- Age appropriate for ${age} year olds
+- Suitable for printing on paper`;
 
   return prompt.trim();
 }
@@ -949,7 +958,10 @@ async function genActivityImage(){
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseModalities: ['TEXT','IMAGE'] }
+          generationConfig: {
+            responseModalities: ['IMAGE'],
+            thinkingConfig: { thinkingBudget: 1024 }
+          }
         })
       }
     );
