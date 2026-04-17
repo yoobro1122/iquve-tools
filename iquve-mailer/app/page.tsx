@@ -100,6 +100,7 @@ export default function Home() {
 
   // 발송
   const [sending, setSending] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [sendMode, setSendMode] = useState<'now' | 'scheduled'>('now')
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('10:00')
@@ -128,6 +129,30 @@ export default function Home() {
   }
 
   useEffect(() => { loadCampaigns() }, [])
+
+  // 임시저장
+  async function saveDraft() {
+    if (!subject.trim() && !htmlContent.trim()) { showToast('제목 또는 내용을 입력해주세요.', 'err'); return }
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('campaigns').insert({
+        title: campaignTitle || subject || '임시저장',
+        subject: subject || '(제목 없음)',
+        html_content: htmlContent,
+        groups: selectedGroups,
+        status: 'draft',
+        total_count: 0,
+        sent_count: 0,
+        fail_count: 0,
+        pending_emails: [],
+      })
+      if (error) throw error
+      showToast('임시저장 완료! 발송 이력에서 확인하세요.', 'ok')
+      await loadCampaigns()
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : '저장 오류', 'err')
+    } finally { setSaving(false) }
+  }
 
   async function loadLogs(campaignId: string) {
     setLogLoading(true); setHistoryLogs(null)
@@ -494,11 +519,17 @@ export default function Home() {
 
             <div style={{ marginTop: 28, display: 'flex', justifyContent: 'space-between' }}>
               <Btn onClick={() => setTab(0)}>← 이전</Btn>
-              <Btn primary onClick={() => {
-                if (!subject.trim()) { showToast('메일 제목을 입력해주세요.', 'err'); return }
-                if (!htmlContent.trim()) { showToast('메일 내용을 입력해주세요.', 'err'); return }
-                setTab(2)
-              }}>다음: 수신자 선택 →</Btn>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={saveDraft} disabled={saving}
+                  style={{ padding: '10px 20px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', background: 'white', color: '#374151', opacity: saving ? .6 : 1, fontFamily: 'inherit' }}>
+                  {saving ? '저장 중...' : '💾 임시저장'}
+                </button>
+                <Btn primary onClick={() => {
+                  if (!subject.trim()) { showToast('메일 제목을 입력해주세요.', 'err'); return }
+                  if (!htmlContent.trim()) { showToast('메일 내용을 입력해주세요.', 'err'); return }
+                  setTab(2)
+                }}>다음: 수신자 선택 →</Btn>
+              </div>
             </div>
           </div>
         )}
@@ -746,20 +777,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-            ) : sendResult.hasPending ? (
-              <div style={{ padding: '28px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 16, textAlign: 'center' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>📬</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#92400e', marginBottom: 8 }}>오늘 분 발송 완료!</div>
-                <div style={{ fontSize: 15, color: '#78350f', marginBottom: 16, lineHeight: 1.8 }}>
-                  오늘 <b>{sendResult.sentCount.toLocaleString()}명</b> 발송 완료<br />
-                  <b style={{ color: '#d97706' }}>{sendResult.remaining.toLocaleString()}명</b>이 대기 중입니다.
-                </div>
-                <button onClick={() => handleSend(sendResult.campaignId, true)} disabled={sending}
-                  style={{ padding: '12px 32px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  {sending ? <><Spinner /> 발송 중...</> : `▶ 내일 이어서 발송 (${sendResult.remaining.toLocaleString()}명 남음)`}
-                </button>
-                <p style={{ marginTop: 8, fontSize: 12, color: '#a16207' }}>내일 이 버튼을 누르거나, 발송 이력 탭에서 이어서 발송하세요.</p>
-              </div>
+
             ) : sendResult.isScheduled ? (
               <div style={{ padding: '32px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 16, textAlign: 'center' }}>
                 <div style={{ fontSize: 44, marginBottom: 12 }}>📅</div>
@@ -820,6 +838,18 @@ export default function Home() {
                             <span onClick={e => { e.stopPropagation(); setContinueCampaign(c) }}
                               style={{ padding: '3px 10px', background: c.status === 'error' ? '#dc2626' : '#f59e0b', color: 'white', borderRadius: 20, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
                               {c.status === 'error' ? '⚠️ 오류 — 이어서 발송' : '▶ 이어서 발송'} ({c.pending_emails!.length.toLocaleString()}명 남음)
+                            </span>
+                          )}
+                          {c.status === 'scheduled' && (
+                            <span onClick={async e => {
+                              e.stopPropagation()
+                              if (!confirm('예약을 취소하시겠습니까?')) return
+                              await supabase.from('campaigns').update({ status: 'draft', scheduled_at: null, pending_emails: [] }).eq('id', c.id)
+                              showToast('예약이 취소되었습니다.', 'ok')
+                              loadCampaigns()
+                            }}
+                              style={{ padding: '3px 10px', background: '#dc2626', color: 'white', borderRadius: 20, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+                              ✕ 예약 취소
                             </span>
                           )}
                         </div>
