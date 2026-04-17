@@ -39,4 +39,5 @@ export interface Campaign {
   daily_limit: number
   created_at: string
   sent_at: string | null
+  scheduled_at: string | null
 }
