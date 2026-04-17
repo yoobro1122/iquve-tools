@@ -1,11 +1,11 @@
 {
   "functions": {
     "app/api/send-campaign/route.ts": { "maxDuration": 60 },
-    "app/api/cron-send/route.ts": { "maxDuration": 60 }
+    "app/api/scheduled-send/route.ts": { "maxDuration": 60 }
   },
   "crons": [
     {
-      "path": "/api/cron-send",
+      "path": "/api/scheduled-send",
       "schedule": "0 1 * * *"
     }
   ]
