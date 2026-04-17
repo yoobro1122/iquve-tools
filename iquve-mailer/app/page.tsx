@@ -100,7 +100,10 @@ export default function Home() {
 
   // 발송
   const [sending, setSending] = useState(false)
-  const [sendResult, setSendResult] = useState<{ sentCount: number; failCount: number; remaining: number; hasPending: boolean; campaignId: string } | null>(null)
+  const [sendMode, setSendMode] = useState<'now' | 'scheduled'>('now')
+  const [scheduledDate, setScheduledDate] = useState('')
+  const [scheduledTime, setScheduledTime] = useState('10:00')
+  const [sendResult, setSendResult] = useState<{ sentCount: number; failCount: number; remaining: number; hasPending: boolean; campaignId: string; isScheduled?: boolean; scheduledAt?: string } | null>(null)
 
   // 이력
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
@@ -264,12 +267,39 @@ export default function Home() {
       let cid = campaignId
       if (!isContinue) {
         const emails = getRecipientEmails()
+        // 예약 발송이면 scheduled_at 계산
+        let scheduledAtStr: string | null = null
+        if (sendMode === 'scheduled' && scheduledDate) {
+          scheduledAtStr = new Date(`${scheduledDate}T${scheduledTime}:00+09:00`).toISOString()
+        }
+
         const { data: campaign, error } = await supabase
           .from('campaigns')
-          .insert({ title: campaignTitle || subject, subject, html_content: htmlContent, groups: selectedGroups })
+          .insert({
+            title: campaignTitle || subject,
+            subject,
+            html_content: htmlContent,
+            groups: selectedGroups,
+            scheduled_at: scheduledAtStr,
+            // 예약 발송이면 pending_emails 미리 저장
+            ...(scheduledAtStr && {
+              status: 'scheduled',
+              pending_emails: emails,
+              total_count: emails.length,
+            }),
+          })
           .select().single()
         if (error || !campaign) throw new Error('캠페인 생성 실패: ' + error?.message)
         cid = campaign.id
+
+        // 예약 발송이면 여기서 종료
+        if (scheduledAtStr) {
+          setSendResult({ sentCount: 0, failCount: 0, remaining: emails.length, hasPending: false, campaignId: cid!, isScheduled: true, scheduledAt: scheduledAtStr })
+          showToast(`📅 ${new Date(scheduledAtStr).toLocaleString('ko-KR')} 발송 예약 완료! (${emails.length}명)`, 'ok')
+          await loadCampaigns()
+          return
+        }
+
         const res = await fetch('/api/send-campaign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -671,12 +701,50 @@ export default function Home() {
             </div>
 
             {!sendResult ? (
-              <div style={{ textAlign: 'center' }}>
-                <button onClick={() => handleSend()} disabled={sending}
-                  style={{ padding: '16px 52px', background: sending ? '#94a3b8' : 'linear-gradient(135deg,#e84393,#f472b6)', color: 'white', border: 'none', borderRadius: 14, fontSize: 16, fontWeight: 900, cursor: sending ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: sending ? 'none' : '0 4px 20px rgba(232,67,147,.4)' }}>
-                  {sending ? <><Spinner /> 발송 중...</> : '🚀 메일 발송 시작'}
-                </button>
-                <p style={{ marginTop: 12, fontSize: 13, color: '#94a3b8' }}>발송 후 취소할 수 없습니다.</p>
+              <div>
+                {/* 발송 모드 선택 */}
+                <div style={{ background: '#f8fafc', borderRadius: 14, padding: '20px', border: '1px solid #e2e8f0', marginBottom: 20 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>발송 방법 선택</div>
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                    {[{ key: 'now', label: '🚀 즉시 발송' }, { key: 'scheduled', label: '📅 예약 발송' }].map(m => (
+                      <button key={m.key} onClick={() => setSendMode(m.key as 'now' | 'scheduled')}
+                        style={{ flex: 1, padding: '12px', border: `2px solid ${sendMode === m.key ? '#3d4fd7' : '#e2e8f0'}`, borderRadius: 10, background: sendMode === m.key ? '#eff2ff' : 'white', color: sendMode === m.key ? '#3d4fd7' : '#374151', fontWeight: sendMode === m.key ? 800 : 400, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                  {sendMode === 'scheduled' && (
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '14px', background: 'white', borderRadius: 10, border: '1px solid #c7d2fe' }}>
+                      <span style={{ fontSize: 13, color: '#64748b', whiteSpace: 'nowrap' }}>📅 발송 날짜</span>
+                      <input type="date" value={scheduledDate}
+                        min={new Date().toISOString().slice(0,10)}
+                        onChange={e => setScheduledDate(e.target.value)}
+                        style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none' }} />
+                      <span style={{ fontSize: 13, color: '#64748b', whiteSpace: 'nowrap' }}>⏰ 시간 (KST)</span>
+                      <input type="time" value={scheduledTime}
+                        onChange={e => setScheduledTime(e.target.value)}
+                        style={{ padding: '8px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', width: 120 }} />
+                    </div>
+                  )}
+                  {sendMode === 'scheduled' && !scheduledDate && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#f59e0b' }}>⚠️ 발송 날짜를 선택해주세요</div>
+                  )}
+                </div>
+
+                <div style={{ textAlign: 'center' }}>
+                  <button
+                    onClick={() => {
+                      if (sendMode === 'scheduled' && !scheduledDate) { showToast('발송 날짜를 선택해주세요.', 'err'); return }
+                      handleSend()
+                    }}
+                    disabled={sending || (sendMode === 'scheduled' && !scheduledDate)}
+                    style={{ padding: '16px 52px', background: sending ? '#94a3b8' : sendMode === 'scheduled' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'linear-gradient(135deg,#e84393,#f472b6)', color: 'white', border: 'none', borderRadius: 14, fontSize: 16, fontWeight: 900, cursor: (sending || (sendMode === 'scheduled' && !scheduledDate)) ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: sending ? 'none' : '0 4px 20px rgba(99,102,241,.4)' }}>
+                    {sending ? <><Spinner /> 처리 중...</> : sendMode === 'scheduled' ? `📅 ${scheduledDate ? scheduledDate + ' ' + scheduledTime + ' 발송 예약' : '예약 발송 설정'}` : '🚀 메일 발송 시작'}
+                  </button>
+                  <p style={{ marginTop: 12, fontSize: 13, color: '#94a3b8' }}>
+                    {sendMode === 'now' ? '발송 후 취소할 수 없습니다.' : '예약 후 발송 이력에서 취소 가능합니다.'}
+                  </p>
+                </div>
               </div>
             ) : sendResult.hasPending ? (
               <div style={{ padding: '28px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 16, textAlign: 'center' }}>
@@ -691,6 +759,16 @@ export default function Home() {
                   {sending ? <><Spinner /> 발송 중...</> : `▶ 내일 이어서 발송 (${sendResult.remaining.toLocaleString()}명 남음)`}
                 </button>
                 <p style={{ marginTop: 8, fontSize: 12, color: '#a16207' }}>내일 이 버튼을 누르거나, 발송 이력 탭에서 이어서 발송하세요.</p>
+              </div>
+            ) : sendResult.isScheduled ? (
+              <div style={{ padding: '32px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 16, textAlign: 'center' }}>
+                <div style={{ fontSize: 44, marginBottom: 12 }}>📅</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#3d4fd7', marginBottom: 8 }}>예약 완료!</div>
+                <div style={{ fontSize: 15, color: '#3730a3', lineHeight: 1.8 }}>
+                  <b>{new Date(sendResult.scheduledAt!).toLocaleString('ko-KR')}</b>에<br />
+                  <b>{sendResult.remaining.toLocaleString()}명</b>에게 자동 발송됩니다.<br />
+                  <span style={{ fontSize: 13, opacity: .7 }}>하루 100명씩 자동으로 이어서 발송됩니다.</span>
+                </div>
               </div>
             ) : (
               <div style={{ padding: '32px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 16, textAlign: 'center' }}>
@@ -754,7 +832,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'right', flexShrink: 0 }}>
-                        <div>{new Date(c.sent_at ?? c.created_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        <div>{c.scheduled_at && !c.sent_at ? `예약: ${new Date(c.scheduled_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : new Date(c.sent_at ?? c.created_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                         <div style={{ marginTop: 6, color: '#3d4fd7', fontWeight: 700 }}>내용 보기 →</div>
                       </div>
                     </div>
@@ -939,11 +1017,12 @@ function Tag({ children, bg }: { children: React.ReactNode; bg: string }) {
 
 function StatusBadge({ status }: { status: Campaign['status'] }) {
   const map: Record<string, [string, string, string]> = {
-    draft:   ['임시저장', '#f1f5f9', '#64748b'],
-    sending: ['발송 중',  '#fef9c3', '#a16207'],
-    done:    ['완료',    '#dcfce7', '#15803d'],
-    error:   ['오류',    '#fee2e2', '#dc2626'],
-    pending: ['대기 중', '#fef3c7', '#d97706'],
+    draft:     ['임시저장', '#f1f5f9', '#64748b'],
+    sending:   ['발송 중',  '#fef9c3', '#a16207'],
+    done:      ['완료',    '#dcfce7', '#15803d'],
+    error:     ['오류',    '#fee2e2', '#dc2626'],
+    pending:   ['대기 중', '#fef3c7', '#d97706'],
+    scheduled: ['예약됨',  '#eef2ff', '#3d4fd7'],
   }
   const [label, bg, color] = map[status] ?? map.draft
   return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: bg, color }}>{label}</span>
