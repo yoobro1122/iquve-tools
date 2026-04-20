@@ -9,7 +9,7 @@ import type { Campaign } from '@/lib/supabase'
 interface ParsedMember { email: string; category: string; marketing: boolean }
 interface XlsxStats { total: number; paid: number; both: number; emailOnly: number; marketing: number }
 interface SendLog { email: string; error?: string }
-interface LogData { total: number; sent_count: number; fail_count: number; sent: SendLog[]; failed: SendLog[] }
+interface LogData { total: number; sent_count: number; fail_count: number; sent: SendLog[]; failed: SendLog[]; _error?: string }
 
 const TABS = ['① 수신자 업로드', '② 메일 작성', '③ 수신자 선택', '④ 발송 확인', '📋 발송 이력']
 const INTERNAL = new Set(['growv.com', 'growv.kr'])
@@ -157,9 +157,16 @@ export default function Home() {
   async function loadLogs(campaignId: string) {
     setLogLoading(true); setHistoryLogs(null)
     try {
-      const res = await fetch(`/api/send-logs?campaign_id=${campaignId}`)
+      const res = await fetch(`/api/send-logs?campaign_id=${campaignId}&_t=${Date.now()}`)
       const json = await res.json()
-      if (res.ok) setHistoryLogs(json)
+      if (res.ok) {
+        setHistoryLogs(json)
+      } else {
+        // 오류여도 빈 구조로 설정해서 "불러올 수 없습니다" 대신 빈 목록 표시
+        setHistoryLogs({ total: 0, sent_count: 0, fail_count: 0, sent: [], failed: [], _error: json.error })
+      }
+    } catch {
+      setHistoryLogs({ total: 0, sent_count: 0, fail_count: 0, sent: [], failed: [], _error: '네트워크 오류' })
     } finally { setLogLoading(false) }
   }
 
@@ -939,7 +946,13 @@ export default function Home() {
               ) : logLoading ? (
                 <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>⏳ 로딩 중...</div>
               ) : !historyLogs ? (
-                <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>발송 로그를 불러올 수 없습니다.</div>
+                <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>⏳ 로딩 중...</div>
+              ) : historyLogs._error ? (
+                <div style={{ padding: 60, textAlign: 'center', color: '#dc2626' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
+                  <div style={{ fontWeight: 700, marginBottom: 8 }}>로그 조회 오류</div>
+                  <div style={{ fontSize: 13, color: '#94a3b8' }}>{historyLogs._error}</div>
+                </div>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
