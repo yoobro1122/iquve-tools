@@ -8,7 +8,7 @@ import type { Campaign } from '@/lib/supabase'
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface ParsedMember { email: string; category: string; marketing: boolean }
 interface XlsxStats { total: number; paid: number; both: number; emailOnly: number; marketing: number }
-interface SendLog { email: string; error?: string }
+interface SendLog { email: string; error?: string; sent_at?: string }
 interface LogData { total: number; sent_count: number; fail_count: number; sent: SendLog[]; failed: SendLog[]; _error?: string }
 
 const TABS = ['① 수신자 업로드', '② 메일 작성', '③ 수신자 선택', '④ 발송 확인', '📋 발송 이력']
@@ -960,6 +960,7 @@ export default function Home() {
                       <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>#</th>
                       <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>이메일</th>
                       {historyTab === 'failed' && <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>오류 내용</th>}
+                      <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>발송 시각</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -974,6 +975,7 @@ export default function Home() {
                         <td style={{ padding: '10px 20px', color: '#d1d5db', fontSize: 12 }}>{i + 1}</td>
                         <td style={{ padding: '10px 20px', fontSize: 12.5 }}>{log.email}</td>
                         {historyTab === 'failed' && <td style={{ padding: '10px 20px', fontSize: 12, color: '#dc2626', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(log as SendLog).error ?? '—'}</td>}
+                        <td style={{ padding: '10px 20px', fontSize: 12, color: '#94a3b8' }}>{log.sent_at ? new Date(log.sent_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
