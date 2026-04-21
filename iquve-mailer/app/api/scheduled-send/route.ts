@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic'
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`
 
-const BATCH_SIZE  = 50
-const MAIL_DELAY  = 20
-const BATCH_DELAY = 500
+const BATCH_SIZE  = 10
+const MAIL_DELAY  = 600  // 초당 2건 제한 → 600ms 간격
+const BATCH_DELAY = 1000
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
