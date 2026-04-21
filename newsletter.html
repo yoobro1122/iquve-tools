@@ -573,15 +573,15 @@ function setHeaderMode(mode) {
 }
 
 // ── 헤더 배경 이미지 ──
-function handleHdrImg(e) {
+async function handleHdrImg(e) {
   const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader();
-  r.onload=ev=>{
-    imgStore.hdrImg=ev.target.result;
-    document.getElementById('hdr-img-el').src=ev.target.result;
+  try {
+    const url = await processAndUpload(f,'header');
+    imgStore.hdrImg=url;
+    document.getElementById('hdr-img-el').src=url;
     document.getElementById('hdr-img-preview').style.display='block';
     document.getElementById('hdr-img-upload').style.display='none';
-  }; r.readAsDataURL(f);
+  } catch(err){ showToast('오류: '+err.message); }
 }
 function removeHdrImg() {
   imgStore.hdrImg=null;
@@ -592,15 +592,15 @@ function removeHdrImg() {
 }
 
 // ── 헤더/푸터 로고 업로드 ──
-function handleLogoUpload(e, area) {
+async function handleLogoUpload(e, area) {
   const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader();
-  r.onload=ev=>{
-    imgStore[area+'Logo']=ev.target.result;
-    document.getElementById(area+'-logo-el').src=ev.target.result;
+  try {
+    const url = await processAndUpload(f,'logos');
+    imgStore[area+'Logo']=url;
+    document.getElementById(area+'-logo-el').src=url;
     document.getElementById(area+'-logo-preview').style.display='block';
     document.getElementById(area+'-logo-upload').style.display='none';
-  }; r.readAsDataURL(f);
+  } catch(err){ showToast('오류: '+err.message); }
 }
 function removeLogo(area) {
   imgStore[area+'Logo']=null;
@@ -799,12 +799,82 @@ function removeNewBook(id) {
   if (card) card.remove();
   refreshNewBookHeaders();
 }
-function handleEventImg(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{eventImgs[id]=ev.target.result;document.getElementById('evt_imgel_'+id).src=ev.target.result;document.getElementById('evt_imgprev_'+id).style.display='block';document.getElementById('evt_imgupload_'+id).style.display='none';document.getElementById('evt_imgname_'+id).textContent=f.name;};r.readAsDataURL(f);}
+// ── 이미지 압축 + Supabase Storage 업로드 ──
+async function compressImage(file, maxPx=900, quality=0.80) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let {width, height} = img;
+      if (width > maxPx || height > maxPx) {
+        if (width > height) { height = Math.round(height*maxPx/width); width = maxPx; }
+        else { width = Math.round(width*maxPx/height); height = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('압축 실패')), 'image/jpeg', quality);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+async function uploadToStorage(blob, folder='images') {
+  if (!isSupabaseReady()) throw new Error('Supabase 설정이 필요합니다.');
+  const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+  const res = await fetch(`${SB_URL}/storage/v1/object/newsletter-images/${fileName}`, {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+    body: blob,
+  });
+  if (!res.ok) throw new Error('업로드 실패: ' + await res.text());
+  return `${SB_URL}/storage/v1/object/public/newsletter-images/${fileName}`;
+}
+async function processAndUpload(file, folder) {
+  showToast('이미지 압축 중...');
+  const blob = await compressImage(file);
+  showToast('업로드 중...');
+  const url = await uploadToStorage(blob, folder);
+  showToast(`✅ 완료 (${Math.round(blob.size/1024)}KB)`);
+  return url;
+}
+
+async function handleEventImg(e,id){
+  const f=e.target.files[0]; if(!f)return;
+  try {
+    const url=await processAndUpload(f,'events');
+    eventImgs[id]=url;
+    document.getElementById('evt_imgel_'+id).src=url;
+    document.getElementById('evt_imgprev_'+id).style.display='block';
+    document.getElementById('evt_imgupload_'+id).style.display='none';
+    document.getElementById('evt_imgname_'+id).textContent=f.name;
+  } catch(err){ showToast('오류: '+err.message); }
+}
 function removeEventImg(id){eventImgs[id]=null;document.getElementById('evt_imgel_'+id).src='';document.getElementById('evt_imgprev_'+id).style.display='none';document.getElementById('evt_imgupload_'+id).style.display='flex';document.getElementById('evt_imgname_'+id).textContent='';document.getElementById('evt_imgfile_'+id).value='';}
 
-function handleNewBookImg(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{newbookImgs[id]=ev.target.result;document.getElementById('nb_imgel_'+id).src=ev.target.result;document.getElementById('nb_imgprev_'+id).style.display='block';document.getElementById('nb_imgupload_'+id).style.display='none';document.getElementById('nb_imgname_'+id).textContent=f.name;};r.readAsDataURL(f);}
+async function handleNewBookImg(e,id){
+  const f=e.target.files[0]; if(!f)return;
+  try {
+    const url=await processAndUpload(f,'books');
+    newbookImgs[id]=url;
+    document.getElementById('nb_imgel_'+id).src=url;
+    document.getElementById('nb_imgprev_'+id).style.display='block';
+    document.getElementById('nb_imgupload_'+id).style.display='none';
+    document.getElementById('nb_imgname_'+id).textContent=f.name;
+  } catch(err){ showToast('오류: '+err.message); }
+}
 function removeNewBookImg(id){newbookImgs[id]=null;document.getElementById('nb_imgel_'+id).src='';document.getElementById('nb_imgprev_'+id).style.display='none';document.getElementById('nb_imgupload_'+id).style.display='flex';document.getElementById('nb_imgname_'+id).textContent='';document.getElementById('nb_imgfile_'+id).value='';}
-function handleImg(e,key){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{imgStore[key]=ev.target.result;document.getElementById(key+'-img-el').src=ev.target.result;document.getElementById(key+'-img-preview').style.display='block';document.getElementById(key+'-img-upload').style.display='none';};r.readAsDataURL(f);}
+async function handleImg(e,key){
+  const f=e.target.files[0]; if(!f)return;
+  try {
+    const url=await processAndUpload(f,'rec');
+    imgStore[key]=url;
+    document.getElementById(key+'-img-el').src=url;
+    document.getElementById(key+'-img-preview').style.display='block';
+    document.getElementById(key+'-img-upload').style.display='none';
+  } catch(err){ showToast('오류: '+err.message); }
+}
 function removeImg(key){imgStore[key]=null;document.getElementById(key+'-img-el').src='';document.getElementById(key+'-img-preview').style.display='none';document.getElementById(key+'-img-upload').style.display='flex';const fi=document.getElementById(key+'-img-file');if(fi)fi.value='';}
 function handleLogo(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{imgStore.logo=ev.target.result;document.getElementById('logo-zone-inner').innerHTML=`<img src="${ev.target.result}" style="max-height:40px;max-width:140px;object-fit:contain;display:block;margin:0 auto;border-radius:4px;" alt="로고"/><div style="font-size:10px;color:var(--muted);margin-top:6px;">${f.name}</div><div style="font-size:10px;color:#9CA3AF;">클릭하여 변경</div>`;};r.readAsDataURL(f);}
 
