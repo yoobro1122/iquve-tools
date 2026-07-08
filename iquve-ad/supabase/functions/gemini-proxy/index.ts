@@ -64,6 +64,13 @@ serve(async (req) => {
       url = isNanoBanana
         ? `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:generateContent?key=${geminiKey}`
         : `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:predict?key=${geminiKey}`;
+      if (isNanoBanana) {
+        // Nano Banana 계열은 responseModalities 지정이 필요 (기본값: 텍스트+이미지)
+        payload.generationConfig = payload.generationConfig || {};
+        if (!payload.generationConfig.responseModalities) {
+          payload.generationConfig.responseModalities = ["TEXT", "IMAGE"];
+        }
+      }
     } else {
       throw new Error("type은 'text' 또는 'image' 여야 해요");
     }
