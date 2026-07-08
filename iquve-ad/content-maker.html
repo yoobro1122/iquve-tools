@@ -156,7 +156,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-08-2</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-08-3</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -374,7 +374,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-08-2';
+const BUILD_VERSION='v2026-07-08-3';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let actType='fillblank';
@@ -841,15 +841,28 @@ function buildActPrompt(){
 // 실제 도안 이미지가 필요한 유형 (색칠공부/점선잇기)
 const IMAGE_GEN_TYPES=new Set(['coloring','dotline']);
 
+// 나노바나나 형식 — 색칠공부/점선잇기 도안 이미지
+const COLORING_STYLE_BLOCK="Children's coloring book page illustration. Pure solid black bold clean outlines only, on a completely plain white background. No shading, no gradients, no gray tones, no hatching, no color fill of any kind — pure line art, ready to be colored in by hand. Simple, soft, rounded, chunky shapes with generous white space inside each outline for easy coloring. Strictly clean composition, completely devoid of any text characters, letters, numbers, words, signage, or typography.";
+
 function buildImagePrompt(type,elements,age){
-  const desc=(elements||[]).filter(Boolean).join(', ')||'귀여운 동물과 자연 요소';
-  const base='어린이용 활동지 도안 이미지. 대상 연령 '+age+'세. '
-    +'그림 내용: '+desc+'. '
-    +'검은색 굵은 윤곽선만 있는 흑백 라인 아트, 내부는 완전히 흰색(색칠할 수 있게 비워둠), '
-    +'그림자·음영·회색조 채우기 없음, 배경 없이 단순한 구도, 만화/동화책 스타일, 귀엽고 부드러운 형태, '
-    +'매우 단순하고 굵은 선, 사진처럼 사실적이지 않게. 이미지 안에 어떠한 글자나 숫자도 넣지 마세요.';
-  if(type==='dotline')return base+' 윤곽선을 점선(dotted outline)으로 표현해서 아이가 점을 이어 그림을 완성할 수 있게 해주세요.';
-  return base;
+  const desc=(elements||[]).filter(Boolean).join(', ')||'a cute rabbit, a carrot, a tree, a butterfly';
+  const outlineNote=type==='dotline'
+    ?'All outlines are rendered as a dotted/dashed line (not solid) so a child can trace and connect the dots to complete the drawing.'
+    :'All outlines are solid continuous lines.';
+  return '### 도안 이미지 — '+(type==='dotline'?'점선 잇기':'색칠공부')+'\n'
+    +'> 대상 연령: '+age+'세 (나이 표기 없이 형태만으로 표현)\n\n'
+    +'<Style>'+COLORING_STYLE_BLOCK+'</Style>\n'
+    +'<Subject>A simple, friendly composition featuring: '+desc+'. Each element drawn as a distinct, easily recognizable isolated shape with clear closed outlines, arranged in a balanced, uncluttered layout on the page. '+outlineNote+'</Subject>\n'
+    +'<Lighting>Flat, even, shadowless line art. No lighting effects, no depth shading, no gradients — pure black-on-white outline drawing.</Lighting>\n'
+    +'<Mood>Playful, warm, gentle, and inviting — a fun page a young child would enjoy coloring in.</Mood>\n'
+    +'--ar 5:4\n\n'
+    +'💡 생성 팁: 결과에 회색 음영이나 글자가 섞여 나오면 "no shading, no text, pure black outline only, white fill"를 프롬프트 끝에 다시 강조해서 재시도하세요.';
+}
+
+// AI에 실제로 보낼 프롬프트만 추출 (설명/팁 문구 제외, <Style>~--ar까지)
+function extractImagePromptBody(fullPrompt){
+  const m=fullPrompt.match(/<Style>[\s\S]*?--ar \d+:\d+/);
+  return m?m[0]:fullPrompt;
 }
 
 async function genColoringImages(type,elements,age,count,onProgress){
@@ -857,7 +870,7 @@ async function genColoringImages(type,elements,age,count,onProgress){
   for(let i=0;i<count;i++){
     if(onProgress)onProgress(i+1,count);
     try{
-      const prompt=buildImagePrompt(type,elements,age);
+      const prompt=extractImagePromptBody(buildImagePrompt(type,elements,age));
       const data=await callProxy('image',{contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:['TEXT','IMAGE']}});
       console.log('[iQUVE] 이미지 생성 원본 응답('+(i+1)+'/'+count+'):',data);
       if(data.error){console.warn('이미지 생성 실패:',data.error);images.push(null);continue;}
@@ -912,7 +925,7 @@ async function genActivityAI(){
             btn.innerHTML='<div class="spinner"></div> 도안 이미지 생성 중 ('+i+'/'+n+')...';
           });
           if(actData.images.every(x=>!x)){
-            alert('내용은 생성됐지만 도안 이미지는 만들지 못했어요. (이미지 모델/키를 확인해주세요) 텍스트 요소만으로 내보낼 수 있어요.');
+            alert('내용은 생성됐지만 도안 이미지는 자동으로 만들지 못했어요. (이미지 모델/키를 확인해주세요)\n아래 프리뷰의 "🍌 나노바나나 프롬프트" 박스에서 프롬프트를 복사해 직접 생성한 뒤 피그마에 붙여넣으실 수 있어요.');
           }
         }catch(e){
           console.warn('이미지 생성 중 오류:',e);
@@ -990,6 +1003,38 @@ function renderActPreview(){
       renderActPreview();
     };
     imgSection.appendChild(regenBtn);
+
+    // ── 나노바나나 프롬프트 보기 + 복사 ──
+    const promptWrap=document.createElement('div');
+    promptWrap.style.cssText='margin-top:4px;border:1px solid var(--border);border-radius:10px;overflow:hidden;';
+    const promptHead=document.createElement('div');
+    promptHead.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);font-size:12px;font-weight:700;color:var(--gray);';
+    promptHead.innerHTML='<span>🍌 나노바나나 프롬프트 (직접 생성용)</span>';
+    const copyBtn=document.createElement('button');
+    copyBtn.textContent='📋 프롬프트 복사';
+    copyBtn.style.cssText='padding:5px 10px;background:var(--indigo);color:white;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;';
+    const fullPromptText=buildImagePrompt(actData.type,actData.items,document.getElementById('a-age').value);
+    copyBtn.onclick=async()=>{
+      const body=extractImagePromptBody(fullPromptText);
+      try{
+        await navigator.clipboard.writeText(body);
+        copyBtn.textContent='✅ 복사됨!';
+        setTimeout(()=>copyBtn.textContent='📋 프롬프트 복사',1500);
+      }catch{alert('복사에 실패했어요. 아래 텍스트를 직접 선택해서 복사해주세요.');}
+    };
+    promptHead.appendChild(copyBtn);
+    promptWrap.appendChild(promptHead);
+    const promptBox=document.createElement('textarea');
+    promptBox.readOnly=true;
+    promptBox.value=fullPromptText;
+    promptBox.style.cssText='width:100%;min-height:160px;padding:12px;border:none;font-size:12px;font-family:ui-monospace,monospace;color:var(--dark);resize:vertical;background:white;line-height:1.5;';
+    promptWrap.appendChild(promptBox);
+    const promptHint=document.createElement('p');
+    promptHint.className='hint';
+    promptHint.style.padding='0 12px 10px';
+    promptHint.textContent='💡 자동 이미지 생성이 실패하거나 결과가 마음에 안 들면, 이 프롬프트를 복사해서 Gemini 앱이나 AI Studio의 나노바나나(Nano Banana)에 직접 붙여넣어 이미지를 만든 뒤 피그마에 수동으로 삽입하세요.';
+    promptWrap.appendChild(promptHint);
+    imgSection.appendChild(promptWrap);
     box.appendChild(imgSection);
   }
   const st=document.createElement('div');st.className='act-section-title';
