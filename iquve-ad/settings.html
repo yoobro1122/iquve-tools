@@ -121,6 +121,16 @@
         <p class="hint">Google AI Studio에서 무료 발급 · <a href="https://aistudio.google.com/app/apikey" target="_blank">발급받기 →</a></p>
         <div id="geminiStatus" class="status-bar"></div>
       </div>
+      <div>
+        <label>텍스트 모델 <span id="geminiTextModelSaved" class="saved-tag" style="display:none;">✓ 저장됨</span></label>
+        <input type="text" id="geminiTextModel" placeholder="gemini-2.5-flash">
+        <p class="hint">활동지·카드뉴스 등 글 생성에 쓰는 모델. 비워두면 기본값(<code>gemini-2.5-flash</code>) 사용 · <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank">모델 목록 →</a></p>
+      </div>
+      <div>
+        <label>이미지 모델 <span id="geminiImageModelSaved" class="saved-tag" style="display:none;">✓ 저장됨</span></label>
+        <input type="text" id="geminiImageModel" placeholder="imagen-3.0-generate-002">
+        <p class="hint">광고 이미지 생성에 쓰는 모델. <code>*-flash-image</code>/<code>*-pro-image</code>(Nano Banana 계열)는 자동으로 다른 API 형식을 써요. 비워두면 기본값(<code>imagen-3.0-generate-002</code>) 사용</p>
+      </div>
     </div>
   </div>
 
@@ -174,6 +184,8 @@ async function loadSaved() {
       if (row.key_name === 'figma_token') { document.getElementById('figmaToken').value = row.key_value; showSaved('figmaTokenSaved'); }
       if (row.key_name === 'figma_file_key') { document.getElementById('figmaFileKey').value = row.key_value; showSaved('figmaFileSaved'); }
       if (row.key_name === 'gemini_key') { document.getElementById('geminiKey').value = row.key_value; showSaved('geminiKeySaved'); }
+      if (row.key_name === 'gemini_text_model') { document.getElementById('geminiTextModel').value = row.key_value; showSaved('geminiTextModelSaved'); }
+      if (row.key_name === 'gemini_image_model') { document.getElementById('geminiImageModel').value = row.key_value; showSaved('geminiImageModelSaved'); }
     });
   } catch(e) { console.error('설정 불러오기 실패:', e); }
 }
@@ -185,6 +197,8 @@ async function saveAll() {
   const figmaToken = document.getElementById('figmaToken').value.trim();
   const figmaFileKey = document.getElementById('figmaFileKey').value.trim().replace(/.*\/design\/([^/?]+).*/, '$1');
   const geminiKey = document.getElementById('geminiKey').value.trim();
+  const geminiTextModel = document.getElementById('geminiTextModel').value.trim();
+  const geminiImageModel = document.getElementById('geminiImageModel').value.trim();
   const newPw = document.getElementById('newPw').value;
   const newPwConfirm = document.getElementById('newPwConfirm').value;
 
@@ -209,6 +223,8 @@ async function saveAll() {
     { key_name: 'figma_token', key_value: figmaToken },
     { key_name: 'figma_file_key', key_value: figmaFileKey },
     { key_name: 'gemini_key', key_value: geminiKey },
+    { key_name: 'gemini_text_model', key_value: geminiTextModel },
+    { key_name: 'gemini_image_model', key_value: geminiImageModel },
   ].filter(e => e.key_value);
 
   try {
@@ -230,6 +246,8 @@ async function saveAll() {
       if (e.key_name === 'figma_token') showSaved('figmaTokenSaved');
       if (e.key_name === 'figma_file_key') showSaved('figmaFileSaved');
       if (e.key_name === 'gemini_key') showSaved('geminiKeySaved');
+      if (e.key_name === 'gemini_text_model') showSaved('geminiTextModelSaved');
+      if (e.key_name === 'gemini_image_model') showSaved('geminiImageModelSaved');
     });
     setTimeout(() => { btn.innerHTML = '💾 Supabase에 저장하기'; btn.style.background = ''; btn.disabled = false; }, 2500);
   } catch(e) {
