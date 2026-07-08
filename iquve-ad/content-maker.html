@@ -844,12 +844,25 @@ async function genActivityAI(){
   btn.innerHTML='<div class="spinner"></div> 생성 중...';btn.disabled=true;
   try{
     const prompt=buildActPrompt();
-    const data=await callProxy('text',{contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.85}});
-    if(data.error)throw new Error(data.error);
-    const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    const data=await callProxy('text',{contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.85,maxOutputTokens:4096}});
+    console.log('[iQUVE] Gemini 원본 응답:',data);
+    if(data.error)throw new Error(typeof data.error==='string'?data.error:(data.error.message||JSON.stringify(data.error)));
+    const cand=data.candidates?.[0];
+    // 파트가 여러 개인 경우(예: thought 파트 포함) 텍스트가 있는 파트를 전부 이어붙임
+    const raw=(cand?.content?.parts||[]).map(p=>p.text||'').join('').trim();
+    if(!raw){
+      const reason=cand?.finishReason||data.promptFeedback?.blockReason;
+      throw new Error(reason?('AI가 응답을 만들지 못했어요 (사유: '+reason+'). 다시 시도해주세요.'):'AI 응답이 비어있어요 — 다시 시도해주세요.');
+    }
     let parsed;
     try{parsed=JSON.parse(raw.trim());}
-    catch{const m=raw.match(/\{[\s\S]*\}/);if(!m)throw new Error('AI 응답 파싱 실패 — 다시 시도해주세요');parsed=JSON.parse(m[0]);}
+    catch{
+      const m=raw.match(/\{[\s\S]*\}/);
+      const snippet=raw.slice(0,200).replace(/\s+/g,' ');
+      if(!m)throw new Error('AI 응답 파싱 실패 — 다시 시도해주세요. (받은 내용: '+snippet+(raw.length>200?'…':'')+')');
+      try{parsed=JSON.parse(m[0]);}
+      catch{throw new Error('AI 응답 파싱 실패 — 다시 시도해주세요. (받은 내용: '+snippet+(raw.length>200?'…':'')+')');}
+    }
     actData={type:actType,title:parsed.title||ACT_TYPES[actType].name,guide:parsed.guide||'',tip:parsed.tip||'',items:(parsed.items||[]).map(String)};
     renderActPreview();
   }catch(e){alert('오류: '+e.message);}
