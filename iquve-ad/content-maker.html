@@ -156,7 +156,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-08-1</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-08-2</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -374,7 +374,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-08-1';
+const BUILD_VERSION='v2026-07-08-2';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let actType='fillblank';
@@ -838,6 +838,38 @@ function buildActPrompt(){
     +'{"title":"활동지 제목","guide":"아이에게 보여줄 안내 문구 1문장","tip":"부모/교사용 활용 팁 1~2문장(한국어)","items":["'+t.fmt+'" 형식의 문자열 '+nItems+'개]}';
 }
 
+// 실제 도안 이미지가 필요한 유형 (색칠공부/점선잇기)
+const IMAGE_GEN_TYPES=new Set(['coloring','dotline']);
+
+function buildImagePrompt(type,elements,age){
+  const desc=(elements||[]).filter(Boolean).join(', ')||'귀여운 동물과 자연 요소';
+  const base='어린이용 활동지 도안 이미지. 대상 연령 '+age+'세. '
+    +'그림 내용: '+desc+'. '
+    +'검은색 굵은 윤곽선만 있는 흑백 라인 아트, 내부는 완전히 흰색(색칠할 수 있게 비워둠), '
+    +'그림자·음영·회색조 채우기 없음, 배경 없이 단순한 구도, 만화/동화책 스타일, 귀엽고 부드러운 형태, '
+    +'매우 단순하고 굵은 선, 사진처럼 사실적이지 않게. 이미지 안에 어떠한 글자나 숫자도 넣지 마세요.';
+  if(type==='dotline')return base+' 윤곽선을 점선(dotted outline)으로 표현해서 아이가 점을 이어 그림을 완성할 수 있게 해주세요.';
+  return base;
+}
+
+async function genColoringImages(type,elements,age,count,onProgress){
+  const images=[];
+  for(let i=0;i<count;i++){
+    if(onProgress)onProgress(i+1,count);
+    try{
+      const prompt=buildImagePrompt(type,elements,age);
+      const data=await callProxy('image',{contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:['TEXT','IMAGE']}});
+      console.log('[iQUVE] 이미지 생성 원본 응답('+(i+1)+'/'+count+'):',data);
+      if(data.error){console.warn('이미지 생성 실패:',data.error);images.push(null);continue;}
+      const parts=data.candidates?.[0]?.content?.parts||[];
+      const imgPart=parts.find(p=>p.inlineData||p.inline_data);
+      const inline=imgPart?.inlineData||imgPart?.inline_data;
+      images.push(inline?.data||null);
+    }catch(e){console.warn('이미지 생성 실패:',e);images.push(null);}
+  }
+  return images;
+}
+
 async function genActivityAI(){
   const btn=document.getElementById('a-ai-btn');
   if(actType==='maze'){
@@ -867,7 +899,27 @@ async function genActivityAI(){
       try{parsed=JSON.parse(m[0]);}
       catch{throw new Error('AI 응답 파싱 실패 — 다시 시도해주세요. (받은 내용: '+snippet+(raw.length>200?'…':'')+')');}
     }
-    actData={type:actType,title:parsed.title||ACT_TYPES[actType].name,guide:parsed.guide||'',tip:parsed.tip||'',items:(parsed.items||[]).map(String)};
+    actData={type:actType,title:parsed.title||ACT_TYPES[actType].name,guide:parsed.guide||'',tip:parsed.tip||'',items:(parsed.items||[]).map(String),images:null};
+
+    if(IMAGE_GEN_TYPES.has(actType)){
+      if(!CFG.geminiKey){
+        console.warn('이미지 생성 건너뜀: Gemini API 키 없음');
+      }else{
+        const count=Math.max(1,parseInt(document.getElementById('a-count').value)||1);
+        const age=document.getElementById('a-age').value;
+        try{
+          actData.images=await genColoringImages(actType,actData.items,age,count,(i,n)=>{
+            btn.innerHTML='<div class="spinner"></div> 도안 이미지 생성 중 ('+i+'/'+n+')...';
+          });
+          if(actData.images.every(x=>!x)){
+            alert('내용은 생성됐지만 도안 이미지는 만들지 못했어요. (이미지 모델/키를 확인해주세요) 텍스트 요소만으로 내보낼 수 있어요.');
+          }
+        }catch(e){
+          console.warn('이미지 생성 중 오류:',e);
+          alert('내용은 생성됐지만 도안 이미지 생성 중 오류가 났어요: '+e.message);
+        }
+      }
+    }
     renderActPreview();
   }catch(e){alert('오류: '+e.message);}
   finally{btn.innerHTML='✨ AI로 활동지 내용 생성';btn.disabled=false;}
@@ -894,6 +946,52 @@ function renderActPreview(){
     p.textContent='🌀 미로는 피그마 내보내기 시 난이도에 맞춰 자동 생성돼요. 활동지 수만큼 서로 다른 미로가 만들어져요!';
     box.appendChild(p);return;
   }
+  if(IMAGE_GEN_TYPES.has(actData.type)){
+    const imgSection=document.createElement('div');
+    imgSection.style.cssText='display:flex;flex-direction:column;gap:8px;';
+    const label=document.createElement('div');label.className='act-section-title';
+    label.textContent='🖼️ 생성된 도안 이미지';
+    imgSection.appendChild(label);
+    const thumbs=document.createElement('div');
+    thumbs.style.cssText='display:flex;gap:8px;flex-wrap:wrap;';
+    const imgs=actData.images||[];
+    if(imgs.length&&imgs.some(Boolean)){
+      imgs.forEach((b64,i)=>{
+        if(!b64){
+          const bad=document.createElement('div');
+          bad.style.cssText='width:110px;height:110px;border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gray);text-align:center;padding:4px;';
+          bad.textContent=(i+1)+'번 생성 실패';
+          thumbs.appendChild(bad);
+        }else{
+          const im=document.createElement('img');
+          im.src='data:image/png;base64,'+b64;
+          im.style.cssText='width:110px;height:110px;object-fit:contain;border:1px solid var(--border);border-radius:10px;background:white;';
+          thumbs.appendChild(im);
+        }
+      });
+    }else{
+      const none=document.createElement('p');none.className='hint';none.textContent='아직 생성된 이미지가 없어요.';
+      thumbs.appendChild(none);
+    }
+    imgSection.appendChild(thumbs);
+    const regenBtn=document.createElement('button');
+    regenBtn.className='add-row-mini';regenBtn.textContent='🔄 도안 이미지 다시 생성';
+    regenBtn.onclick=async()=>{
+      if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
+      const count=Math.max(1,parseInt(document.getElementById('a-count').value)||1);
+      const age=document.getElementById('a-age').value;
+      regenBtn.disabled=true;
+      try{
+        actData.images=await genColoringImages(actData.type,actData.items,age,count,(i,n)=>{
+          regenBtn.textContent='생성 중 ('+i+'/'+n+')...';
+        });
+      }catch(e){alert('이미지 재생성 실패: '+e.message);}
+      regenBtn.disabled=false;regenBtn.textContent='🔄 도안 이미지 다시 생성';
+      renderActPreview();
+    };
+    imgSection.appendChild(regenBtn);
+    box.appendChild(imgSection);
+  }
   const st=document.createElement('div');st.className='act-section-title';
   st.innerHTML='📝 항목 <span style="font-size:11px;font-weight:400;color:var(--gray);">형식: '+t.fmt+'</span>';
   box.appendChild(st);
@@ -915,7 +1013,7 @@ function renderActPreview(){
 // ══════════════════════════════
 // 시트 데이터 빌드 (셔플·격자·미로 사전 계산)
 // ══════════════════════════════
-function buildSheet(o,p,ch){
+function buildSheet(o,p,ch,idx){
   const t=o.type;
   const sh={type:t,title:o.title||ACT_TYPES[t].name,guide:o.guide||''};
   if(t==='fillblank'){
@@ -986,8 +1084,10 @@ function buildSheet(o,p,ch){
     sh.lines=p.lines||2;
   }else if(t==='coloring'){
     sh.elements=ch.map(s=>splitBar(s)[0]).filter(Boolean);sh.imageNote=o.imageNote||'';
+    sh.imageBase64=(o.images&&o.images[idx])||null;
   }else if(t==='dotline'){
     sh.elements=ch.map(s=>splitBar(s)[0]).filter(Boolean);sh.imageNote=o.imageNote||'';
+    sh.imageBase64=(o.images&&o.images[idx])||null;
   }else if(t==='maze'){
     sh.maze=genMaze(p.grid||12);
   }
@@ -1012,7 +1112,7 @@ function buildSheets(o){
     }
     if(!chunks.length)chunks.push(items);
   }
-  return chunks.map(ch=>buildSheet(o,p,ch));
+  return chunks.map((ch,i)=>buildSheet(o,p,ch,i));
 }
 
 // ══════════════════════════════
@@ -1075,6 +1175,19 @@ function srct(p,c,x,y,w,h,r,sw){
 }
 function ell(p,c,x,y,s){const e=figma.createEllipse();p.appendChild(e);e.fills=[{type:"SOLID",color:c}];e.x=x;e.y=y;e.resize(s,s);return e;}
 function sell(p,c,x,y,s,sw){const e=figma.createEllipse();p.appendChild(e);e.fills=[];e.strokes=[{type:"SOLID",color:c}];e.strokeWeight=sw||3;e.x=x;e.y=y;e.resize(s,s);return e;}
+function pic(p,b64,x,y,w,h){
+  try{
+    const bytes=figma.base64Decode(b64);
+    const image=figma.createImage(bytes);
+    const r=figma.createRectangle();p.appendChild(r);
+    r.x=x;r.y=y;r.resize(w,h);r.cornerRadius=20;
+    r.fills=[{type:"IMAGE",imageHash:image.hash,scaleMode:"FIT"}];
+    return r;
+  }catch(err){
+    console.log("이미지 삽입 실패:",err);
+    return null;
+  }
+}
 const base=page.children.length;
 for(let i=0;i<SHEETS.length;i++){
   const sh=SHEETS[i];
@@ -1223,17 +1336,25 @@ for(let i=0;i<SHEETS.length;i++){
     txt(fr,"🖼️ "+sh.scene,26,"Regular",GRAY,90,y0+36,900,"CENTER");
     for(let k=0;k<sh.lines;k++)rct(fr,DARK,60,y0+700+k*70,960,3,0.2);
   }else if(sh.type==="coloring"){
-    srct(fr,AC,60,y0+10,960,790,20,3);
-    let s1="[ 색칠 도안 영역 ]";
-    if(sh.imageNote)s1+="\\n\\n"+sh.imageNote;
-    if(sh.elements&&sh.elements.length)s1+="\\n\\n포함 요소:\\n"+sh.elements.join("\\n");
-    txt(fr,s1,26,"Regular",{r:0.66,g:0.69,b:0.78},110,y0+220,860,"CENTER");
+    if(sh.imageBase64&&pic(fr,sh.imageBase64,60,y0+10,960,790)){
+      // 실제 생성된 도안 이미지 삽입됨
+    }else{
+      srct(fr,AC,60,y0+10,960,790,20,3);
+      let s1="[ 색칠 도안 영역 ]";
+      if(sh.imageNote)s1+="\\n\\n"+sh.imageNote;
+      if(sh.elements&&sh.elements.length)s1+="\\n\\n포함 요소:\\n"+sh.elements.join("\\n");
+      txt(fr,s1,26,"Regular",{r:0.66,g:0.69,b:0.78},110,y0+220,860,"CENTER");
+    }
   }else if(sh.type==="dotline"){
-    srct(fr,AC,60,y0+10,960,790,20,3);
-    let s2="[ 점선 잇기 도안 영역 ]";
-    if(sh.imageNote)s2+="\\n\\n"+sh.imageNote;
-    if(sh.elements&&sh.elements.length)s2+="\\n\\n그림 요소:\\n"+sh.elements.join("\\n");
-    txt(fr,s2,26,"Regular",{r:0.66,g:0.69,b:0.78},110,y0+220,860,"CENTER");
+    if(sh.imageBase64&&pic(fr,sh.imageBase64,60,y0+10,960,790)){
+      // 실제 생성된 도안 이미지 삽입됨
+    }else{
+      srct(fr,AC,60,y0+10,960,790,20,3);
+      let s2="[ 점선 잇기 도안 영역 ]";
+      if(sh.imageNote)s2+="\\n\\n"+sh.imageNote;
+      if(sh.elements&&sh.elements.length)s2+="\\n\\n그림 요소:\\n"+sh.elements.join("\\n");
+      txt(fr,s2,26,"Regular",{r:0.66,g:0.69,b:0.78},110,y0+220,860,"CENTER");
+    }
   }else if(sh.type==="maze"){
     const M=sh.maze;
     M.walls.forEach(function(w){rct(fr,DARK,60+w[0],y0+w[1],w[2],w[3]);});
@@ -1347,6 +1468,7 @@ async function exportToFigma(){
         code=generateActivityCodeV2({
           type:actData.type,title:actData.title,guide:actData.guide,tip:actData.tip,
           items:(actData.items||[]).filter(Boolean),
+          images:actData.images||null,
           age:document.getElementById('a-age').value,
           lang:LANG_INFO[actLang],langKey:actLang,
           level:document.getElementById('a-level').value,
