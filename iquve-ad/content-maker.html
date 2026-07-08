@@ -1280,7 +1280,20 @@ async function callProxy(type,payload){
     headers:{'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`},
     body:JSON.stringify({type,payload}),
   });
-  return res.json();
+  const text=await res.text();
+  let json;
+  try{json=JSON.parse(text);}catch{json=null;}
+  if(!res.ok){
+    console.error('[iQUVE] gemini-proxy 호출 실패:',{url:PROXY,status:res.status,statusText:res.statusText,body:text.slice(0,500)});
+    throw new Error('gemini-proxy 함수 호출 실패 (HTTP '+res.status+'). '+
+      (res.status===404?'Supabase에 gemini-proxy 함수가 배포되어 있지 않거나 이름/프로젝트가 다른 것 같아요.':
+       (json?.error||json?.message||text.slice(0,200)||'서버 응답을 확인해주세요.')));
+  }
+  if(json===null){
+    console.error('[iQUVE] gemini-proxy가 JSON이 아닌 응답을 반환:',text.slice(0,500));
+    throw new Error('gemini-proxy가 올바른 JSON을 반환하지 않았어요. (응답: '+text.slice(0,150)+')');
+  }
+  return json;
 }
 
 // ══════════════════════════════
