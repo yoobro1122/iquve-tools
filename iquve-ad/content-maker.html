@@ -26,9 +26,6 @@
     .slink:hover{background:#dde1fa;}
 
     /* ── 메인 탭 ── */
-    .main-tabs{display:flex;background:white;border-bottom:2px solid var(--border);padding:0 28px;}
-    .main-tab{padding:15px 22px;font-size:15px;font-weight:700;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;display:flex;align-items:center;gap:8px;}
-    .main-tab.active{color:var(--indigo);border-bottom-color:var(--indigo);}
 
     /* ── 서브 탭 (AI/직접작성) ── */
     .sub-tabs{display:flex;gap:8px;margin-bottom:4px;}
@@ -72,11 +69,11 @@
     .lang-btn.active{border-color:var(--indigo);background:var(--indigo-bg);color:var(--indigo);}
 
     /* ── 동화책 선택 ── */
-    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;}
+    .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
     .book-item{border:2px solid var(--border);border-radius:12px;padding:14px 10px;cursor:pointer;transition:all .15s;text-align:center;}
     .book-item.selected{border-color:var(--indigo);background:var(--indigo-bg);}
     .book-item:hover:not(.selected){border-color:var(--indigo-light);}
-    .book-search-bar{display:flex;gap:8px;margin-bottom:8px;}
+    .book-search-bar{display:flex;gap:8px;margin-bottom:10px;}
     .book-search-input{flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;}
     .book-search-input:focus{border-color:var(--indigo);}
     .book-sort-btn{padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:white;color:var(--gray);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
@@ -99,6 +96,10 @@
     .type-icon{font-size:26px;margin-bottom:6px;}
     .type-name{font-size:13px;font-weight:700;}
     .type-desc{font-size:11px;color:var(--gray);margin-top:3px;}
+    .cat-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+    .cat-tab{padding:9px 16px;border:2px solid var(--border);border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;background:white;color:var(--gray);transition:all .15s;font-family:inherit;}
+    .cat-tab.active{border-color:var(--indigo);background:var(--indigo);color:white;}
+    .type-grid-v2{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;}
 
     /* ── 슬라이드 편집기 ── */
     .slide-list{display:flex;flex-direction:column;gap:10px;}
@@ -144,10 +145,6 @@
     .api-banner a{color:inherit;font-weight:800;text-decoration:underline;}
 
     .spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
-    .gen-img-item{border-radius:12px;overflow:hidden;background:var(--bg);border:1px solid var(--border);}
-    .gen-img-item img{width:100%;display:block;border-radius:12px;}
-    .gen-img-actions{display:flex;gap:6px;padding:8px;}
-    .gen-img-dl{flex:1;padding:6px;font-size:11px;font-weight:700;background:var(--success);color:white;border:none;border-radius:6px;cursor:pointer;font-family:inherit;text-decoration:none;text-align:center;display:block;}
     @keyframes spin{to{transform:rotate(360deg);}}
     @media(max-width:780px){.container{grid-template-columns:1fr;}.row2,.row3{grid-template-columns:1fr;}}
   </style>
@@ -167,95 +164,13 @@
   ⚠️ API 키 확인 중... <a href="settings.html">API 설정 →</a>
 </div>
 
-<div class="main-tabs">
-  <div class="main-tab active" onclick="switchMain('card')">📰 카드뉴스</div>
-  <div class="main-tab" onclick="switchMain('activity')">✏️ 활동지</div>
-</div>
-
 <div class="container">
 <div style="display:flex;flex-direction:column;gap:16px;">
 
 <!-- ══════════════════════════════════════
-     카드뉴스 탭
-══════════════════════════════════════ -->
-<div id="tab-card" class="tab-content active">
-
-  <!-- 서브 탭 -->
-  <div class="sub-tabs">
-    <button class="sub-tab active" onclick="switchSub('card','ai')">✨ AI로 만들기</button>
-    <button class="sub-tab" onclick="switchSub('card','manual')">✏️ 직접 작성하기</button>
-  </div>
-
-  <!-- AI로 만들기 -->
-  <div id="card-ai" class="sub-panel active">
-    <div class="card">
-      <div class="card-hd"><span>✨</span><h2>AI 카드뉴스 생성</h2></div>
-      <div class="card-bd">
-        <div class="row2">
-          <div class="field"><label>콘텐츠 유형</label>
-            <select id="c-type">
-              <option value="info">정보성 콘텐츠</option>
-              <option value="promo">iQUVE 홍보</option>
-              <option value="tip">육아·교육 팁</option>
-              <option value="event">이벤트 안내</option>
-              <option value="story">동화책 소개</option>
-            </select>
-          </div>
-          <div class="field"><label>슬라이드 수</label>
-            <select id="c-count">
-              <option value="3">3장</option>
-              <option value="5" selected>5장</option>
-              <option value="7">7장</option>
-              <option value="10">10장</option>
-            </select>
-          </div>
-        </div>
-        <div class="field"><label>주제 / 핵심 메시지</label>
-          <input type="text" id="c-topic" placeholder="예: 아이의 언어 발달을 돕는 5가지 방법">
-        </div>
-        <div class="field"><label>타겟 독자</label>
-          <input type="text" id="c-target" value="4~8세 자녀를 둔 부모">
-        </div>
-        <div class="field"><label>추가 요청사항</label>
-          <textarea id="c-note" rows="2" placeholder="예: 따뜻한 톤, 통계 수치 포함, 영어 단어 병기 등"></textarea>
-        </div>
-        <button class="btn btn-secondary" onclick="genCardAI()" id="c-ai-btn">✨ AI로 카드뉴스 생성</button>
-        <div id="c-ai-result" style="display:none;" class="ai-result">
-          <div class="ai-result-label">✨ 생성 완료 — 슬라이드 편집기에 자동 적용됐어요</div>
-        </div>
-      </div>
-    </div>
-    <!-- 슬라이드 미리보기 (AI 생성 후) -->
-    <div class="card" id="c-slide-preview" style="display:none;">
-      <div class="card-hd"><span>🗂️</span><h2>생성된 슬라이드 확인 & 편집</h2></div>
-      <div class="card-bd">
-        <div class="slide-list" id="c-slide-list"></div>
-        <button class="add-slide-btn" onclick="addCardSlide()">+ 슬라이드 추가</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 직접 작성하기 -->
-  <div id="card-manual" class="sub-panel">
-    <div class="card">
-      <div class="card-hd"><span>✏️</span><h2>직접 슬라이드 작성</h2></div>
-      <div class="card-bd">
-        <div class="hint" style="background:var(--indigo-bg);padding:10px 14px;border-radius:8px;color:var(--indigo);font-weight:600;">
-          💡 슬라이드를 추가하고 각 칸을 직접 채워주세요. 피그마에서 [ ] 태그 위치에 내용이 들어가요.
-        </div>
-        <div class="slide-list" id="c-manual-list"></div>
-        <button class="add-slide-btn" onclick="addCardSlideManual()">+ 슬라이드 추가</button>
-      </div>
-    </div>
-  </div>
-
-</div><!-- /tab-card -->
-
-
-<!-- ══════════════════════════════════════
      활동지 탭
 ══════════════════════════════════════ -->
-<div id="tab-activity" class="tab-content">
+<div id="tab-activity" class="tab-content active">
 
   <!-- 서브 탭 -->
   <div class="sub-tabs">
@@ -270,24 +185,9 @@
     <div class="card">
       <div class="card-hd"><span>🎨</span><h2>활동지 유형</h2></div>
       <div class="card-bd">
-        <div class="type-grid">
-          <div class="type-item selected" onclick="selType(this,'coloring')">
-            <div class="type-icon">🖍️</div><div class="type-name">색칠공부</div>
-            <div class="type-desc">도안 + 색칠 영역</div>
-          </div>
-          <div class="type-item" onclick="selType(this,'maze')">
-            <div class="type-icon">🌀</div><div class="type-name">미로 찾기</div>
-            <div class="type-desc">START→END 미로</div>
-          </div>
-          <div class="type-item" onclick="selType(this,'writing')">
-            <div class="type-icon">✏️</div><div class="type-name">따라쓰기</div>
-            <div class="type-desc">단어·문장 따라쓰기</div>
-          </div>
-          <div class="type-item" onclick="selType(this,'dotline')">
-            <div class="type-icon">🔵</div><div class="type-name">점선 잇기</div>
-            <div class="type-desc">점 이어 그림 완성</div>
-          </div>
-        </div>
+        <div class="cat-tabs" id="catTabs"></div>
+        <div class="type-grid-v2" id="typeGrid"></div>
+        <p class="hint" id="typeInfo" style="margin-top:10px;"></p>
       </div>
     </div>
 
@@ -310,28 +210,37 @@
     <div class="card">
       <div class="card-hd"><span>📚</span><h2>콘텐츠 기반 선택</h2></div>
       <div class="card-bd">
-        <div class="sub-tabs" style="margin-bottom:12px;">
+        <div class="sub-tabs" id="bookTabBar" style="margin-bottom:12px;">
           <button class="sub-tab active" onclick="switchBookTab('book')">📖 iQUVE 동화책</button>
-          <button class="sub-tab" onclick="switchBookTab('topic')">💬 직접 주제 입력</button>
+          <button class="sub-tab" onclick="switchBookTab('topic')">💬 직접 주제</button>
+          <button class="sub-tab" onclick="switchBookTab('paste')">📄 책 내용 붙여넣기</button>
         </div>
 
         <!-- 동화책 선택 -->
-        <div id="book-panel" style="display:block;">
+        <div id="book-panel" style="display:flex;flex-direction:column;gap:8px;">
           <div class="book-search-bar">
             <input type="text" class="book-search-input" id="bookSearch" placeholder="도서명, 태그 검색..." oninput="filterBooksContent()">
             <button class="book-sort-btn active" id="bsort-abc" onclick="setBookSort('abc')">가나다</button>
             <button class="book-sort-btn" id="bsort-new" onclick="setBookSort('new')">최신순</button>
           </div>
-          <div class="book-grid" id="bookGrid" style="margin-bottom:8px;"></div>
+          <div class="book-grid" id="bookGrid"></div>
           <div id="bookPagination" class="book-pagination"></div>
-          <div id="selectedBookInfo" style="display:none;background:var(--indigo-bg);border-radius:10px;padding:14px;font-size:13px;line-height:1.8;margin-top:8px;"></div>
+          <div id="selectedBookInfo" style="display:none;background:var(--indigo-bg);border-radius:10px;padding:14px;font-size:13px;line-height:1.8;"></div>
         </div>
 
         <!-- 직접 주제 입력 -->
-        <div id="topic-panel" style="display:none;flex-direction:column;gap:12px;margin-top:4px;">
+        <div id="topic-panel" style="display:none;flex-direction:column;gap:12px;">
           <div class="field"><label>주제</label>
             <input type="text" id="a-topic" placeholder="예: 숲 속 동물, 바다 생물, 과일과 채소">
           </div>
+        </div>
+
+        <!-- 책 내용 붙여넣기 -->
+        <div id="paste-panel" style="display:none;flex-direction:column;gap:12px;">
+          <div class="field"><label>책 내용 / 줄거리 붙여넣기</label>
+            <textarea id="a-paste" rows="6" placeholder="동화책의 본문, 줄거리 요약, 핵심 장면 등을 붙여넣으면 그 내용을 기반으로 활동지를 만들어요. (최대 3,000자 사용)"></textarea>
+          </div>
+          <p class="hint">💡 iQUVE 동화책 목록에 없는 책이나, 더 자세한 내용 기반이 필요할 때 사용하세요.</p>
         </div>
 
         <div class="row3">
@@ -364,18 +273,9 @@
         </div>
         <button class="btn btn-secondary" onclick="genActivityAI()" id="a-ai-btn">✨ AI로 활동지 내용 생성</button>
         <div id="a-ai-result" style="display:none;" class="ai-result">
-          <div class="ai-result-label">✨ AI 생성 결과</div>
-          <div id="a-ai-text" class="ai-result-text"></div>
-          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;" onclick="genActivityImage()" id="a-img-btn">🎨 Imagen 3으로 이미지 생성</button>
-            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;background:#f0fdf4;color:#065f46;" onclick="openAIStudio()" id="a-studio-btn">🔗 AI Studio에서 만들기</button>
-            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;font-size:13px;background:#fef9ee;color:#92400e;" onclick="copyImagePrompt()" id="a-prompt-btn">📋 프롬프트만 복사</button>
-          </div>
-          <div id="a-img-result" style="display:none;margin-top:12px;">
-            <div style="font-size:11px;font-weight:700;color:var(--indigo);margin-bottom:8px;">🖼️ 생성된 이미지</div>
-            <div id="a-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;"></div>
-          </div>
-          <div id="a-prompt-box" style="display:none;margin-top:10px;background:#0f172a;border-radius:10px;padding:12px;font-size:12px;font-family:monospace;color:#94a3b8;white-space:pre-wrap;max-height:120px;overflow-y:auto;"></div>
+          <div class="ai-result-label">✨ 생성 완료 — 아래 내용을 확인·수정한 뒤 피그마로 내보내세요</div>
+          <div id="a-preview" style="display:flex;flex-direction:column;gap:12px;"></div>
+          <div id="a-ai-text" style="display:none;"></div>
         </div>
       </div>
     </div>
@@ -401,12 +301,7 @@
       <div class="card-bd">
         <div class="row2">
           <div class="field"><label>활동지 유형</label>
-            <select id="am-type">
-              <option value="coloring">🖍️ 색칠공부</option>
-              <option value="maze">🌀 미로찾기</option>
-              <option value="writing">✏️ 따라쓰기</option>
-              <option value="dotline">🔵 점선잇기</option>
-            </select>
+            <select id="am-type" onchange="updateManualFmt()"></select>
           </div>
           <div class="field"><label>대상 연령</label>
             <select id="am-age">
@@ -422,7 +317,7 @@
           <input type="text" id="am-title" placeholder="예: 토끼와 친구들 색칠공부">
         </div>
         <div class="act-section">
-          <div class="act-section-title">📝 내용 항목 <span style="font-size:11px;font-weight:400;color:var(--gray);">(따라쓰기/점선잇기: 단어·문장 / 색칠·미로: 도안 설명)</span></div>
+          <div class="act-section-title">📝 내용 항목 <span id="am-fmt" style="font-size:11px;font-weight:400;color:var(--gray);"></span></div>
           <div class="content-rows" id="am-rows"></div>
           <button class="add-row-mini" onclick="addManualRow()">+ 항목 추가</button>
         </div>
@@ -441,8 +336,8 @@
 </div><!-- /main left -->
 
 <!-- ── 우측 패널 ── -->
-<div style="display:flex;flex-direction:column;gap:14px;align-self:start;position:sticky;top:66px;">
-  <div class="card">
+<div style="display:flex;flex-direction:column;gap:14px;">
+  <div class="card" style="position:sticky;top:68px;">
     <div class="card-hd"><span>🎨</span><h2>피그마로 내보내기</h2></div>
     <div class="card-bd" style="gap:12px;">
       <div class="api-status-box" id="apiStatusBox">
@@ -459,7 +354,7 @@
         <input type="text" id="customKey" placeholder="피그마 파일 키">
       </div>
       <div class="field"><label>페이지 이름</label>
-        <input type="text" id="figmaPage" value="카드뉴스">
+        <input type="text" id="figmaPage" value="활동지">
       </div>
       <button class="btn btn-primary" onclick="exportToFigma()" id="exportBtn">🚀 피그마에 생성하기</button>
       <a id="figmaLink" href="https://www.figma.com/design/CaPkjrFwlGO4WqVUVXKSBI" target="_blank"
@@ -479,24 +374,23 @@ const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
 let CFG={};
-let currentMain='card';
-let actType='coloring';
+let actType='fillblank';
+let actCat='lang';
+let actData=null;
 let actLang='ko';
 let actLangManual='ko';
 let selectedBook=null;
-let cardSlides=[];
-let cardSlideIdx=0;
 let manualRows=[];
 let bookTab='book';
-let bookSort='abc';
-let bookPage=1;
-const BOOK_PAGE_SIZE=15;
-let filteredBooksContent=[];
 
 // ══════════════════════════════
 // iQUVE 동화책 DB (Supabase)
 // ══════════════════════════════
 let BOOKS = [];
+let filteredBooksContent = [];
+let bookSort = 'abc';
+let bookPage = 1;
+const BOOK_PAGE_SIZE = 12;
 
 async function loadBooksFromDB() {
   try {
@@ -519,7 +413,7 @@ async function loadBooksFromDB() {
       BOOKS = rows.map(b => ({
         id: b.id,
         emoji: b.thumbnail_url ? null : '📖',
-        thumbnail: b.thumbnail_url ? (b.thumbnail_url.startsWith('http') ? b.thumbnail_url : 'https://iquve-tools.vercel.app' + b.thumbnail_url) : null,
+        thumbnail: b.thumbnail_url,
         title: b.title_ko,
         titleEn: b.title_en,
         publisher: b.publisher,
@@ -586,16 +480,9 @@ loadBooksFromDB();
 // ══════════════════════════════
 // 탭 전환
 // ══════════════════════════════
-function switchMain(tab){
-  currentMain=tab;
-  document.querySelectorAll('.main-tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='card'?0:1)));
-  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
-  document.getElementById('figmaPage').value=tab==='card'?'카드뉴스':'활동지';
-}
 function switchSub(main,sub){
-  const panels=document.querySelectorAll(`#tab-${main} .sub-panel`);
-  const tabs=document.querySelectorAll(`#tab-${main} .sub-tab`);
+  const panels=document.querySelectorAll(`#tab-${main} > .sub-panel`);
+  const tabs=document.querySelectorAll(`#tab-${main} > .sub-tabs > .sub-tab`);
   panels.forEach(p=>p.classList.remove('active'));
   tabs.forEach(t=>t.classList.remove('active'));
   document.getElementById(`${main}-${sub}`).classList.add('active');
@@ -607,11 +494,13 @@ function switchSub(main,sub){
 // ══════════════════════════════
 function switchBookTab(tab){
   bookTab=tab;
-  document.querySelectorAll('#tab-activity .sub-panel:first-of-type .sub-tab').forEach((t,i)=>{
-    t.classList.toggle('active',i===(tab==='book'?0:1));
+  const order=['book','topic','paste'];
+  document.querySelectorAll('#bookTabBar .sub-tab').forEach((t,i)=>{
+    t.classList.toggle('active',i===order.indexOf(tab));
   });
-  document.getElementById('book-panel').style.display=tab==='book'?'block':'none';
-  document.getElementById('topic-panel').style.display=tab==='topic'?'block':'none';
+  document.getElementById('book-panel').style.display=tab==='book'?'flex':'none';
+  document.getElementById('topic-panel').style.display=tab==='topic'?'flex':'none';
+  document.getElementById('paste-panel').style.display=tab==='paste'?'flex':'none';
 }
 
 function setBookSort(type){
@@ -714,330 +603,640 @@ function selLangManual(el,lang){
   el.classList.add('active');
   actLangManual=lang;
 }
-function selType(el,type){
-  document.querySelectorAll('.type-item').forEach(i=>i.classList.remove('selected'));
-  el.classList.add('selected');
-  actType=type;
-}
+/* selType은 V2 카탈로그 UI로 대체됨 — selTypeKey 참고 */
 
 // ══════════════════════════════
-// 카드뉴스 AI 생성
+// 활동지 V2 — 계열/유형 카탈로그
 // ══════════════════════════════
-const SLIDE_TYPES={
-  cover:{label:'표지',icon:'🖼️',fields:['category','title','subtitle','date']},
-  body:{label:'본문',icon:'📄',fields:['section_title','image_note','body','point']},
-  tip:{label:'팁 카드',icon:'💡',fields:['tip_number','tip_title','tip_body']},
-  closing:{label:'마무리',icon:'🎯',fields:['closing','cta','button_text','account']},
+const ACT_CATEGORIES={
+  lang:  {name:'언어·어휘',icon:'🔤'},
+  think: {name:'이해·사고',icon:'🧠'},
+  create:{name:'표현·창작',icon:'💭'},
+  design:{name:'도안·그림',icon:'🖍️'},
 };
-const FIELD_LABELS={
-  category:'카테고리',title:'제목',subtitle:'부제목',date:'날짜·출처',
-  section_title:'소제목',image_note:'이미지 설명',body:'본문 내용',point:'핵심 포인트',
-  tip_number:'팁 번호',tip_title:'팁 제목',tip_body:'팁 내용',
-  closing:'마무리 메시지',cta:'행동 유도 문구',button_text:'버튼 텍스트',account:'링크·계정',
+const ACT_TYPES={
+  fillblank:  {cat:'lang',  name:'빈칸 채우기',    icon:'🔡', desc:'문장 속 낱말 채우기',    fmt:'빈칸(___) 문장 | 정답'},
+  choseong:   {cat:'lang',  name:'초성 퀴즈',      icon:'🅰️', desc:'초성 보고 단어 맞히기',  fmt:'초성 | 정답 | 힌트'},
+  wordsearch: {cat:'lang',  name:'낱말 찾기',      icon:'🔍', desc:'격자에서 숨은 낱말 찾기',fmt:'낱말 (한 항목에 하나)'},
+  writing:    {cat:'lang',  name:'따라쓰기',       icon:'✏️', desc:'단어·문장 따라쓰기',     fmt:'따라쓸 단어/문장'},
+  bingo:      {cat:'lang',  name:'독서 빙고',      icon:'🎯', desc:'책 속 단어 빙고판',      fmt:'빙고 칸에 넣을 낱말'},
+  oxquiz:     {cat:'think', name:'O/X 퀴즈',       icon:'⭕', desc:'맞으면 O, 틀리면 X',     fmt:'문제 | O 또는 X'},
+  multichoice:{cat:'think', name:'고르기 퀴즈',    icon:'✅', desc:'보기 중 정답 고르기',    fmt:'문제 | 보기1 / 보기2 / 보기3 | 정답번호'},
+  sequence:   {cat:'think', name:'순서 맞추기',    icon:'🔢', desc:'이야기 순서 배열하기',   fmt:'장면 문장 (올바른 순서로 입력)'},
+  matching:   {cat:'think', name:'짝짓기 선긋기',  icon:'🔗', desc:'짝을 찾아 선으로 연결',  fmt:'왼쪽 | 오른쪽'},
+  emotion:    {cat:'think', name:'감정 고르기',    icon:'😊', desc:'인물의 감정 고르기',     fmt:'장면 | 감정1 / 감정2 / 감정3 | 정답'},
+  nextstory:  {cat:'create',name:'뒷이야기 상상',  icon:'💭', desc:'다음 이야기 상상해 쓰기',fmt:'생각을 여는 질문'},
+  letter:     {cat:'create',name:'주인공에게 편지',icon:'💌', desc:'문장 스타터 + 편지쓰기', fmt:'편지 시작 문장(스타터)'},
+  drawwrite:  {cat:'create',name:'그리고 쓰기',    icon:'🖼️', desc:'장면 그리기 + 한 줄 쓰기',fmt:'그릴 장면 설명'},
+  coloring:   {cat:'design',name:'색칠공부',       icon:'🖍️', desc:'도안 + 색칠 영역',       fmt:'도안 요소 설명'},
+  maze:       {cat:'design',name:'미로 찾기',      icon:'🌀', desc:'알고리즘 자동 생성 미로',fmt:'(자동 생성 — 입력 불필요)'},
+  dotline:    {cat:'design',name:'점선 잇기',      icon:'🔵', desc:'점 이어 그림 완성',      fmt:'그림 요소 설명'},
+};
+const DIFF_PARAMS={
+  fillblank:  {easy:{n:4,bank:true}, normal:{n:6,bank:true}, hard:{n:8,bank:false}},
+  choseong:   {easy:{n:4,hint:true},normal:{n:6,hint:true},hard:{n:8,hint:false}},
+  wordsearch: {easy:{grid:6,n:4},   normal:{grid:8,n:6},   hard:{grid:10,n:8}},
+  writing:    {easy:{n:4},          normal:{n:6},          hard:{n:8}},
+  bingo:      {easy:{grid:3},       normal:{grid:4},       hard:{grid:5}},
+  oxquiz:     {easy:{n:4},          normal:{n:6},          hard:{n:8}},
+  multichoice:{easy:{n:3,c:3},      normal:{n:4,c:3},      hard:{n:5,c:4}},
+  sequence:   {easy:{n:3},          normal:{n:4},          hard:{n:6}},
+  matching:   {easy:{n:3},          normal:{n:4},          hard:{n:6}},
+  emotion:    {easy:{n:2,c:3},      normal:{n:3,c:3},      hard:{n:4,c:4}},
+  nextstory:  {easy:{lines:4},      normal:{lines:6},      hard:{lines:8}},
+  letter:     {easy:{lines:5,starters:3},normal:{lines:7,starters:2},hard:{lines:9,starters:1}},
+  drawwrite:  {easy:{lines:1},      normal:{lines:2},      hard:{lines:3}},
+  coloring:   {easy:{n:3},          normal:{n:5},          hard:{n:7}},
+  maze:       {easy:{grid:8},       normal:{grid:12},      hard:{grid:16}},
+  dotline:    {easy:{n:3},          normal:{n:4},          hard:{n:5}},
+};
+const CAT_COLORS={
+  lang:  {ac:{r:0.24,g:0.31,b:0.84},hc:{r:0.93,g:0.94,b:0.99}},
+  think: {ac:{r:0.05,g:0.55,b:0.38},hc:{r:0.90,g:0.98,b:0.94}},
+  create:{ac:{r:0.90,g:0.45,b:0.10},hc:{r:1.00,g:0.95,b:0.87}},
+  design:{ac:{r:0.50,g:0.25,b:0.80},hc:{r:0.95,g:0.92,b:1.00}},
 };
 
-async function genCardAI(){
-  if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
-  const btn=document.getElementById('c-ai-btn');
-  btn.innerHTML='<div class="spinner"></div> 생성 중...';btn.disabled=true;
-  const count=parseInt(document.getElementById('c-count').value);
-  const type=document.getElementById('c-type').value;
-  const topic=document.getElementById('c-topic').value||'iQUVE 동화책 앱 소개';
-  const target=document.getElementById('c-target').value;
-  const note=document.getElementById('c-note').value;
-  const typeLabel={info:'정보성',promo:'iQUVE 홍보',tip:'육아·교육 팁',event:'이벤트 안내',story:'동화책 소개'}[type];
-
-  const prompt=`iQUVE(4~8세 AI 대화형 동화책 앱)의 ${typeLabel} 카드뉴스를 만들어주세요.
-주제: ${topic} / 타겟: ${target} / 슬라이드: ${count}장
-추가요청: ${note||'없음'}
-
-표지 1장 + 본문 ${count-2}장 + 마무리 1장 구성으로
-아래 JSON 배열만 출력하세요:
-[
-  {"type":"cover","category":"카테고리(10자이내)","title":"제목(20자이내)","subtitle":"부제목(30자이내)","date":"iQUVE · 그로비교육"},
-  {"type":"body","section_title":"소제목(15자이내)","image_note":"이미지설명(20자이내)","body":"본문(70자이내)","point":"핵심포인트(40자이내)"},
-  {"type":"closing","closing":"마무리(20자이내)","cta":"행동유도(20자이내)","button_text":"버튼(10자이내)","account":"@iquve_official"}
-]`;
-
-  try{
-    const data=await callProxy('text',{contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.8}});
-    if(data.error)throw new Error(typeof data.error==='object'?JSON.stringify(data.error):String(data.error));
-    const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    let parsed;
-    try{parsed=JSON.parse(raw.trim());}catch{const m=raw.match(/\[[\s\S]*\]/);if(!m)throw new Error('파싱 실패');parsed=JSON.parse(m[0]);}
-    cardSlides=[];cardSlideIdx=0;
-    parsed.forEach(s=>addCardSlide(s.type||'body',s));
-    document.getElementById('c-ai-result').style.display='block';
-    document.getElementById('c-slide-preview').style.display='block';
-  }catch(e){alert('오류: '+(e.message||JSON.stringify(e)));}
-  finally{btn.innerHTML='✨ AI로 카드뉴스 생성';btn.disabled=false;}
+// ── 계열/유형 UI ──
+function renderCatTabs(){
+  document.getElementById('catTabs').innerHTML=Object.entries(ACT_CATEGORIES).map(([k,v])=>
+    '<button class="cat-tab'+(k===actCat?' active':'')+'" onclick="selCat(\''+k+'\')">'+v.icon+' '+v.name+'</button>').join('');
+}
+function renderTypeGrid(){
+  document.getElementById('typeGrid').innerHTML=Object.entries(ACT_TYPES).filter(([k,v])=>v.cat===actCat).map(([k,v])=>
+    '<div class="type-item'+(k===actType?' selected':'')+'" onclick="selTypeKey(\''+k+'\')">'
+    +'<div class="type-icon">'+v.icon+'</div><div class="type-name">'+v.name+'</div>'
+    +'<div class="type-desc">'+v.desc+'</div></div>').join('');
+  const t=ACT_TYPES[actType];
+  document.getElementById('typeInfo').textContent=actType==='maze'
+    ?'🌀 미로는 AI가 아닌 알고리즘으로 자동 생성돼요 — 난이도만 고르고 생성 버튼을 누르세요! (쉬움 8×8 / 보통 12×12 / 어려움 16×16)'
+    :'📝 항목 형식: '+t.fmt;
+}
+function selCat(k){
+  actCat=k;
+  selTypeKey(Object.keys(ACT_TYPES).find(t=>ACT_TYPES[t].cat===k));
+}
+function selTypeKey(k){
+  actType=k;actCat=ACT_TYPES[k].cat;actData=null;
+  document.getElementById('a-ai-result').style.display='none';
+  renderCatTabs();renderTypeGrid();
+}
+function initManualTypeSelect(){
+  const sel=document.getElementById('am-type');
+  sel.innerHTML=Object.entries(ACT_TYPES).map(([k,v])=>'<option value="'+k+'">'+v.icon+' '+v.name+'</option>').join('');
+  sel.value='writing';
+  updateManualFmt();
+}
+function updateManualFmt(){
+  const t=ACT_TYPES[document.getElementById('am-type').value];
+  document.getElementById('am-fmt').textContent='형식: '+t.fmt;
 }
 
-function addCardSlide(type='body',data={}){
-  const idx=cardSlideIdx++;
-  cardSlides.push({idx,type,data:{...data}});
-  renderCardSlides('c-slide-list');
+// ── 유틸 ──
+function shuffleArr(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function splitBar(s){return String(s).split('|').map(x=>x.trim());}
+function perSheetN(type,p){
+  switch(type){
+    case 'wordsearch':return p.n||6;
+    case 'bingo':return (p.grid||3)*(p.grid||3);
+    case 'nextstory':return 1;
+    case 'letter':return p.starters||2;
+    case 'drawwrite':return 1;
+    case 'coloring':return p.n||5;
+    case 'dotline':return p.n||4;
+    case 'maze':return 0;
+    default:return p.n||6;
+  }
 }
-function addCardSlideManual(){
-  const idx=cardSlideIdx++;
-  cardSlides.push({idx,type:'body',data:{}});
-  renderCardSlides('c-manual-list');
-  document.getElementById('c-slide-preview')?.style && (document.getElementById('c-slide-preview').style.display='none');
-}
-function renderCardSlides(listId){
-  const list=document.getElementById(listId);
-  if(!list)return;
-  list.innerHTML='';
-  cardSlides.forEach((s,i)=>{
-    const t=SLIDE_TYPES[s.type]||SLIDE_TYPES.body;
-    const prev=s.data.title||s.data.section_title||s.data.tip_title||s.data.closing||'';
-    const div=document.createElement('div');
-    div.className='slide-item';
-    div.innerHTML=`
-      <div class="slide-hd" onclick="toggleSlide(${i},'${listId}')">
-        <div class="slide-hl">
-          <div class="slide-num">${i+1}</div>
-          <div><div class="slide-type-label">${t.icon} ${t.label}</div>
-          ${prev?`<div class="slide-preview">${prev.slice(0,28)}${prev.length>28?'...':''}</div>`:''}
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <select onchange="changeSlideType(${i},this.value,'${listId}')" onclick="event.stopPropagation()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:white;font-family:inherit;">
-            ${Object.entries(SLIDE_TYPES).map(([k,v])=>`<option value="${k}"${k===s.type?' selected':''}>${v.icon} ${v.label}</option>`).join('')}
-          </select>
-          <button class="slide-del" onclick="event.stopPropagation();removeSlide(${i},'${listId}')">✕</button>
-        </div>
-      </div>
-      <div class="slide-bd" id="sbody-${listId}-${i}">
-        <div class="slide-fields">
-          ${t.fields.map(f=>`<div class="field"><label>${FIELD_LABELS[f]||f}</label>
-            ${f==='body'||f==='tip_body'||f==='point'
-              ?`<textarea rows="3" onchange="updSlide(${i},'${f}',this.value)">${s.data[f]||''}</textarea>`
-              :`<input type="text" value="${(s.data[f]||'').replace(/"/g,'&quot;')}" onchange="updSlide(${i},'${f}',this.value)" placeholder="${FIELD_LABELS[f]||f}">`
-            }</div>`).join('')}
-        </div>
-      </div>`;
-    list.appendChild(div);
-  });
-}
-function toggleSlide(i,listId){document.getElementById(`sbody-${listId}-${i}`)?.classList.toggle('open');}
-function changeSlideType(i,type,listId){cardSlides[i].type=type;cardSlides[i].data={};renderCardSlides(listId);}
-function removeSlide(i,listId){cardSlides.splice(i,1);renderCardSlides(listId);}
-function updSlide(i,f,v){cardSlides[i].data[f]=v;}
 
-// 초기 슬라이드
-addCardSlide('cover',{category:'iQUVE',title:'제목을 입력해주세요',date:'iQUVE · 그로비교육'});
-addCardSlide('body',{section_title:'소제목',body:'본문 내용을 입력해주세요.'});
-addCardSlide('closing',{closing:'감사해요!',button_text:'앱 다운로드',account:'@iquve_official'});
-renderCardSlides('c-manual-list');
+// ── 낱말찾기 격자 생성 (알고리즘) ──
+function wsUnits(word){
+  const arr=Array.from(String(word).replace(/\s/g,''));
+  return /[a-z]/i.test(word)?arr.map(x=>x.toUpperCase()):arr;
+}
+function buildWordSearch(words,G,level){
+  const grid=Array.from({length:G},()=>Array(G).fill(null));
+  const dirs=level==='hard'?[[0,1],[1,0],[1,1]]:[[0,1],[1,0]];
+  const placed=[];
+  for(const w of words){
+    const u=wsUnits(w);
+    if(!u.length||u.length>G)continue;
+    for(let tries=0;tries<300;tries++){
+      const d=dirs[Math.floor(Math.random()*dirs.length)];
+      const maxR=G-1-(d[0]?(u.length-1):0), maxC=G-1-(d[1]?(u.length-1):0);
+      const r=Math.floor(Math.random()*(maxR+1)), c=Math.floor(Math.random()*(maxC+1));
+      let fit=true;
+      for(let i=0;i<u.length;i++){const cell=grid[r+d[0]*i][c+d[1]*i];if(cell&&cell!==u[i]){fit=false;break;}}
+      if(!fit)continue;
+      for(let i=0;i<u.length;i++)grid[r+d[0]*i][c+d[1]*i]=u[i];
+      placed.push(w);break;
+    }
+  }
+  const pool=[...new Set(words.flatMap(wsUnits))];
+  const latin=pool.length&&/[A-Z]/.test(pool.join(''));
+  const extras=latin?'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''):['가','나','다','라','마','바','사','자','하','노','리','무','소','비','구','재'];
+  const fill=[...pool,...extras];
+  for(let r=0;r<G;r++)for(let c=0;c<G;c++)if(!grid[r][c])grid[r][c]=fill[Math.floor(Math.random()*fill.length)];
+  return {cells:grid,placed};
+}
+
+// ── 미로 생성 (재귀적 백트래킹) ──
+function genMaze(G){
+  const cells=Array.from({length:G},()=>Array.from({length:G},()=>({t:1,r:1,b:1,l:1,v:0})));
+  const st=[[0,0]];cells[0][0].v=1;
+  while(st.length){
+    const [r,c]=st[st.length-1];
+    const nb=[];
+    if(r>0&&!cells[r-1][c].v)nb.push(['t',r-1,c,'b']);
+    if(r<G-1&&!cells[r+1][c].v)nb.push(['b',r+1,c,'t']);
+    if(c>0&&!cells[r][c-1].v)nb.push(['l',r,c-1,'r']);
+    if(c<G-1&&!cells[r][c+1].v)nb.push(['r',r,c+1,'l']);
+    if(!nb.length){st.pop();continue;}
+    const [w,nr,nc,ow]=nb[Math.floor(Math.random()*nb.length)];
+    cells[r][c][w]=0;cells[nr][nc][ow]=0;cells[nr][nc].v=1;st.push([nr,nc]);
+  }
+  cells[0][0].t=0;          // 입구 (좌상단 위)
+  cells[G-1][G-1].b=0;      // 출구 (우하단 아래)
+  const S=Math.floor(760/G),T=6;
+  const ox=Math.floor((960-S*G)/2),oy=70;
+  const walls=[];
+  for(let r=0;r<G;r++)for(let c=0;c<G;c++){
+    const x=ox+c*S,y=oy+r*S,cl=cells[r][c];
+    if(cl.t)walls.push([x,y,S+T,T]);
+    if(cl.l)walls.push([x,y,T,S+T]);
+    if(r===G-1&&cl.b)walls.push([x,y+S,S+T,T]);
+    if(c===G-1&&cl.r)walls.push([x+S,y,T,S+T]);
+  }
+  return {G,S,ox,oy,walls};
+}
 
 // ══════════════════════════════
-// 활동지 AI 생성
+// 활동지 AI 생성 (V2)
 // ══════════════════════════════
-async function genActivityAI(){
-  if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
-  const btn=document.getElementById('a-ai-btn');
-  btn.innerHTML='<div class="spinner"></div> 생성 중...';btn.disabled=true;
+// 실제 글자(단어/문장/문제)가 인쇄되어야 하는 유형 vs 시각 요소 설명만 필요한 유형
+const TEXT_REQUIRED_TYPES=new Set(['fillblank','choseong','wordsearch','writing','bingo','oxquiz','multichoice','sequence','matching','emotion','nextstory','letter']);
 
-  const typeLabel={coloring:'색칠공부',maze:'미로찾기',writing:'따라쓰기',dotline:'점선잇기'}[actType];
-  const age=document.getElementById('a-age').value;
+const ITEM_SPECS={
+  fillblank:(p,n)=>'items: 핵심 문장 '+n+'개. 형식 "빈칸(___) 포함 문장 | 정답 낱말". 문장 30자 이내, 빈칸은 문장당 1개.'+(p.bank?' 정답들은 낱말 은행으로 함께 보여줄 예정.':''),
+  choseong:(p,n)=>'items: 책 속 낱말 초성퀴즈 '+n+'개. 형식 "초성(예: ㅌㄲ) | 정답(예: 토끼) | 짧은 힌트". 언어가 한국어가 아니면 초성 대신 첫 글자+밑줄 형식(예: "R____ | Rabbit | hint").',
+  wordsearch:(p,n)=>'items: 책 내용과 관련된 낱말 '+n+'개. 형식 "낱말" 하나만. 2~'+Math.min(4,(p.grid||8)-2)+'글자, 중복 금지.',
+  writing:(p,n)=>'items: 따라쓸 단어 또는 짧은 문장 '+n+'개. 연령에 맞는 길이로.',
+  bingo:(p,n)=>'items: 빙고판('+(p.grid||3)+'×'+(p.grid||3)+')에 넣을 책 관련 낱말 '+n+'개. 형식 "낱말". 중복 금지, 5글자 이내.',
+  oxquiz:(p,n)=>'items: 내용 확인 O/X 문제 '+n+'개. 형식 "문제 | O" 또는 "문제 | X". 문제 35자 이내, O와 X 비율 비슷하게.',
+  multichoice:(p,n)=>'items: 객관식 문제 '+n+'개. 형식 "문제 | 보기1 / 보기2 / 보기3'+((p.c||3)>3?' / 보기4':'')+' | 정답번호(1부터)". 문제 30자, 보기 8자 이내.',
+  sequence:(p,n)=>'items: 이야기의 장면 문장 '+n+'개를 반드시 올바른 순서대로. 형식 "장면 문장". 각 28자 이내. (보여줄 때는 자동으로 섞여요)',
+  matching:(p,n)=>'items: 짝짓기 쌍 '+n+'개. 형식 "왼쪽(인물/사물, 10자 이내) | 오른쪽(대사/특징, 15자 이내)".',
+  emotion:(p,n)=>'items: 감정 고르기 문제 '+n+'개. 형식 "장면 설명(30자 이내) | 감정보기1 / 감정보기2'+((p.c||3)>3?' / 감정보기3 / 감정보기4':' / 감정보기3')+' | 정답감정". 감정 보기에 이모지 1개씩 포함(예: 😊 기뻐요).',
+  nextstory:(p,n)=>'items: 뒷이야기 상상을 여는 질문 '+n+'개. 형식 "질문 문장(35자 이내)".',
+  letter:(p,n)=>'items: 주인공에게 쓰는 편지의 시작 문장(문장 스타터) '+n+'개. 각 25자 이내.',
+  drawwrite:(p,n)=>'items: 아이가 그릴 장면 제안 '+n+'개. 형식 "장면 설명(30자 이내)".',
+  coloring:(p,n)=>'items: 색칠 도안에 들어갈 요소 '+n+'개. 형식 "요소 설명(배색 힌트 포함)".',
+  dotline:(p,n)=>'items: 점선으로 이을 그림 요소 '+n+'개. 형식 "요소 설명".',
+  maze:()=>'',
+};
+
+function buildActPrompt(){
+  const t=ACT_TYPES[actType];
   const level=document.getElementById('a-level').value;
-  const count=document.getElementById('a-count').value;
+  const p=DIFF_PARAMS[actType][level];
+  const age=document.getElementById('a-age').value;
+  const count=parseInt(document.getElementById('a-count').value);
   const note=document.getElementById('a-note').value;
   const lang=LANG_INFO[actLang];
-  const levelLabel={easy:'쉬움',normal:'보통',hard:'어려움'}[level];
+  const levelLabel={easy:'쉬움(연령 하한 기준, 아주 짧고 단순하게)',normal:'보통',hard:'어려움(연령 상한 기준, 사고력을 요구하게)'}[level];
 
   let topicContext='';
   if(bookTab==='book'&&selectedBook){
-    topicContext=`iQUVE 동화책 "${selectedBook.title}" 기반
-스토리: ${selectedBook.summary}
-발달영역: ${(selectedBook.devMain||[]).join(', ')}
-키워드: ${(selectedBook.keywords||[]).join(', ')}
-${selectedBook.learning?'이런 점을 배워요: '+selectedBook.learning:''}`;
-  } else {
-    topicContext=`주제: ${document.getElementById('a-topic').value||'동물 친구들'}`;
+    topicContext='iQUVE 동화책 "'+selectedBook.title+'" 기반 독후활동\n'
+      +'스토리: '+(selectedBook.summary||'')+'\n'
+      +'발달영역: '+((selectedBook.devMain||[]).join(', '))+'\n'
+      +'키워드: '+((selectedBook.keywords||[]).join(', '))
+      +(selectedBook.learning?'\n배우는 점: '+selectedBook.learning:'');
+  }else if(bookTab==='paste'){
+    const pasted=(document.getElementById('a-paste').value||'').trim();
+    if(!pasted)throw new Error('책 내용을 붙여넣어 주세요.');
+    topicContext='아래 책 내용 기반 독후활동:\n"""'+pasted.slice(0,3000)+'"""';
+  }else{
+    topicContext='주제: '+(document.getElementById('a-topic').value||'동물 친구들');
   }
 
-  const prompt=`iQUVE 유아 교육 ${typeLabel} 활동지를 기획해주세요.
-${topicContext}
-대상: ${age}세 / 난이도: ${levelLabel} / 수량: ${count}장
-언어: ${lang.name} (${lang.instruction})
-추가요청: ${note||'없음'}
+  const nItems=Math.max(1,perSheetN(actType,p)*count);
+  const textNote=TEXT_REQUIRED_TYPES.has(actType)
+    ?'\n※ 중요: 이 활동지는 이미지 설명이 아니라, 아이가 종이에서 실제로 읽고 쓸 글자(단어·문장·문제)가 필요합니다. items에는 시각적 묘사가 아니라 실제로 인쇄될 한글(또는 지정 언어) 문장/단어를 그대로 작성하세요.'
+    :'';
+  return 'iQUVE(3~9세 대상 AI 대화형 동화책 앱)의 유아 독후활동 활동지 "'+t.name+'"를 기획해주세요.\n'
+    +topicContext+'\n'
+    +'대상 연령: '+age+'세 / 난이도: '+levelLabel+'\n'
+    +'활동지 내용 언어: '+lang.name+' — '+lang.instruction+' (title, guide, items 모두 '+lang.name+'로)\n'
+    +'추가 요청: '+(note||'없음')+textNote+'\n\n'
+    +ITEM_SPECS[actType](p,nItems)+'\n\n'
+    +'반드시 아래 JSON 객체 하나만 출력하세요. 설명·마크다운·코드블록 금지:\n'
+    +'{"title":"활동지 제목","guide":"아이에게 보여줄 안내 문구 1문장","tip":"부모/교사용 활용 팁 1~2문장(한국어)","items":["'+t.fmt+'" 형식의 문자열 '+nItems+'개]}';
+}
 
-${lang.instruction}. 활동지 내용을 상세히 작성해주세요:
-
-1. 활동지 제목 (${lang.name})
-2. 아이에게 보여줄 안내 문구 (1문장, ${lang.name})
-3. ${typeLabel==='따라쓰기'?`따라쓸 단어/문장 ${count==='1'?'8개':count==='2'?'각 8개':'각 6개'} (${lang.name})`:
-   typeLabel==='점선잇기'?`점선으로 이을 그림 요소 설명 ${count}개`:
-   typeLabel==='미로찾기'?`미로 난이도 설명과 힌트 요소`:
-   `색칠 도안에 포함될 요소 목록과 배색 가이드`}
-4. 도안/이미지 설명 (Figma 배치 참고용, 한국어로)
-5. 부모/교사를 위한 활동 활용 팁 (한국어로)`;
-
+async function genActivityAI(){
+  const btn=document.getElementById('a-ai-btn');
+  if(actType==='maze'){
+    actData={type:'maze',title:'미로 찾기',guide:'START에서 END까지 길을 찾아가 보세요!',tip:'손가락으로 먼저 길을 따라가 본 뒤 색연필로 그리게 해주세요.',items:[]};
+    renderActPreview();return;
+  }
+  if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
+  btn.innerHTML='<div class="spinner"></div> 생성 중...';btn.disabled=true;
   try{
+    const prompt=buildActPrompt();
     const data=await callProxy('text',{contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.85}});
-    if(data.error)throw new Error(typeof data.error==='object'?JSON.stringify(data.error):String(data.error));
+    if(data.error)throw new Error(data.error);
     const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    document.getElementById('a-ai-text').textContent=raw;
-    document.getElementById('a-ai-result').style.display='block';
-  }catch(e){alert('오류: '+(e.message||JSON.stringify(e)));}
+    let parsed;
+    try{parsed=JSON.parse(raw.trim());}
+    catch{const m=raw.match(/\{[\s\S]*\}/);if(!m)throw new Error('AI 응답 파싱 실패 — 다시 시도해주세요');parsed=JSON.parse(m[0]);}
+    actData={type:actType,title:parsed.title||ACT_TYPES[actType].name,guide:parsed.guide||'',tip:parsed.tip||'',items:(parsed.items||[]).map(String)};
+    renderActPreview();
+  }catch(e){alert('오류: '+e.message);}
   finally{btn.innerHTML='✨ AI로 활동지 내용 생성';btn.disabled=false;}
 }
 
-// ══════════════════════════════
-// 이미지 프롬프트 생성
-// ══════════════════════════════
-function buildImagePrompt(){
-  const aiText = document.getElementById('a-ai-text').textContent;
-  const typeLabel = {coloring:'색칠공부 도안',maze:'미로찾기',writing:'따라쓰기 활동지',dotline:'점선잇기 활동지'}[actType];
-  const age = document.getElementById('a-age').value;
-  const lang = LANG_INFO[actLang];
-  const bookInfo = selectedBook ? `"${selectedBook.title}" 동화책 기반, ` : '';
-
-  // AI 기획안에서 도안 설명 부분 추출 (문자열 처리)
-  let imgDesc = '';
-  const imgIdx = aiText.indexOf('도안');
-  if(imgIdx > -1) {
-    const imgSec = aiText.slice(imgIdx, imgIdx+500);
-    const imgEndIdx = imgSec.search(/###|\n\d\./);
-    imgDesc = (imgEndIdx > -1 ? imgSec.slice(0,imgEndIdx) : imgSec).slice(0,300).trim();
+// ── 생성 결과 편집 프리뷰 ──
+function renderActPreview(){
+  const wrap=document.getElementById('a-ai-result');
+  const box=document.getElementById('a-preview');
+  wrap.style.display='block';box.innerHTML='';
+  const t=ACT_TYPES[actData.type];
+  const mkField=(label,key)=>{
+    const d=document.createElement('div');d.className='field';
+    const lb=document.createElement('label');lb.textContent=label;d.appendChild(lb);
+    const el=document.createElement('input');el.type='text';
+    el.value=actData[key]||'';el.onchange=()=>actData[key]=el.value;
+    d.appendChild(el);box.appendChild(d);
+  };
+  mkField('활동지 제목','title');
+  mkField('아이에게 보여줄 안내 문구','guide');
+  mkField('부모/교사 활용 팁 (첫 장 하단에 작게 표기)','tip');
+  if(actData.type==='maze'){
+    const p=document.createElement('p');p.className='hint';
+    p.textContent='🌀 미로는 피그마 내보내기 시 난이도에 맞춰 자동 생성돼요. 활동지 수만큼 서로 다른 미로가 만들어져요!';
+    box.appendChild(p);return;
   }
-
-
-  const prompt = `IMPORTANT: DO NOT include any text, letters, numbers, words, labels, captions, titles, or writing of any kind in the image. Pure illustration only.
-
-Create a children's ${typeLabel} worksheet illustration for ${age} year olds. ${bookInfo}
-${imgDesc ? 'Scene description: ' + imgDesc : 'Cute, colorful educational illustration with simple characters.'}
-
-STRICT REQUIREMENTS:
-- ABSOLUTELY NO text, letters, numbers, words, or any written characters anywhere in the image
-- ABSOLUTELY NO labels, titles, captions, watermarks, or annotations
-- Clean thick black outlines perfect for a coloring worksheet
-- Pure white background
-- Flat kawaii illustration style
-- Simple bold shapes easy for young children to color
-- High contrast black lines on white, no gray areas
-- Square composition 1:1 ratio
-- Age appropriate for ${age} year olds
-- Suitable for printing on paper`;
-
-  return prompt.trim();
-}
-
-function openAIStudio(){
-  const prompt = buildImagePrompt();
-  navigator.clipboard.writeText(prompt).then(()=>{
-    const btn = document.getElementById('a-studio-btn');
-    const orig = btn.textContent;
-    btn.textContent = '✅ 프롬프트 복사됨! AI Studio 열기...';
-    setTimeout(()=>{
-      window.open('https://aistudio.google.com/prompts/new_chat', '_blank');
-      btn.textContent = orig;
-    }, 800);
-  });
-}
-
-function copyImagePrompt(){
-  const prompt = buildImagePrompt();
-  document.getElementById('a-prompt-box').textContent = prompt;
-  document.getElementById('a-prompt-box').style.display = 'block';
-  navigator.clipboard.writeText(prompt).then(()=>{
-    const btn = document.getElementById('a-prompt-btn');
-    btn.textContent = '✅ 복사됨!';
-    setTimeout(()=>btn.textContent='📋 이미지 프롬프트 복사', 2000);
-  });
+  const st=document.createElement('div');st.className='act-section-title';
+  st.innerHTML='📝 항목 <span style="font-size:11px;font-weight:400;color:var(--gray);">형식: '+t.fmt+'</span>';
+  box.appendChild(st);
+  const rows=document.createElement('div');rows.className='content-rows';box.appendChild(rows);
+  const addRow=i=>{
+    const r=document.createElement('div');r.className='content-row';
+    const inp=document.createElement('input');inp.type='text';
+    inp.value=actData.items[i]||'';inp.onchange=()=>actData.items[i]=inp.value;
+    const del=document.createElement('button');del.className='row-del';del.textContent='✕';
+    del.onclick=()=>{actData.items[i]=null;r.remove();};
+    r.appendChild(inp);r.appendChild(del);rows.appendChild(r);
+  };
+  actData.items.forEach((_,i)=>addRow(i));
+  const add=document.createElement('button');add.className='add-row-mini';add.textContent='+ 항목 추가';
+  add.onclick=()=>{actData.items.push('');addRow(actData.items.length-1);};
+  box.appendChild(add);
 }
 
 // ══════════════════════════════
-// 나노바나나 이미지 생성
+// 시트 데이터 빌드 (셔플·격자·미로 사전 계산)
 // ══════════════════════════════
-async function genActivityImage(){
-  const aiText = document.getElementById('a-ai-text').textContent;
-  if(!aiText){ alert('먼저 AI로 활동지 내용을 생성해주세요.'); return; }
+function buildSheet(o,p,ch){
+  const t=o.type;
+  const sh={type:t,title:o.title||ACT_TYPES[t].name,guide:o.guide||''};
+  if(t==='fillblank'){
+    sh.items=ch.map(s=>{
+      const parts=splitBar(s);let q=parts[0]||String(s);const a=parts[1]||'';
+      if(a&&!q.includes('___'))q=q.replace(a,'________');
+      if(!q.includes('___'))q+=' ________';
+      return{q:q.replace(/_{2,}/g,'________'),a};
+    });
+    if(p.bank)sh.bank=shuffleArr(sh.items.map(i=>i.a).filter(Boolean));
+    sh.answer='정답: '+sh.items.map((i,k)=>(k+1)+'.'+i.a).join('  ');
+  }else if(t==='choseong'){
+    sh.items=ch.map(s=>{const[cs,ans,hint]=splitBar(s);return{cs:cs||'',ans:ans||'',hint:p.hint===false?'':(hint||'')};});
+    sh.answer='정답: '+sh.items.map((i,k)=>(k+1)+'.'+i.ans).join('  ');
+  }else if(t==='wordsearch'){
+    const words=ch.map(s=>splitBar(s)[0]).filter(Boolean);
+    const G=p.grid||8;
+    const ws=buildWordSearch(words,G,o.level);
+    sh.grid=ws.cells;sh.words=ws.placed;
+    sh.cellS=Math.min(84,Math.floor(700/G));
+  }else if(t==='writing'){
+    sh.items=ch.map(s=>splitBar(s)[0]).filter(Boolean);
+  }else if(t==='bingo'){
+    const g=p.grid||3;sh.bingoGrid=g;
+    let ws=ch.map(s=>splitBar(s)[0]).filter(Boolean);
+    while(ws.length<g*g)ws.push('⭐');
+    sh.words=shuffleArr(ws.slice(0,g*g));
+  }else if(t==='oxquiz'){
+    sh.items=ch.map(s=>{const[q,a]=splitBar(s);return{q:q||String(s),a:String(a||'O').toUpperCase().includes('X')?'X':'O'};});
+    sh.answer='정답: '+sh.items.map((i,k)=>(k+1)+'.'+i.a).join('  ');
+  }else if(t==='multichoice'){
+    sh.items=ch.map(s=>{
+      const parts=splitBar(s);const q=parts[0]||String(s);
+      const cs=(parts[1]||'').split('/').map(x=>x.trim()).filter(Boolean);
+      const a=parseInt(parts[2])||1;
+      return{q,cs:cs.length?cs:['보기1','보기2','보기3'],a};
+    });
+    sh.answer='정답: '+sh.items.map((i,k)=>(k+1)+'.'+('①②③④⑤'[Math.max(0,Math.min(4,i.a-1))])).join('  ');
+  }else if(t==='sequence'){
+    const scenes=ch.map(s=>splitBar(s)[0]).filter(Boolean);
+    const idx=shuffleArr(scenes.map((_,i)=>i));
+    sh.cards=idx.map(i=>({text:scenes[i],orig:i+1}));
+    const ord=sh.cards.map((c,k)=>({pos:'①②③④⑤⑥⑦'[k],orig:c.orig})).sort((a,b)=>a.orig-b.orig);
+    sh.answer='정답 순서: '+ord.map(x=>x.pos).join(' → ');
+  }else if(t==='matching'){
+    const pairs=ch.map(s=>{const[l,r]=splitBar(s);return{l:l||String(s),r:r||''};});
+    const order=shuffleArr(pairs.map((_,i)=>i));
+    const AB='ⓐⓑⓒⓓⓔⓕⓖ';
+    sh.lefts=pairs.map(x=>x.l);
+    sh.rights=order.map(i=>pairs[i].r);
+    sh.ab=AB;
+    sh.answer='정답: '+pairs.map((x,i)=>(i+1)+'-'+AB[order.indexOf(i)]).join('  ');
+  }else if(t==='emotion'){
+    sh.items=ch.map(s=>{
+      const parts=splitBar(s);const scene=parts[0]||String(s);
+      const cs=(parts[1]||'').split('/').map(x=>x.trim()).filter(Boolean);
+      return{scene,cs:cs.length?cs:['😊 기뻐요','😢 슬퍼요','😮 놀랐어요'],a:parts[2]||''};
+    });
+    sh.answer='정답: '+sh.items.map((i,k)=>(k+1)+'.'+i.a).join('  ');
+  }else if(t==='nextstory'){
+    sh.q=ch[0]?splitBar(ch[0])[0]:'그 다음엔 어떤 일이 벌어질까요?';
+    sh.lines=p.lines||6;
+  }else if(t==='letter'){
+    sh.starters=ch.map(s=>splitBar(s)[0]).filter(Boolean);
+    sh.lines=p.lines||7;
+  }else if(t==='drawwrite'){
+    sh.scene=ch[0]?splitBar(ch[0])[0]:'가장 기억에 남는 장면을 그려보세요';
+    sh.lines=p.lines||2;
+  }else if(t==='coloring'){
+    sh.elements=ch.map(s=>splitBar(s)[0]).filter(Boolean);sh.imageNote=o.imageNote||'';
+  }else if(t==='dotline'){
+    sh.elements=ch.map(s=>splitBar(s)[0]).filter(Boolean);sh.imageNote=o.imageNote||'';
+  }else if(t==='maze'){
+    sh.maze=genMaze(p.grid||12);
+  }
+  return sh;
+}
 
-  const btn = document.getElementById('a-img-btn');
-  btn.disabled = true;
-
-  try{
-    const key = await getGeminiKey();
-    const prompt = buildImagePrompt();
-
-    // 1차: Imagen 3 시도
-    btn.innerHTML = '<div class="spinner" style="border-color:rgba(61,79,215,.3);border-top-color:var(--indigo);"></div> Imagen 3 생성 중...';
-    let imgSrc = await tryImagen3(key, prompt);
-
-    // 2차: Imagen 3 실패 시 나노바나나(gemini-2.5-flash-image) 폴백
-    if(!imgSrc){
-      btn.innerHTML = '<div class="spinner" style="border-color:rgba(61,79,215,.3);border-top-color:var(--indigo);"></div> 나노바나나로 재시도 중...';
-      imgSrc = await tryNanoBanana(key, prompt);
+function buildSheets(o){
+  const p=(DIFF_PARAMS[o.type]&&DIFF_PARAMS[o.type][o.level])||{};
+  const items=(o.items||[]).filter(x=>x&&String(x).trim());
+  const per=perSheetN(o.type,p);
+  const count=Math.max(1,o.count||1);
+  const reuse=['coloring','dotline','drawwrite','nextstory','letter'];
+  const chunks=[];
+  if(o.type==='maze'){
+    for(let i=0;i<count;i++)chunks.push([]);
+  }else{
+    for(let i=0;i<count;i++){
+      const c=items.slice(i*per,(i+1)*per);
+      if(c.length)chunks.push(c);
+      else if(i===0)chunks.push(items);
+      else if(reuse.includes(o.type)&&items.length)chunks.push(items.slice(0,per));
     }
-
-    if(!imgSrc) throw new Error('이미지 생성에 실패했어요. 프롬프트를 복사해서 AI Studio에서 직접 만들어주세요.');
-
-    const grid = document.getElementById('a-img-grid');
-    grid.innerHTML = '';
-    const div = document.createElement('div');
-    div.className = 'gen-img-item';
-    div.innerHTML = `
-      <img src="${imgSrc}" alt="생성된 활동지 이미지">
-      <div class="gen-img-actions">
-        <a href="${imgSrc}" download="iquve_activity.png" class="gen-img-dl">⬇️ 다운로드</a>
-      </div>`;
-    grid.appendChild(div);
-    document.getElementById('a-img-result').style.display = 'block';
-
-  } catch(e){
-    const msg = e.message || JSON.stringify(e);
-    alert('이미지 생성 오류: ' + msg);
-  } finally{
-    btn.innerHTML = '🎨 이미지 생성 (Imagen 3 → 나노바나나)';
-    btn.disabled = false;
+    if(!chunks.length)chunks.push(items);
   }
+  return chunks.map(ch=>buildSheet(o,p,ch));
 }
 
-// Imagen 3 시도 — 실패 시 null 반환
-async function tryImagen3(key, prompt){
-  try{
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: { sampleCount:1, aspectRatio:'1:1', safetySetting:'block_only_high', personGeneration:'allow_all' }
-        })
-      }
-    );
-    const data = await res.json();
-    if(data.error) return null;  // 503/429 등 → 폴백
-    const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-    return b64 ? `data:image/png;base64,${b64}` : null;
-  } catch(e){ return null; }
+// ══════════════════════════════
+// 피그마 코드 생성 V2 (전 유형 지원)
+// ══════════════════════════════
+const NAME_LINES={
+  ko:'이름: ____________        날짜: ____________',
+  en:'Name: ____________        Date: ____________',
+  ja:'なまえ: ____________        ひづけ: ____________',
+  es:'Nombre: ____________        Fecha: ____________',
+  zh:'姓名: ____________        日期: ____________',
+};
+
+function generateActivityCodeV2(o){
+  const t=ACT_TYPES[o.type];
+  const sheets=buildSheets(o);
+  const cc=CAT_COLORS[t.cat];
+  const meta={
+    typeName:t.name,age:o.age,flag:(o.lang&&o.lang.flag)||'',
+    book:o.bookInfo||'',tip:(o.tip||'').slice(0,90),
+    nameLine:NAME_LINES[o.langKey]||NAME_LINES.ko,
+    ac:cc.ac,hc:cc.hc,page:o.pageName||'활동지',
+  };
+  return '// iQUVE 활동지 자동 생성 — '+t.name+' ('+((o.lang&&o.lang.name)||'')+')\n'
+    +'// Figma > Plugins > Development > Open Console 에서 실행\n'
+    +'const SHEETS='+JSON.stringify(sheets)+';\n'
+    +'const META='+JSON.stringify(meta)+';\n'
+    +PLUGIN_RENDERER;
 }
 
-// 나노바나나 시도 — 실패 시 null 반환
-async function tryNanoBanana(key, prompt){
-  try{
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseModalities: ['IMAGE'] }
-        })
-      }
-    );
-    const data = await res.json();
-    if(data.error) return null;
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    const img = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-    return img ? `data:${img.inlineData.mimeType};base64,${img.inlineData.data}` : null;
-  } catch(e){ return null; }
+const PLUGIN_RENDERER=`(async()=>{
+const W=1080,H=1350;
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Bold"});
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Regular"});
+await figma.loadFontAsync({family:"Noto Sans KR",style:"Medium"});
+const W_={r:1,g:1,b:1},DARK={r:26/255,g:31/255,b:54/255},GRAY={r:0.62,g:0.65,b:0.72},LGT={r:0.97,g:0.97,b:0.99},RED={r:0.9,g:0.25,b:0.25};
+const AC=META.ac,HC=META.hc;
+let page=figma.root.children.find(p=>p.name===META.page);
+if(!page){page=figma.createPage();page.name=META.page;}
+await figma.setCurrentPageAsync(page);
+function txt(p,s,sz,st,c,x,y,w,align){
+  if(s===undefined||s===null||s==="")return;
+  const t=figma.createText();p.appendChild(t);
+  t.fontName={family:"Noto Sans KR",style:st||"Regular"};
+  t.characters=String(s);t.fontSize=sz;
+  t.fills=[{type:"SOLID",color:c}];
+  t.x=x;t.y=y;t.resize(w,sz+24);t.textAutoResize="HEIGHT";
+  if(align)t.textAlignHorizontal=align;
+  return t;
 }
+function rct(p,c,x,y,w,h,op,r){
+  const rc=figma.createRectangle();p.appendChild(rc);
+  rc.fills=[{type:"SOLID",color:c,opacity:op==null?1:op}];
+  rc.x=x;rc.y=y;rc.resize(w,h);if(r)rc.cornerRadius=r;return rc;
+}
+function srct(p,c,x,y,w,h,r,sw){
+  const rc=figma.createRectangle();p.appendChild(rc);
+  rc.fills=[];rc.strokes=[{type:"SOLID",color:c}];rc.strokeWeight=sw||2;
+  rc.x=x;rc.y=y;rc.resize(w,h);if(r)rc.cornerRadius=r;return rc;
+}
+function ell(p,c,x,y,s){const e=figma.createEllipse();p.appendChild(e);e.fills=[{type:"SOLID",color:c}];e.x=x;e.y=y;e.resize(s,s);return e;}
+function sell(p,c,x,y,s,sw){const e=figma.createEllipse();p.appendChild(e);e.fills=[];e.strokes=[{type:"SOLID",color:c}];e.strokeWeight=sw||3;e.x=x;e.y=y;e.resize(s,s);return e;}
+const base=page.children.length;
+for(let i=0;i<SHEETS.length;i++){
+  const sh=SHEETS[i];
+  const fr=figma.createFrame();page.appendChild(fr);
+  fr.name=(base+i+1)+"_"+META.typeName;
+  fr.resize(W,H);fr.x=(base+i)*(W+60);fr.y=0;
+  fr.fills=[{type:"SOLID",color:W_}];fr.clipsContent=true;
+  rct(fr,HC,0,0,W,190);
+  txt(fr,sh.title,48,"Bold",AC,60,36,800);
+  txt(fr,sh.guide,28,"Regular",DARK,60,112,800);
+  rct(fr,AC,880,52,140,52,1,26);
+  txt(fr,META.flag+" "+META.age+"세",24,"Bold",W_,880,66,140,"CENTER");
+  if(META.book)txt(fr,"📖 "+META.book,22,"Regular",GRAY,60,154,800);
+  const y0=220;
+  if(sh.type==="fillblank"){
+    let y=y0+10;
+    if(sh.bank&&sh.bank.length){
+      rct(fr,HC,60,y,960,70,1,14);
+      txt(fr,"낱말 은행 ▸   "+sh.bank.join("      "),28,"Bold",AC,90,y+18,900);
+      y+=94;
+    }
+    const n=sh.items.length||1,ih=Math.floor((1140-y)/n);
+    sh.items.forEach(function(it,k){
+      const yy=y+k*ih;
+      ell(fr,AC,60,yy+4,44);txt(fr,String(k+1),24,"Bold",W_,60,yy+12,44,"CENTER");
+      txt(fr,it.q,34,"Regular",DARK,124,yy+6,896);
+    });
+  }else if(sh.type==="choseong"){
+    const n=sh.items.length||1,cols=2,rows_=Math.ceil(n/cols);
+    const bw=470,bh=Math.min(260,Math.floor(910/rows_)-16);
+    sh.items.forEach(function(it,k){
+      const x=60+(k%cols)*(bw+20),y=y0+12+Math.floor(k/cols)*(bh+16);
+      rct(fr,LGT,x,y,bw,bh,1,16);
+      srct(fr,AC,x,y,bw,bh,16,2);
+      txt(fr,String(k+1)+".  "+it.cs,42,"Bold",AC,x+24,y+18,bw-48);
+      if(it.hint)txt(fr,"힌트: "+it.hint,22,"Regular",GRAY,x+24,y+bh-92,bw-48);
+      rct(fr,DARK,x+24,y+bh-32,bw-48,3,0.35);
+    });
+  }else if(sh.type==="wordsearch"){
+    const g=sh.grid,G=g.length,S=sh.cellS;
+    const ox=60+Math.floor((960-S*G)/2),oy=y0+14;
+    for(let r=0;r<G;r++)for(let c=0;c<G;c++){
+      srct(fr,{r:0.76,g:0.79,b:0.87},ox+c*S,oy+r*S,S,S,0,1.5);
+      txt(fr,g[r][c],Math.floor(S*0.42),"Medium",DARK,ox+c*S,oy+r*S+Math.floor(S*0.2),S,"CENTER");
+    }
+    let wy=oy+G*S+30,wx=250;
+    txt(fr,"찾을 낱말 ▸",26,"Bold",AC,60,wy+2,180);
+    sh.words.forEach(function(w){
+      const pw=Array.from(w).length*28+46;
+      if(wx+pw>1020){wx=250;wy+=56;}
+      rct(fr,HC,wx,wy-4,pw,44,1,22);
+      txt(fr,w,24,"Bold",AC,wx,wy+4,pw,"CENTER");
+      wx+=pw+12;
+    });
+  }else if(sh.type==="writing"){
+    const n=sh.items.length||1,ih=Math.min(150,Math.floor(915/n));
+    sh.items.forEach(function(w,k){
+      const y=y0+12+k*ih;
+      rct(fr,LGT,60,y,960,ih-18,1,12);
+      txt(fr,w,36,"Regular",{r:0.62,g:0.66,b:0.82},84,y+Math.floor((ih-18)/2)-26,912);
+      rct(fr,DARK,84,y+ih-36,912,2,0.15);
+    });
+  }else if(sh.type==="bingo"){
+    const G=sh.bingoGrid,S=Math.floor(800/G);
+    const ox=60+Math.floor((960-S*G)/2),oy=y0+Math.floor((910-S*G)/2);
+    sh.words.forEach(function(w,k){
+      const r=Math.floor(k/G),c=k%G;
+      srct(fr,AC,ox+c*S,oy+r*S,S,S,0,2.5);
+      txt(fr,w,Math.min(30,Math.floor(S*0.18)),"Bold",DARK,ox+c*S+8,oy+r*S+Math.floor(S/2)-18,S-16,"CENTER");
+    });
+  }else if(sh.type==="oxquiz"){
+    const n=sh.items.length||1,ih=Math.floor(920/n);
+    sh.items.forEach(function(it,k){
+      const y=y0+8+k*ih;
+      ell(fr,AC,60,y+6,44);txt(fr,String(k+1),24,"Bold",W_,60,y+14,44,"CENTER");
+      txt(fr,it.q,32,"Regular",DARK,124,y+8,690);
+      sell(fr,AC,846,y,64,4);txt(fr,"O",34,"Bold",AC,846,y+12,64,"CENTER");
+      sell(fr,RED,936,y,64,4);txt(fr,"X",34,"Bold",RED,936,y+12,64,"CENTER");
+      if(k<n-1)rct(fr,GRAY,60,y+ih-8,960,1,0.35);
+    });
+  }else if(sh.type==="multichoice"){
+    const CN=["①","②","③","④","⑤"];
+    const n=sh.items.length||1,ih=Math.floor(920/n);
+    sh.items.forEach(function(it,k){
+      const y=y0+8+k*ih;
+      txt(fr,String(k+1)+".  "+it.q,32,"Bold",DARK,60,y,960);
+      const cw=Math.floor(930/Math.max(1,it.cs.length));
+      it.cs.forEach(function(c,j){
+        const x=60+j*cw;
+        rct(fr,LGT,x,y+58,cw-12,58,1,29);
+        srct(fr,AC,x,y+58,cw-12,58,29,1.5);
+        txt(fr,CN[j]+" "+c,25,"Regular",DARK,x+6,y+72,cw-24,"CENTER");
+      });
+    });
+  }else if(sh.type==="sequence"){
+    const n=sh.cards.length||1;
+    txt(fr,"이야기 순서대로 동그라미 안에 번호를 써 보세요!",24,"Bold",AC,60,y0,960);
+    const ih=Math.floor(880/n);
+    sh.cards.forEach(function(cd,k){
+      const y=y0+46+k*ih,bh=ih-18;
+      rct(fr,LGT,60,y,960,bh,1,16);
+      sell(fr,AC,86,y+Math.floor(bh/2)-30,60,3);
+      txt(fr,cd.text,30,"Regular",DARK,176,y+Math.floor(bh/2)-22,824);
+    });
+  }else if(sh.type==="matching"){
+    const n=sh.lefts.length||1,ih=Math.floor(920/n);
+    sh.lefts.forEach(function(l,k){
+      const y=y0+10+k*ih,bh=ih-26;
+      rct(fr,HC,60,y,400,bh,1,14);
+      txt(fr,(k+1)+". "+l,28,"Regular",DARK,82,y+Math.floor(bh/2)-20,362);
+      ell(fr,AC,472,y+Math.floor(bh/2)-8,16);
+    });
+    sh.rights.forEach(function(r,k){
+      const y=y0+10+k*ih,bh=ih-26;
+      rct(fr,LGT,620,y,400,bh,1,14);
+      txt(fr,sh.ab[k]+" "+r,28,"Regular",DARK,642,y+Math.floor(bh/2)-20,362);
+      ell(fr,AC,592,y+Math.floor(bh/2)-8,16);
+    });
+  }else if(sh.type==="emotion"){
+    const n=sh.items.length||1,ih=Math.floor(920/n);
+    sh.items.forEach(function(it,k){
+      const y=y0+8+k*ih;
+      rct(fr,HC,60,y,960,62,1,14);
+      txt(fr,(k+1)+". "+it.scene,28,"Regular",DARK,84,y+14,912);
+      const cw=Math.floor(930/Math.max(1,it.cs.length));
+      it.cs.forEach(function(c,j){
+        const x=60+j*cw;
+        rct(fr,LGT,x,y+80,cw-12,60,1,30);
+        srct(fr,AC,x,y+80,cw-12,60,30,1.5);
+        txt(fr,c,25,"Regular",DARK,x+6,y+95,cw-24,"CENTER");
+      });
+    });
+  }else if(sh.type==="nextstory"){
+    rct(fr,HC,60,y0+10,960,110,1,18);
+    txt(fr,"💭 "+sh.q,32,"Bold",AC,90,y0+42,900);
+    const gap=Math.floor(760/sh.lines);
+    for(let k=0;k<sh.lines;k++)rct(fr,DARK,60,y0+200+k*gap,960,3,0.2);
+  }else if(sh.type==="letter"){
+    txt(fr,"To. ______________",36,"Bold",DARK,60,y0+14,600);
+    if(sh.starters&&sh.starters.length)txt(fr,"✏️ 이렇게 시작해 보세요:  "+sh.starters.join("   /   "),22,"Regular",GRAY,60,y0+82,960);
+    const gap=Math.floor(660/sh.lines);
+    for(let k=0;k<sh.lines;k++)rct(fr,DARK,60,y0+150+k*gap,960,3,0.2);
+    txt(fr,"From. ______________",32,"Bold",DARK,620,y0+150+sh.lines*gap+20,400);
+  }else if(sh.type==="drawwrite"){
+    srct(fr,AC,60,y0+10,960,640,20,3);
+    txt(fr,"🖼️ "+sh.scene,26,"Regular",GRAY,90,y0+36,900,"CENTER");
+    for(let k=0;k<sh.lines;k++)rct(fr,DARK,60,y0+700+k*70,960,3,0.2);
+  }else if(sh.type==="coloring"){
+    srct(fr,AC,60,y0+10,960,790,20,3);
+    let s1="[ 색칠 도안 영역 ]";
+    if(sh.imageNote)s1+="\\n\\n"+sh.imageNote;
+    if(sh.elements&&sh.elements.length)s1+="\\n\\n포함 요소:\\n"+sh.elements.join("\\n");
+    txt(fr,s1,26,"Regular",{r:0.66,g:0.69,b:0.78},110,y0+220,860,"CENTER");
+  }else if(sh.type==="dotline"){
+    srct(fr,AC,60,y0+10,960,790,20,3);
+    let s2="[ 점선 잇기 도안 영역 ]";
+    if(sh.imageNote)s2+="\\n\\n"+sh.imageNote;
+    if(sh.elements&&sh.elements.length)s2+="\\n\\n그림 요소:\\n"+sh.elements.join("\\n");
+    txt(fr,s2,26,"Regular",{r:0.66,g:0.69,b:0.78},110,y0+220,860,"CENTER");
+  }else if(sh.type==="maze"){
+    const M=sh.maze;
+    M.walls.forEach(function(w){rct(fr,DARK,60+w[0],y0+w[1],w[2],w[3]);});
+    rct(fr,AC,60+M.ox-4,y0+M.oy-60,150,48,1,24);
+    txt(fr,"START ▼",22,"Bold",W_,60+M.ox-4,y0+M.oy-49,150,"CENTER");
+    rct(fr,RED,60+M.ox+M.S*M.G-146,y0+M.oy+M.S*M.G+14,150,48,1,24);
+    txt(fr,"▲ END",22,"Bold",W_,60+M.ox+M.S*M.G-146,y0+M.oy+M.S*M.G+25,150,"CENTER");
+  }
+  if(sh.answer)txt(fr,sh.answer,20,"Regular",{r:0.8,g:0.82,b:0.87},60,1160,960);
+  rct(fr,AC,60,1196,960,3,0.2);
+  txt(fr,META.nameLine,28,"Regular",{r:0.5,g:0.52,b:0.58},60,1216,960);
+  if(META.tip&&i===0)txt(fr,"💡 "+META.tip,18,"Regular",GRAY,60,1264,960);
+  txt(fr,"iQUVE 대화하는 동화책  ·  학습자료 무단 배포 금지",22,"Regular",GRAY,0,1306,W,"CENTER");
+}
+figma.viewport.scrollAndZoomIntoView(page.children);
+figma.notify("✅ "+META.typeName+" 활동지 "+SHEETS.length+"장 생성 완료!");
+})();`;
+
+// V2 초기화
+renderCatTabs();renderTypeGrid();initManualTypeSelect();
 
 // ══════════════════════════════
 // 직접작성 활동지 행 관리
@@ -1060,42 +1259,15 @@ function removeManualRow(idx){
 ['항목 1','항목 2','항목 3'].forEach(v=>addManualRow(v));
 
 // ══════════════════════════════
-// Gemini 직접 호출 (브라우저 → Gemini API)
-// Edge Function은 키 전달용으로만 사용
+// 프록시 호출
 // ══════════════════════════════
-// Gemini 키는 loadConfig에서 CFG.geminiKey로 이미 로드됨
-async function getGeminiKey(){
-  if(CFG.geminiKey) return CFG.geminiKey;
-  // 혹시 아직 로드 안 됐으면 다시 시도
-  await loadConfig();
-  if(CFG.geminiKey) return CFG.geminiKey;
-  throw new Error('Gemini API 키가 설정되지 않았어요. API 설정에서 키를 저장해주세요.');
-}
-
 async function callProxy(type,payload){
-  const key=await getGeminiKey();
-
-  if(type==='image'){
-    // Imagen API (유료 플랜 필요)
-    const res=await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${key}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}
-    );
-    return res.json();
-  }
-
-  // 텍스트 생성 - Gemini 직접 호출
-  const models=['gemini-2.5-flash'];
-  let lastRes=null;
-  for(const model of models){
-    const res=await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}
-    );
-    lastRes=await res.json();
-    if(res.ok) return lastRes;
-  }
-  return lastRes;
+  const res=await fetch(PROXY,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':`Bearer ${ANON_KEY}`},
+    body:JSON.stringify({type,payload}),
+  });
+  return res.json();
 }
 
 // ══════════════════════════════
@@ -1123,7 +1295,7 @@ function getFigmaKey(){
 }
 
 // ══════════════════════════════
-// 피그마 REST API 직접 생성
+// 피그마 내보내기
 // ══════════════════════════════
 async function exportToFigma(){
   await loadConfig();
@@ -1136,400 +1308,65 @@ async function exportToFigma(){
   document.getElementById('logBox').innerHTML='';
 
   try{
-    const pageName=document.getElementById('figmaPage').value||'콘텐츠';
-
-    if(currentMain==='card'){
-      await createCardInFigma(fileKey, pageName);
-    } else {
-      const isAI=document.querySelector('#tab-activity .sub-tab.active')?.textContent?.includes('AI');
-      await createActivityInFigma(fileKey, pageName, isAI);
+    const pageName=document.getElementById('figmaPage').value||'활동지';
+    let code='';
+    {
+      const isAI=document.querySelector('#tab-activity > .sub-tabs > .sub-tab.active')?.textContent?.includes('AI');
+      if(isAI){
+        if(!actData) throw new Error('먼저 ✨ AI로 활동지 내용을 생성해주세요.');
+        code=generateActivityCodeV2({
+          type:actData.type,title:actData.title,guide:actData.guide,tip:actData.tip,
+          items:(actData.items||[]).filter(Boolean),
+          age:document.getElementById('a-age').value,
+          lang:LANG_INFO[actLang],langKey:actLang,
+          level:document.getElementById('a-level').value,
+          count:parseInt(document.getElementById('a-count').value),
+          bookInfo:(bookTab==='book'&&selectedBook)?selectedBook.title:'',
+          imageNote:'',pageName
+        });
+      } else {
+        code=generateActivityCodeV2({
+          type:document.getElementById('am-type').value,
+          title:document.getElementById('am-title').value||'활동지',
+          guide:document.getElementById('am-guide').value||'함께 해봐요!',
+          tip:'',
+          items:manualRows.filter(Boolean),
+          age:document.getElementById('am-age').value,
+          lang:LANG_INFO[actLangManual],langKey:actLangManual,
+          level:'normal',count:1,bookInfo:'',
+          imageNote:document.getElementById('am-image').value||'',pageName
+        });
+      }
     }
 
-    log(`🎉 피그마 생성 완료!`,'ok');
-    document.getElementById('figmaLink').href=`https://www.figma.com/design/${fileKey}`;
-    setTimeout(()=>window.open(`https://www.figma.com/design/${fileKey}`,'_blank'), 800);
-
-  }catch(e){const em=e.message||JSON.stringify(e);log('오류: '+em,'err');alert('오류: '+em);}
+    await navigator.clipboard.writeText(code);
+    log('📋 피그마 플러그인 코드가 클립보드에 복사됐어요!','ok');
+    showFigmaModal(code,fileKey);
+  }catch(e){log('오류: '+e.message,'err');alert('오류: '+e.message);}
   finally{btn.innerHTML='🚀 피그마에 생성하기';btn.disabled=false;}
-}
-
-// ── Figma REST API 헬퍼 ──
-async function figmaPost(fileKey, nodes){
-  const res = await fetch(`https://api.figma.com/v1/files/${fileKey}/nodes`, {
-    method: 'POST',
-    headers: { 'X-Figma-Token': CFG.figmaToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify(nodes)
-  });
-  return res.json();
-}
-
-// Figma REST API로 프레임+텍스트 노드 생성
-async function createFigmaFrame(fileKey, pageId, frameName, x, y, w, h, fillColor){
-  const body = {
-    nodes: [{
-      type: 'FRAME',
-      name: frameName,
-      x, y, width: w, height: h,
-      fills: [{ type: 'SOLID', color: fillColor || {r:1,g:1,b:1} }],
-      parentId: pageId
-    }]
-  };
-  const res = await fetch(`https://api.figma.com/v1/files/${fileKey}/nodes`, {
-    method: 'POST',
-    headers: { 'X-Figma-Token': CFG.figmaToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return res.json();
-}
-
-// ── 카드뉴스 피그마 생성 ──
-async function createCardInFigma(fileKey, pageName){
-  if(!cardSlides.length){alert('슬라이드 내용을 먼저 입력해주세요.');return;}
-  log('피그마 파일 조회 중...','info');
-
-  const fileRes = await fetch(`https://api.figma.com/v1/files/${fileKey}?depth=1`,{
-    headers:{'X-Figma-Token':CFG.figmaToken}
-  });
-  const fileData = await fileRes.json();
-  if(fileData.err) throw new Error(fileData.err);
-  log(`파일 로드: ${fileData.name}`,'ok');
-
-  // 페이지 찾기 or 클립보드 코드로 폴백
-  log(`카드뉴스 ${cardSlides.length}장 생성 중...`,'info');
-  const code = generateCardCode(cardSlides, pageName);
-  await fallbackCopyCode(code, fileKey, pageName);
-}
-
-// ── 활동지 피그마 생성 ──
-async function createActivityInFigma(fileKey, pageName, isAI){
-  let params;
-  if(isAI){
-    const aiText=document.getElementById('a-ai-text').textContent;
-    if(!aiText){alert('먼저 AI로 활동지 내용을 생성해주세요.');return;}
-    params = {
-      type: actType,
-      aiText,
-      age: document.getElementById('a-age').value,
-      lang: LANG_INFO[actLang],
-      bookInfo: selectedBook ? `${selectedBook.title}` : '',
-      pageName
-    };
-    const code = generateActivityCode(params);
-    await fallbackCopyCode(code, fileKey, pageName);
-  } else {
-    const rows = manualRows.filter(Boolean);
-    params = {
-      type: document.getElementById('am-type').value,
-      age: document.getElementById('am-age').value,
-      title: document.getElementById('am-title').value||'활동지',
-      guide: document.getElementById('am-guide').value||'함께 해봐요!',
-      image: document.getElementById('am-image').value,
-      rows,
-      lang: LANG_INFO[actLangManual],
-      pageName
-    };
-    const code = generateActivityCodeManual(params);
-    await fallbackCopyCode(code, fileKey, pageName);
-  }
-}
-
-// 클립보드 + 모달 안내 (Plugin Console 대신 더 쉬운 방법 안내)
-async function fallbackCopyCode(code, fileKey, pageName){
-  try{ await navigator.clipboard.writeText(code); }catch(e){}
-  log('📋 피그마 실행 코드 준비 완료','ok');
-  showFigmaModal(code, fileKey);
-}
-
-// ══════════════════════════════
-// 피그마 코드 생성 - 카드뉴스
-// ══════════════════════════════
-function generateCardCode(slides,pageName){
-  const slideJson=JSON.stringify(slides.map(s=>({type:s.type,...s.data})));
-  return `// iQUVE 카드뉴스 자동 생성
-// Figma > Plugins > Development > Open Console 에서 실행
-(async()=>{
-const W=1080,H=1350;
-const slides=${slideJson};
-await figma.loadFontAsync({family:"Noto Sans KR",style:"Bold"});
-await figma.loadFontAsync({family:"Noto Sans KR",style:"Regular"});
-await figma.loadFontAsync({family:"Noto Sans KR",style:"Medium"});
-const INDIGO={r:61/255,g:79/255,b:215/255};
-const IL={r:168/255,g:180/255,b:255/255};
-const W_={r:1,g:1,b:1};
-const DARK={r:26/255,g:31/255,b:54/255};
-const YELLOW={r:250/255,g:180/255,b:0/255};
-let page=figma.root.children.find(p=>p.name==="${pageName}");
-if(!page){page=figma.createPage();page.name="${pageName}";}
-await figma.setCurrentPageAsync(page);
-function txt(p,s,sz,st,c,x,y,w,align){
-  if(!s)return;
-  const t=figma.createText();p.appendChild(t);
-  t.fontName={family:"Noto Sans KR",style:st||"Regular"};
-  t.characters=String(s);t.fontSize=sz;
-  t.fills=[{type:"SOLID",color:c}];
-  t.x=x;t.y=y;t.resize(w,sz+24);
-  t.textAutoResize="HEIGHT";
-  if(align)t.textAlignHorizontal=align;
-  return t;
-}
-function rct(p,c,x,y,w,h,op,r){
-  const rc=figma.createRectangle();p.appendChild(rc);
-  rc.fills=[{type:"SOLID",color:c,opacity:op??1}];
-  rc.x=x;rc.y=y;rc.resize(w,h);
-  if(r)rc.cornerRadius=r;return rc;
-}
-for(let i=0;i<slides.length;i++){
-  const s=slides[i];
-  const fr=figma.createFrame();page.appendChild(fr);
-  fr.name=String(i+1).padStart(2,'0')+"_"+s.type;
-  fr.resize(W,H);fr.x=i*(W+60);fr.y=0;fr.clipsContent=true;
-  if(s.type==="cover"){
-    fr.fills=[{type:"SOLID",color:INDIGO}];
-    const e=figma.createEllipse();fr.appendChild(e);
-    e.fills=[{type:"SOLID",color:W_,opacity:0.06}];e.resize(700,700);e.x=400;e.y=-100;
-    rct(fr,W_,60,60,140,44,0.15,22);
-    txt(fr,"iQUVE",22,"Bold",W_,82,72,100);
-    rct(fr,YELLOW,60,160,s.category?s.category.length*22+40:220,50,1,25);
-    txt(fr,s.category||"",24,"Bold",DARK,78,173,400);
-    txt(fr,s.title||"",84,"Bold",W_,60,256,960);
-    txt(fr,s.subtitle||"",40,"Regular",IL,60,510,960);
-    rct(fr,W_,60,640,100,5,0.25,3);
-    txt(fr,s.date||"iQUVE · 그로비교육",30,"Regular",{r:0.7,g:0.75,b:1},60,1285,700);
-    txt(fr,String(i+1).padStart(2,'0'),110,"Bold",W_,820,1190,220);
-  } else if(s.type==="body"){
-    fr.fills=[{type:"SOLID",color:W_}];
-    rct(fr,INDIGO,0,0,W,18);
-    txt(fr,String(i+1).padStart(2,'0'),56,"Bold",{r:0.92,g:0.93,b:0.98},900,44,140);
-    txt(fr,s.section_title||"",64,"Bold",DARK,60,78,960);
-    rct(fr,INDIGO,60,162,88,9,1,4);
-    rct(fr,{r:0.94,g:0.95,b:0.99},60,200,960,510,1,24);
-    txt(fr,s.image_note?"[ "+s.image_note+" ]":"[ 이미지 영역 ]",32,"Regular",{r:0.68,g:0.7,b:0.82},0,420,W,"CENTER");
-    txt(fr,s.body||"",38,"Regular",DARK,60,760,960);
-    rct(fr,INDIGO,60,1010,960,250,0.08,20);
-    txt(fr,s.point||"",36,"Regular",INDIGO,90,1050,900);
-    txt(fr,"iQUVE",24,"Regular",{r:0.7,g:0.72,b:0.8},60,1306,300);
-  } else if(s.type==="tip"){
-    fr.fills=[{type:"SOLID",color:W_}];
-    rct(fr,YELLOW,0,0,W,18);
-    rct(fr,{r:1,g:0.97,b:0.88},60,60,120,120,1,60);
-    txt(fr,s.tip_number||String(i),56,"Bold",{r:0.9,g:0.6,b:0.1},87,83,80,"CENTER");
-    txt(fr,s.tip_title||"",64,"Bold",DARK,60,220,960);
-    rct(fr,YELLOW,60,302,88,9,0.5,4);
-    txt(fr,s.tip_body||"",40,"Regular",DARK,60,340,960);
-  } else if(s.type==="closing"){
-    fr.fills=[{type:"SOLID",color:INDIGO}];
-    const e2=figma.createEllipse();fr.appendChild(e2);
-    e2.fills=[{type:"SOLID",color:W_,opacity:0.05}];e2.resize(600,600);e2.x=-150;e2.y=800;
-    rct(fr,W_,60,60,140,44,0.15,22);
-    txt(fr,"iQUVE",22,"Bold",W_,82,72,100);
-    txt(fr,s.closing||"감사해요!",94,"Bold",W_,60,340,960);
-    txt(fr,s.cta||"",40,"Medium",IL,60,700,960);
-    rct(fr,W_,60,810,520,104,1,52);
-    txt(fr,s.button_text||"",34,"Bold",INDIGO,100,836,360,"CENTER");
-    txt(fr,s.account||"",30,"Regular",{r:0.68,g:0.73,b:1},60,1274,700);
-  }
-}
-figma.viewport.scrollAndZoomIntoView(page.children);
-figma.notify("✅ 카드뉴스 "+slides.length+"장 생성 완료!");
-})();`;
-}
-
-// ══════════════════════════════
-// 피그마 코드 생성 - 활동지 AI
-// ══════════════════════════════
-function generateActivityCode({type,aiText,age,lang,bookInfo,pageName}){
-  const typeLabel={coloring:'색칠공부',maze:'미로찾기',writing:'따라쓰기',dotline:'점선잇기'}[type];
-  const colors={
-    coloring:{hc:'{r:1,g:0.96,b:0.86}',ac:'{r:0.95,g:0.6,b:0.1}'},
-    maze:    {hc:'{r:0.9,g:1,b:0.95}', ac:'{r:0.1,g:0.6,b:0.4}'},
-    writing: {hc:'{r:0.9,g:0.95,b:1}', ac:'{r:61/255,g:79/255,b:215/255}'},
-    dotline: {hc:'{r:0.95,g:0.9,b:1}', ac:'{r:0.5,g:0.2,b:0.8}'},
-  }[type]||{hc:'{r:0.94,g:0.95,b:0.99}',ac:'{r:61/255,g:79/255,b:215/255}'};
-  const safeAI=aiText.slice(0,300).replace(/`/g,"'").replace(/\\/g,"\\\\").replace(/\n/g,"\\n");
-
-  return `// iQUVE 활동지 자동 생성 — ${typeLabel} (${lang.name})
-// Figma > Plugins > Development > Open Console 에서 실행
-(async()=>{
-const W=1080,H=1350;
-await figma.loadFontAsync({family:"Noto Sans KR",style:"Bold"});
-await figma.loadFontAsync({family:"Noto Sans KR",style:"Regular"});
-const W_={r:1,g:1,b:1};
-const DARK={r:26/255,g:31/255,b:54/255};
-const GRAY={r:0.68,g:0.7,b:0.74};
-const AC=${colors.ac};
-const HC=${colors.hc};
-let page=figma.root.children.find(p=>p.name==="${pageName}");
-if(!page){page=figma.createPage();page.name="${pageName}";}
-await figma.setCurrentPageAsync(page);
-function txt(p,s,sz,st,c,x,y,w,align){
-  if(!s)return;
-  const t=figma.createText();p.appendChild(t);
-  t.fontName={family:"Noto Sans KR",style:st||"Regular"};
-  t.characters=String(s);t.fontSize=sz;
-  t.fills=[{type:"SOLID",color:c}];
-  t.x=x;t.y=y;t.resize(w,sz+24);
-  t.textAutoResize="HEIGHT";
-  if(align)t.textAlignHorizontal=align;
-}
-function rct(p,c,x,y,w,h,op,r){
-  const rc=figma.createRectangle();p.appendChild(rc);
-  rc.fills=[{type:"SOLID",color:c,opacity:op??1}];
-  rc.x=x;rc.y=y;rc.resize(w,h);
-  if(r)rc.cornerRadius=r;return rc;
-}
-const n=page.children.length;
-const fr=figma.createFrame();
-page.appendChild(fr);
-fr.name="${typeLabel}_${lang.flag||lang.name}_${age}세";
-fr.resize(W,H);fr.x=n*(W+60);fr.y=0;
-fr.fills=[{type:"SOLID",color:W_}];fr.clipsContent=true;
-// 헤더
-rct(fr,HC,0,0,W,215);
-txt(fr,"${typeLabel} ${lang.flag||''}",68,"Bold",AC,60,54,700);
-${bookInfo?`txt(fr,"📖 ${bookInfo}",30,"Regular",DARK,60,148,700);`:''}
-txt(fr,"${age}세",32,"Bold",W_,62,160,80);
-rct(fr,AC,856,68,184,54,1,27);
-txt(fr,"${lang.flag||''} ${age}세+",28,"Bold",W_,870,82,164,"CENTER");
-// 메인 콘텐츠 영역
-rct(fr,{r:0.98,g:0.98,b:0.98},60,244,960,860,1,24);
-const border=figma.createRectangle();
-fr.appendChild(border);border.resize(960,860);border.x=60;border.y=244;
-border.fills=[];border.strokes=[{type:"SOLID",color:AC,opacity:0.3}];
-border.strokeWeight=3;border.cornerRadius=24;
-txt(fr,"[ ${typeLabel} 도안/콘텐츠 영역 ]\\n\\nAI 생성 내용 참고:\\n${safeAI}",28,"Regular",{r:0.62,g:0.65,b:0.72},100,540,860,"CENTER");
-${type==='maze'?`
-rct(fr,AC,60,252,150,56,1,28);
-txt(fr,"START",26,"Bold",W_,72,266,126,"CENTER");
-rct(fr,{r:0.9,g:0.2,b:0.2},870,252,150,56,1,28);
-txt(fr,"END",26,"Bold",W_,882,266,126,"CENTER");`:''}
-${type==='writing'?`
-[310,430,550,670,790].forEach((y,i)=>{
-  rct(fr,{r:0.94,g:0.96,b:1},60,y,960,84,1,12);
-  txt(fr,"따라쓰기 "+(i+1),28,"Regular",{r:0.72,g:0.75,b:0.9},80,y+26,920);
-});`:''}
-// 하단
-rct(fr,AC,60,1145,960,3,0.2);
-txt(fr,"${lang.instruction==='Please write in English'?'Name':'이름'}: _____________    Date: _____________",30,"Regular",{r:0.5,g:0.52,b:0.58},60,1168,960);
-txt(fr,"iQUVE 대화하는 동화책  ·  학습자료 무단 배포 금지",24,"Regular",GRAY,0,1302,W,"CENTER");
-figma.viewport.scrollAndZoomIntoView([fr]);
-figma.notify("✅ ${typeLabel} 활동지 생성 완료!");
-})();`;
-}
-
-// ══════════════════════════════
-// 피그마 코드 생성 - 활동지 직접작성
-// ══════════════════════════════
-function generateActivityCodeManual({type,age,title,guide,image,rows,lang,pageName}){
-  const typeLabel={coloring:'색칠공부',maze:'미로찾기',writing:'따라쓰기',dotline:'점선잇기'}[type];
-  const safeRows=JSON.stringify(rows.filter(Boolean).map(r=>r.slice(0,50)));
-  const safeImg=(image||'도안 영역').slice(0,100).replace(/`/g,"'");
-
-  return `// iQUVE 활동지 직접작성 — ${typeLabel} (${lang.name})
-// Figma > Plugins > Development > Open Console 에서 실행
-(async()=>{
-const W=1080,H=1350;
-await figma.loadFontAsync({family:"Noto Sans KR",style:"Bold"});
-await figma.loadFontAsync({family:"Noto Sans KR",style:"Regular"});
-const W_={r:1,g:1,b:1};
-const DARK={r:26/255,g:31/255,b:54/255};
-const GRAY={r:0.68,g:0.7,b:0.74};
-const INDIGO={r:61/255,g:79/255,b:215/255};
-let page=figma.root.children.find(p=>p.name==="${pageName}");
-if(!page){page=figma.createPage();page.name="${pageName}";}
-await figma.setCurrentPageAsync(page);
-function txt(p,s,sz,st,c,x,y,w,align){
-  if(!s)return;
-  const t=figma.createText();p.appendChild(t);
-  t.fontName={family:"Noto Sans KR",style:st||"Regular"};
-  t.characters=String(s);t.fontSize=sz;
-  t.fills=[{type:"SOLID",color:c}];
-  t.x=x;t.y=y;t.resize(w,sz+24);
-  t.textAutoResize="HEIGHT";
-  if(align)t.textAlignHorizontal=align;
-}
-function rct(p,c,x,y,w,h,op,r){
-  const rc=figma.createRectangle();p.appendChild(rc);
-  rc.fills=[{type:"SOLID",color:c,opacity:op??1}];
-  rc.x=x;rc.y=y;rc.resize(w,h);
-  if(r)rc.cornerRadius=r;return rc;
-}
-const n=page.children.length;
-const fr=figma.createFrame();
-page.appendChild(fr);
-fr.name="${title||typeLabel}_${lang.flag||lang.name}";
-fr.resize(W,H);fr.x=n*(W+60);fr.y=0;
-fr.fills=[{type:"SOLID",color:W_}];fr.clipsContent=true;
-rct(fr,{r:0.9,g:0.95,b:1},0,0,W,215);
-txt(fr,"${title||typeLabel}",64,"Bold",INDIGO,60,54,900);
-txt(fr,"${age}세 · ${lang.name}",32,"Regular",DARK,60,148,500);
-rct(fr,INDIGO,856,68,184,54,1,27);
-txt(fr,"${lang.flag||''} ${age}세+",28,"Bold",W_,870,82,164,"CENTER");
-rct(fr,{r:0.98,g:0.98,b:0.98},60,244,960,${type==='writing'?650:840},1,24);
-const border=figma.createRectangle();
-fr.appendChild(border);border.resize(960,${type==='writing'?650:840});border.x=60;border.y=244;
-border.fills=[];border.strokes=[{type:"SOLID",color:INDIGO,opacity:0.3}];
-border.strokeWeight=3;border.cornerRadius=24;
-txt(fr,"[ ${safeImg} ]",30,"Regular",{r:0.65,g:0.68,b:0.78},80,${type==='writing'?310:580},900,"CENTER");
-${type==='writing'?`
-const rows=${safeRows};
-rows.forEach((row,i)=>{
-  rct(fr,{r:0.94,g:0.96,b:1},60,920+i*90,960,72,1,10);
-  txt(fr,row,36,"Regular",{r:0.55,g:0.6,b:0.78},80,938+i*90,920);
-});`:''}
-txt(fr,"${guide||'함께 해봐요!'}",34,"Regular",DARK,60,1140,960,"CENTER");
-rct(fr,INDIGO,60,1196,960,3,0.2);
-txt(fr,"이름: _____________    날짜: _____________",30,"Regular",{r:0.5,g:0.52,b:0.58},60,1215,960);
-txt(fr,"iQUVE 대화하는 동화책  ·  학습자료 무단 배포 금지",24,"Regular",GRAY,0,1302,W,"CENTER");
-figma.viewport.scrollAndZoomIntoView([fr]);
-figma.notify("✅ ${typeLabel} 활동지 생성 완료!");
-})();`;
 }
 
 // ══════════════════════════════
 // 피그마 가이드 모달
 // ══════════════════════════════
 function showFigmaModal(code,fileKey){
-  // JS 파일로 다운로드 → 피그마 콘솔에서 파일 드래그 방식
-  const blob = new Blob([code], {type:'text/javascript'});
-  const url = URL.createObjectURL(blob);
-
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+  const safeCode=code.replace(/</g,'&lt;').replace(/>/g,'&gt;');
   modal.innerHTML=`
-    <div style="background:white;border-radius:20px;padding:32px;max-width:580px;width:100%;max-height:88vh;overflow-y:auto;">
-      <h2 style="font-size:20px;font-weight:900;margin-bottom:6px;">🎨 피그마에 생성하기</h2>
-      <p style="font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.6;">콘솔 Ctrl+V가 안 되면 아래 <b>방법 2</b>를 사용하세요.</p>
-
-      <div style="background:#eef0fd;border-radius:12px;padding:16px;margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:800;color:#3d4fd7;margin-bottom:10px;">✅ 방법 1 — 콘솔 직접 입력 (빠름)</div>
-        <ol style="font-size:13px;line-height:2;color:#1a1f36;padding-left:18px;margin:0;">
-          <li>피그마 파일 열기</li>
-          <li>메뉴 → <b>Plugins → Development → Open Console</b></li>
-          <li>콘솔창 클릭 후 <b>allow pasting</b> 타이핑 → Enter</li>
-          <li>다시 클릭 후 <b>Ctrl+V</b> 붙여넣기 → Enter</li>
-        </ol>
-      </div>
-
-      <div style="background:#f0fdf4;border-radius:12px;padding:16px;margin-bottom:16px;">
-        <div style="font-size:13px;font-weight:800;color:#065f46;margin-bottom:10px;">📁 방법 2 — JS 파일 다운로드 후 실행 (확실함)</div>
-        <ol style="font-size:13px;line-height:2;color:#1a1f36;padding-left:18px;margin:0;">
-          <li>아래 <b>JS 파일 다운로드</b> 버튼 클릭</li>
-          <li>피그마 파일 열기 → Plugins → Development → Open Console</li>
-          <li>콘솔창에 아래 한 줄 직접 타이핑:<br>
-            <code style="background:#0f172a;color:#4ade80;padding:4px 10px;border-radius:6px;font-size:12px;display:inline-block;margin-top:4px;">
-              await import('파일경로')
-            </code>
-          </li>
-        </ol>
-        <a id="dlCodeBtn" href="${url}" download="iquve_figma_code.js"
-           style="display:block;margin-top:12px;padding:11px;background:#10b981;color:white;border-radius:9px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;">
-          📥 JS 파일 다운로드
-        </a>
-      </div>
-
+    <div style="background:white;border-radius:20px;padding:32px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;">
+      <h2 style="font-size:20px;font-weight:900;margin-bottom:8px;">🎨 피그마에 붙여넣기</h2>
+      <p style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.7;">코드가 클립보드에 복사됐어요!<br>아래 순서대로 피그마에서 실행해주세요.</p>
+      <ol style="font-size:14px;line-height:2.2;color:#1a1f36;padding-left:20px;margin-bottom:20px;">
+        <li>아래 <b>피그마 파일 열기</b> 클릭</li>
+        <li>메뉴 → <b>Plugins → Development → Open Console</b></li>
+        <li>콘솔창에 복사된 코드 붙여넣기 <b>(Ctrl+V / Cmd+V)</b></li>
+        <li>Enter 실행 → 프레임 자동 생성!</li>
+      </ol>
+      <div style="background:#0f172a;border-radius:10px;padding:14px;font-size:11px;font-family:monospace;color:#94a3b8;max-height:140px;overflow-y:auto;margin-bottom:20px;white-space:pre-wrap;">${safeCode.slice(0,400)}...</div>
       <div style="display:flex;gap:10px;margin-bottom:10px;">
-        <button id="copyAgainBtn" style="flex:1;padding:12px;background:#3d4fd7;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">📋 코드 복사</button>
-        <a href="https://www.figma.com/design/${fileKey}" target="_blank" style="flex:1;padding:12px;background:#eef0fd;color:#3d4fd7;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">🔗 피그마 열기</a>
+        <button id="copyAgainBtn" style="flex:1;padding:13px;background:#3d4fd7;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">📋 코드 다시 복사</button>
+        <a href="https://www.figma.com/design/${fileKey}" target="_blank" style="flex:1;padding:13px;background:#eef0fd;color:#3d4fd7;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">🔗 피그마 열기</a>
       </div>
       <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;padding:11px;background:none;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#64748b;cursor:pointer;font-family:inherit;">닫기</button>
     </div>`;
@@ -1537,7 +1374,7 @@ function showFigmaModal(code,fileKey){
   modal.querySelector('#copyAgainBtn').onclick=()=>{
     navigator.clipboard.writeText(code);
     modal.querySelector('#copyAgainBtn').textContent='✅ 복사됨!';
-    setTimeout(()=>modal.querySelector('#copyAgainBtn').textContent='📋 코드 복사',2000);
+    setTimeout(()=>modal.querySelector('#copyAgainBtn').textContent='📋 코드 다시 복사',2000);
   };
 }
 </script>
