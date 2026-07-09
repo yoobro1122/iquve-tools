@@ -161,7 +161,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-09-3</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-09-5</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -362,7 +362,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-09-3';
+const BUILD_VERSION='v2026-07-09-5';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
@@ -631,9 +631,13 @@ const ACT_TYPES={
 const ACT_TYPES_YOUNG={
   counting:  {cat:'young',name:'숫자 세기',   icon:'🔢', desc:'그림 개수 세고 숫자 고르기',   fmt:'사물/동물 이름 하나(예: 토끼)'},
   linematch: {cat:'young',name:'줄긋기',      icon:'🔗', desc:'같은 그림끼리 선 잇기',        fmt:'사물/동물 이름 하나(예: 나비)'},
-  inipick:   {cat:'young',name:'초성 찾기',   icon:'🅰️', desc:'그림 보고 첫 글자 고르기',     fmt:'사물/동물 이름 하나(예: 사과)'},
-  iniwrite:  {cat:'young',name:'초성 써보기', icon:'✏️', desc:'그림 보고 첫 글자 따라쓰기',   fmt:'사물/동물 이름 하나(예: 나무)'},
+  inipick:   {cat:'young',name:'초성 찾기',   icon:'🅰️', desc:'그림+초성 힌트로 낱말 맞히기', fmt:'사물/동물 이름 하나(예: 공룡→ㄱㄹ 힌트로 표시)'},
+  iniwrite:  {cat:'young',name:'초성 써보기', icon:'✏️', desc:'낱말 읽고 초성 따라쓰기',     fmt:'사물/동물 이름 하나(예: 나무)'},
+  feelmatch: {cat:'young',name:'감정 맞히기', icon:'😊', desc:'같은 주인공의 표정으로 감정 배우기', fmt:'주인공 이름 하나(예: 토끼)'},
+  sortgroup: {cat:'young',name:'분류하기',    icon:'🗂️', desc:'그림을 두 그룹으로 나누기',   fmt:'자동: 그룹 기준 + 사물 이름들'},
+  iconmatch: {cat:'young',name:'그림 매칭',   icon:'🔀', desc:'서로 관련된 그림끼리 선 잇기', fmt:'왼쪽 이름 | 오른쪽 이름 (예: 소 | 우유)'},
 };
+const EMOTION_POOL=['기뻐요','슬퍼요','화나요','무서워요','놀랐어요','졸려요'];
 const DIFF_PARAMS={
   fillblank:  {easy:{n:3,bank:true}, normal:{n:4,bank:true}, hard:{n:6,bank:true}},
   choseong:   {easy:{n:3,hint:true},normal:{n:4,hint:true},hard:{n:6,hint:true}},
@@ -653,8 +657,11 @@ const DIFF_PARAMS={
   dotline:    {easy:{dots:8},       normal:{dots:10},      hard:{dots:16}},
   counting:   {easy:{items:3,maxN:3}, normal:{items:4,maxN:5}, hard:{items:4,maxN:6}},
   linematch:  {easy:{items:3},        normal:{items:4},        hard:{items:5}},
-  inipick:    {easy:{items:3,c:2},    normal:{items:4,c:2},    hard:{items:4,c:3}},
+  inipick:    {easy:{items:3},       normal:{items:4},        hard:{items:4}},
   iniwrite:   {easy:{items:3,rows:4}, normal:{items:4,rows:5}, hard:{items:4,rows:6}},
+  feelmatch:  {easy:{n:2},           normal:{n:3},            hard:{n:4}},
+  sortgroup:  {easy:{n:4},           normal:{n:6},            hard:{n:8}},
+  iconmatch:  {easy:{n:2},           normal:{n:3},            hard:{n:4}},
 };
 const CAT_COLORS={
   lang:  {ac:{r:0.24,g:0.31,b:0.84},hc:{r:0.93,g:0.94,b:0.99}},
@@ -744,6 +751,9 @@ function perSheetN(type,p){
     case 'linematch':return p.items||4;
     case 'inipick':return p.items||4;
     case 'iniwrite':return p.items||4;
+    case 'feelmatch':return 1;
+    case 'sortgroup':return (p.n||6)+1; // +1 = 그룹 라벨 항목
+    case 'iconmatch':return p.n||3;
     default:return p.n||6;
   }
 }
@@ -836,6 +846,9 @@ const ITEM_SPECS={
   linematch:(p,n)=>'items: 줄긋기로 짝지을 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상). 형식: "이름" 하나만(예: "나비", "꽃"). 4~6세 아이가 아는 쉬운 낱말로.',
   inipick:(p,n)=>'items: 초성 찾기에 쓸 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 두 글자 이상 낱말). 형식: "이름" 하나만(예: "사과", "고양이"). 4~6세 아이가 아는 쉬운 낱말로.',
   iniwrite:(p,n)=>'items: 초성 따라쓰기에 쓸 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 두 글자 이상 낱말). 형식: "이름" 하나만(예: "나무", "구름"). 4~6세 아이가 아는 쉬운 낱말로.',
+  feelmatch:(p,n)=>'items: 이 활동지의 주인공이 될 동물/캐릭터 이름 1개. 형식: "이름" 하나만(예: "토끼", "곰"). 표정을 다양하게 지을 수 있는 친근한 동물로.',
+  sortgroup:(p,n)=>'items: 총 '+n+'개의 문자열. 첫 번째 항목은 반드시 "그룹A 라벨 | 그룹B 라벨" 형식(예: "과일 | 채소", "하늘에 사는 동물 | 물에 사는 동물")으로 이 활동의 분류 기준 두 가지를 정하세요. 그 다음 '+(n-1)+'개 항목은 "사물/동물 이름 | 그룹번호(1 또는 2)" 형식으로, 각각 어느 그룹에 속하는지 정확하게 표시하세요. 두 그룹에 각각 최소 1개 이상 섞어서 배치하고, 4~6세 아이가 명확히 구분할 수 있는 쉬운 기준으로 정하세요.',
+  iconmatch:(p,n)=>'items: 서로 관련있는 두 사물/동물을 짝지은 쌍 '+n+'개. 형식: "왼쪽 이름 | 오른쪽 이름" (예: "소 | 우유", "닭 | 달걀", "벌 | 꿀"). 왼쪽과 오른쪽은 서로 다른 사물이어야 하고, 4~6세 아이가 관계를 이해할 수 있는 쉬운 짝으로.',
 };
 
 function buildActPrompt(){
@@ -916,6 +929,14 @@ function getChoseong(word){
   if(code<0||code>11171)return c; // 완성형 한글 음절이 아니면 첫 글자 그대로 반환
   return CHOSEONG_LIST[Math.floor(code/(21*28))]||c;
 }
+// 단어 전체 음절의 초성을 이어붙임 (예: "공룡"→"ㄱㄹ", "사과"→"ㅅㄱ")
+function getChoseongAll(word){
+  return String(word||'').trim().split('').map(function(c){
+    const code=c.charCodeAt(0)-0xAC00;
+    if(code<0||code>11171)return c;
+    return CHOSEONG_LIST[Math.floor(code/(21*28))]||c;
+  }).join('');
+}
 function pickWrongChoseong(correct,count){
   const pool=CHOSEONG_LIST.filter(c=>c!==correct);
   const shuffled=shuffleArr(pool);
@@ -925,7 +946,16 @@ function pickWrongChoseong(correct,count){
 // ══════════════════════════════
 // 4~6세용 사물 아이콘 생성 (숫자세기/줄긋기/초성 유형 공용)
 // ══════════════════════════════
-const ICON_ITEM_TYPES=new Set(['counting','linematch','inipick','iniwrite']);
+const ICON_ITEM_TYPES=new Set(['counting','linematch','inipick','iniwrite','sortgroup','iconmatch']);
+const FEEL_TYPES=new Set(['feelmatch']);
+
+// 유형별로 items 원문 문자열에서 "실제 아이콘으로 그릴 이름"만 추출
+function extractIconNames(type,items){
+  const arr=items||[];
+  if(type==='sortgroup')return arr.slice(1).map(s=>splitBar(s)[0]).filter(Boolean);
+  if(type==='iconmatch')return arr.flatMap(s=>splitBar(s)).filter(Boolean);
+  return arr.map(s=>splitBar(s)[0]).filter(Boolean);
+}
 
 function buildIconPrompt(name,age){
   return '### 스티커 아이콘 — '+name+'\n'
@@ -953,6 +983,35 @@ async function genIcons(names,age,onProgress){
       const inline=imgPart?.inlineData||imgPart?.inline_data;
       icons[uniq[i]]=inline?.data||null;
     }catch(e){console.warn('아이콘 생성 실패('+uniq[i]+'):',e);icons[uniq[i]]=null;}
+  }
+  return icons;
+}
+
+// ── 감정 맞히기 전용: 같은 주인공의 표정 변형 아이콘 ──
+function buildEmotionIconPrompt(subject,emotion,age){
+  return '### 스티커 아이콘 — '+subject+' ('+emotion+')\n'
+    +'> 대상 연령: '+age+'세\n\n'
+    +'<Style>Cute, simple, flat vector clip-art sticker illustration for a young children\'s learning app. Bright, cheerful, saturated pastel colors. Bold, clean, rounded outlines. Centered single subject, isolated on a plain solid white background. No shadow, no background scenery, no text, no watermark, no extra objects in frame.</Style>\n'
+    +'<Subject>A close-up face/head portrait of one single '+subject+', showing a clear, exaggerated, easy-to-read facial expression of feeling "'+emotion+'". Same character design and art style as other expression variants of this subject — only the facial expression changes.</Subject>\n'
+    +'<Lighting>Flat, even lighting. No gradients, no shadows.</Lighting>\n'
+    +'<Mood>Expressive, clear, exaggerated emotion that a young child can easily recognize at a glance.</Mood>\n'
+    +'--ar 1:1\n\n'
+    +'💡 생성 팁: 표정이 잘 안 드러나면 "extremely exaggerated obvious facial expression, close-up face only"를 강조해서 재시도하세요.';
+}
+async function genFeelIcons(subject,emotions,age,onProgress){
+  const icons={};
+  for(let i=0;i<emotions.length;i++){
+    if(onProgress)onProgress(i+1,emotions.length,emotions[i]);
+    try{
+      const prompt=extractImagePromptBody(buildEmotionIconPrompt(subject,emotions[i],age));
+      const data=await callProxy('image',{contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:['TEXT','IMAGE']}});
+      console.log('[iQUVE] 감정 아이콘 생성 원본 응답 ('+emotions[i]+'):',data);
+      if(data.error){console.warn('감정 아이콘 생성 실패('+emotions[i]+'):',data.error);icons[emotions[i]]=null;continue;}
+      const parts=data.candidates?.[0]?.content?.parts||[];
+      const imgPart=parts.find(p=>p.inlineData||p.inline_data);
+      const inline=imgPart?.inlineData||imgPart?.inline_data;
+      icons[emotions[i]]=inline?.data||null;
+    }catch(e){console.warn('감정 아이콘 생성 실패('+emotions[i]+'):',e);icons[emotions[i]]=null;}
   }
   return icons;
 }
@@ -1108,7 +1167,8 @@ async function genActivityAI(){
       }else{
         const age=currentAgeValue();
         try{
-          actData.icons=await genIcons(actData.items,age,(i,n,name)=>{
+          const iconNames=extractIconNames(actType,actData.items);
+          actData.icons=await genIcons(iconNames,age,(i,n,name)=>{
             btn.innerHTML='<div class="spinner"></div> 그림 아이콘 생성 중 ('+i+'/'+n+': '+name+')...';
           });
           const vals=Object.values(actData.icons);
@@ -1118,6 +1178,30 @@ async function genActivityAI(){
         }catch(e){
           console.warn('아이콘 생성 중 오류:',e);
           alert('내용은 생성됐지만 그림 아이콘 생성 중 오류가 났어요: '+e.message);
+        }
+      }
+    }
+    if(FEEL_TYPES.has(actType)){
+      if(!CFG.geminiKey){
+        console.warn('감정 아이콘 생성 건너뜀: Gemini API 키 없음');
+      }else{
+        const age=currentAgeValue();
+        const level=document.getElementById('a-level').value;
+        const p=DIFF_PARAMS.feelmatch[level]||DIFF_PARAMS.feelmatch.normal;
+        const subject=actData.items[0]||'토끼';
+        const emotions=EMOTION_POOL.slice(0,p.n||3);
+        actData.emotions=emotions;
+        try{
+          actData.icons=await genFeelIcons(subject,emotions,age,(i,n,em)=>{
+            btn.innerHTML='<div class="spinner"></div> 감정 아이콘 생성 중 ('+i+'/'+n+': '+em+')...';
+          });
+          const vals=Object.values(actData.icons);
+          if(vals.length&&vals.every(x=>!x)){
+            alert('내용은 생성됐지만 감정 아이콘은 자동으로 만들지 못했어요. (이미지 모델/키를 확인해주세요)');
+          }
+        }catch(e){
+          console.warn('감정 아이콘 생성 중 오류:',e);
+          alert('내용은 생성됐지만 감정 아이콘 생성 중 오류가 났어요: '+e.message);
         }
       }
     }
@@ -1235,7 +1319,7 @@ function renderActPreview(){
     const thumbs=document.createElement('div');
     thumbs.style.cssText='display:flex;gap:8px;flex-wrap:wrap;';
     const iconMap=actData.icons||{};
-    const names=[...new Set((actData.items||[]).filter(Boolean))];
+    const names=[...new Set(extractIconNames(actData.type,actData.items||[]))];
     if(names.length){
       names.forEach(name=>{
         const b64=iconMap[name];
@@ -1267,7 +1351,8 @@ function renderActPreview(){
       const age=currentAgeValue();
       regenBtn.disabled=true;
       try{
-        actData.icons=await genIcons(actData.items,age,(i,n,name)=>{
+        const iconNames=extractIconNames(actData.type,actData.items);
+        actData.icons=await genIcons(iconNames,age,(i,n,name)=>{
           regenBtn.textContent='생성 중 ('+i+'/'+n+': '+name+')...';
         });
       }catch(e){alert('아이콘 재생성 실패: '+e.message);}
@@ -1276,6 +1361,57 @@ function renderActPreview(){
     };
     iconSection.appendChild(regenBtn);
     box.appendChild(iconSection);
+  }
+  if(FEEL_TYPES.has(actData.type)){
+    const feelSection=document.createElement('div');
+    feelSection.style.cssText='display:flex;flex-direction:column;gap:8px;';
+    const flabel=document.createElement('div');flabel.className='act-section-title';
+    flabel.textContent='😊 생성된 감정 아이콘 ('+(actData.items[0]||'')+')';
+    feelSection.appendChild(flabel);
+    const fthumbs=document.createElement('div');
+    fthumbs.style.cssText='display:flex;gap:8px;flex-wrap:wrap;';
+    const femotions=actData.emotions||[];
+    const ficonMap=actData.icons||{};
+    if(femotions.length){
+      femotions.forEach(em=>{
+        const b64=ficonMap[em];
+        const cell=document.createElement('div');cell.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
+        if(b64){
+          const im=document.createElement('img');
+          im.src='data:image/png;base64,'+b64;
+          im.style.cssText='width:90px;height:90px;object-fit:contain;border:1px solid var(--border);border-radius:10px;background:white;';
+          cell.appendChild(im);
+        }else{
+          const bad=document.createElement('div');
+          bad.style.cssText='width:90px;height:90px;border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gray);';
+          bad.textContent='생성 실패';
+          cell.appendChild(bad);
+        }
+        const cap=document.createElement('span');cap.style.cssText='font-size:11px;color:var(--gray);';cap.textContent=em;
+        cell.appendChild(cap);
+        fthumbs.appendChild(cell);
+      });
+    }else{
+      const none=document.createElement('p');none.className='hint';none.textContent='아직 생성된 아이콘이 없어요.';
+      fthumbs.appendChild(none);
+    }
+    feelSection.appendChild(fthumbs);
+    const fRegenBtn=document.createElement('button');
+    fRegenBtn.className='add-row-mini';fRegenBtn.textContent='🔄 감정 아이콘 다시 생성';
+    fRegenBtn.onclick=async()=>{
+      if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
+      const age=currentAgeValue();
+      fRegenBtn.disabled=true;
+      try{
+        actData.icons=await genFeelIcons(actData.items[0]||'토끼',femotions,age,(i,n,em)=>{
+          fRegenBtn.textContent='생성 중 ('+i+'/'+n+': '+em+')...';
+        });
+      }catch(e){alert('아이콘 재생성 실패: '+e.message);}
+      fRegenBtn.disabled=false;fRegenBtn.textContent='🔄 감정 아이콘 다시 생성';
+      renderActPreview();
+    };
+    feelSection.appendChild(fRegenBtn);
+    box.appendChild(feelSection);
   }
   const st=document.createElement('div');st.className='act-section-title';
   st.innerHTML='📝 항목 <span style="font-size:11px;font-weight:400;color:var(--gray);">형식: '+t.fmt+'</span>';
@@ -1388,20 +1524,41 @@ function buildSheet(o,p,ch,idx){
       return {name,icon:(o.icons&&o.icons[name])||null};
     });
   }else if(t==='inipick'){
-    const c=p.c||2;
     sh.items=ch.map(s=>{
       const name=splitBar(s)[0];
-      const correct=getChoseong(name);
-      const choices=shuffleArr([correct,...pickWrongChoseong(correct,c-1)]);
-      return {name,correct,choices,icon:(o.icons&&o.icons[name])||null};
+      const correct=getChoseongAll(name);
+      return {name,correct,icon:(o.icons&&o.icons[name])||null};
     });
-    sh.answer='정답: '+sh.items.map((i,k)=>(k+1)+'.'+i.correct).join('  ');
+    sh.answer='정답: '+sh.items.map((i,k)=>(k+1)+'.'+i.name).join('  ');
   }else if(t==='iniwrite'){
     const rows=p.rows||5;
     sh.items=ch.map(s=>{
       const name=splitBar(s)[0];
-      return {name,correct:getChoseong(name),rows,icon:(o.icons&&o.icons[name])||null};
+      return {name,word:name,correct:getChoseongAll(name),rows,icon:(o.icons&&o.icons[name])||null};
     });
+  }else if(t==='feelmatch'){
+    const subject=ch[0]?splitBar(ch[0])[0]:'토끼';
+    const emotions=(o.emotions&&o.emotions.length)?o.emotions:EMOTION_POOL.slice(0,p.n||3);
+    sh.subject=subject;
+    sh.items=emotions.map(em=>({label:em,icon:(o.icons&&o.icons[em])||null}));
+  }else if(t==='sortgroup'){
+    const labelParts=ch[0]?splitBar(ch[0]):['그룹A','그룹B'];
+    const groupA=labelParts[0]||'그룹A',groupB=labelParts[1]||'그룹B';
+    const real=ch.slice(1).map(s=>{
+      const parts=splitBar(s);
+      const name=parts[0];
+      const group=String(parts[1]||'1').trim()==='2'?2:1;
+      return {name,group,icon:(o.icons&&o.icons[name])||null};
+    });
+    sh.groupA=groupA;sh.groupB=groupB;sh.items=real;
+    sh.answer='정답: '+real.map((it,k)=>(k+1)+'.'+it.name+'→'+(it.group===1?groupA:groupB)).join('  ');
+  }else if(t==='iconmatch'){
+    const pairs=ch.map(s=>{const parts=splitBar(s);return {left:parts[0],right:parts[1]||parts[0]};});
+    const order=shuffleArr(pairs.map((_,i)=>i));
+    const AB2='ⓐⓑⓒⓓⓔⓕⓖ';
+    sh.lefts=pairs.map(pr=>({name:pr.left,icon:(o.icons&&o.icons[pr.left])||null}));
+    sh.rights=order.map(i=>({name:pairs[i].right,icon:(o.icons&&o.icons[pairs[i].right])||null,ab:AB2[order.indexOf(i)]}));
+    sh.answer='정답: '+pairs.map((pr,i)=>(i+1)+'-'+AB2[order.indexOf(i)]).join('  ');
   }else if(t==='maze'){
     sh.maze=genMaze(p.grid||12);
   }
@@ -1413,7 +1570,7 @@ function buildSheets(o){
   const items=(o.items||[]).filter(x=>x&&String(x).trim());
   const per=perSheetN(o.type,p);
   const count=Math.max(1,o.count||1);
-  const reuse=['coloring','dotline','drawwrite','nextstory','letter','counting','linematch','inipick','iniwrite'];
+  const reuse=['coloring','dotline','drawwrite','nextstory','letter','counting','linematch','inipick','iniwrite','feelmatch','sortgroup','iconmatch'];
   const chunks=[];
   if(o.type==='maze'){
     for(let i=0;i<count;i++)chunks.push([]);
@@ -1684,27 +1841,27 @@ for(let i=0;i<SHEETS.length;i++){
     items.forEach(function(it,idx){
       const cx=60+(idx%cols)*(cellW+20),cy=y0+10+Math.floor(idx/cols)*cellH;
       rct(fr,LGT,cx,cy,cellW,cellH-16,1,14);
-      const iconS=Math.max(28,Math.min(64,Math.floor((cellW-40)/Math.max(1,it.count))-6));
+      const iconS=Math.max(36,Math.min(96,Math.floor((cellW-40)/Math.max(1,it.count))-6));
       const totalW=it.count*(iconS+8)-8;
       const startX=cx+Math.floor((cellW-totalW)/2);
       for(let k=0;k<it.count;k++){
         if(it.icon)pic(fr,it.icon,startX+k*(iconS+8),cy+16,iconS,iconS);
         else srct(fr,AC,startX+k*(iconS+8),cy+16,iconS,iconS,10,2);
       }
-      const numS=44,ngap=10;
+      const numS=48,ngap=10;
       const numY=cy+16+iconS+18;
       const totalNumW=it.maxN*(numS+ngap)-ngap;
       const numStartX=cx+Math.max(6,Math.floor((cellW-totalNumW)/2));
       for(let n=1;n<=it.maxN;n++){
         const nx=numStartX+(n-1)*(numS+ngap);
-        sell(fr,AC,nx,numY,numS,3);
+        sell(fr,{r:0.82,g:0.83,b:0.86},nx,numY,numS,2.5); // 흐린 회색 테두리 — 빨간펜/검은펜으로 직접 동그라미 치도록
         txt(fr,String(n),26,"Bold",DARK,nx,numY+8,numS,"CENTER");
       }
     });
   }else if(sh.type==="linematch"){
     const pairs=sh.pairs||[];
     const rowH=Math.floor(900/Math.max(1,pairs.length));
-    const iconS=Math.min(100,rowH-40);
+    const iconS=Math.min(150,rowH-30);
     pairs.forEach(function(pr,idx){
       const rowY=y0+10+idx*rowH;
       const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
@@ -1719,42 +1876,97 @@ for(let i=0;i<SHEETS.length;i++){
       }
     });
   }else if(sh.type==="inipick"){
+    // 그림 + 초성 힌트(예: "ㄱㄹ")를 함께 보여주고 어떤 낱말인지 맞히기 — 선택형 아님
     const items=sh.items||[];
     const rowH=Math.floor(900/Math.max(1,items.length));
     items.forEach(function(it,idx){
       const rowY=y0+10+idx*rowH;
-      const iconS=Math.min(110,rowH-30);
+      const iconS=Math.min(170,rowH-30);
       const iconY=rowY+Math.floor((rowH-iconS)/2);
       if(it.icon)pic(fr,it.icon,60,iconY,iconS,iconS);
       else srct(fr,AC,60,iconY,iconS,iconS,14,2);
-      const chW=Math.min(120,Math.floor((900-iconS-40)/Math.max(1,it.choices.length))-16);
-      const chGap=16;
-      const startX=60+iconS+40;
-      it.choices.forEach(function(c,ci){
-        const ccx=startX+ci*(chW+chGap);
-        const ccy=rowY+Math.floor((rowH-chW)/2);
-        srct(fr,AC,ccx,ccy,chW,chW,Math.floor(chW/2),3);
-        txt(fr,c,Math.floor(chW*0.45),"Bold",DARK,ccx,ccy+Math.floor(chW/2)-Math.floor(chW*0.27),chW,"CENTER");
-      });
+      const hintX=60+iconS+50;
+      const hintW=960-iconS-50;
+      const fs=Math.min(96,Math.floor(rowH*0.5),Math.floor(hintW/(Math.max(1,it.correct.length)*0.8)));
+      txt(fr,it.correct,fs,"Bold",AC,hintX,rowY+Math.floor(rowH/2)-Math.floor(fs/2),hintW,"CENTER");
     });
   }else if(sh.type==="iniwrite"){
+    // 그림 + 아래 낱말(읽기용) + 초성을 여러 번 따라쓰기
     const items=sh.items||[];
     const blockH=Math.floor(900/Math.max(1,items.length));
     items.forEach(function(it,idx){
       const by=y0+10+idx*blockH;
-      const iconS=Math.min(80,blockH-24);
-      const iconY=by+Math.floor((blockH-iconS)/2);
-      if(it.icon)pic(fr,it.icon,60,iconY,iconS,iconS);
-      else srct(fr,AC,60,iconY,iconS,iconS,12,2);
-      const traceX=60+iconS+30;
-      const cellW=Math.floor((960-iconS-30)/Math.max(1,it.rows));
+      const iconS=Math.min(90,blockH-60);
+      const iconX=60,iconY=by+6;
+      if(it.icon)pic(fr,it.icon,iconX,iconY,iconS,iconS);
+      else srct(fr,AC,iconX,iconY,iconS,iconS,12,2);
+      txt(fr,it.word,24,"Bold",DARK,iconX,iconY+iconS+8,iconS,"CENTER");
+      const traceX=iconX+iconS+24;
+      const cellW=Math.floor((960-iconS-24)/Math.max(1,it.rows));
       for(let r=0;r<it.rows;r++){
         const rcx=traceX+r*cellW;
-        rct(fr,LGT,rcx,by,cellW-8,blockH-16,1,10);
-        const fs=Math.min(60,blockH-30);
+        rct(fr,LGT,rcx,by,cellW-6,blockH-16,1,10);
+        const fs=Math.min(84,blockH-16,Math.floor((cellW-6)/(Math.max(1,it.correct.length)*0.62)));
         const col=r===0?DARK:{r:0.75,g:0.78,b:0.9};
-        txt(fr,it.correct,fs,"Bold",col,rcx,by+Math.floor((blockH-16-fs)/2)-2,cellW-8,"CENTER");
+        txt(fr,it.correct,fs,"Bold",col,rcx,by+Math.floor((blockH-16-fs)/2)-2,cellW-6,"CENTER");
       }
+    });
+  }else if(sh.type==="feelmatch"){
+    const items=sh.items||[];
+    const cols=2;
+    const rowsN=Math.max(1,Math.ceil(items.length/cols));
+    const cellW=470,cellH=Math.floor(900/rowsN);
+    items.forEach(function(it,idx){
+      const cx=60+(idx%cols)*(cellW+20),cy=y0+10+Math.floor(idx/cols)*cellH;
+      rct(fr,LGT,cx,cy,cellW,cellH-16,1,16);
+      const iconS=Math.min(cellH-110,cellW-60,190);
+      const iconX=cx+Math.floor((cellW-iconS)/2),iconY=cy+16;
+      if(it.icon)pic(fr,it.icon,iconX,iconY,iconS,iconS);
+      else srct(fr,AC,iconX,iconY,iconS,iconS,16,2);
+      const pillW=Math.floor(cellW*0.7),pillH=54;
+      const pillX=cx+Math.floor((cellW-pillW)/2),pillY=iconY+iconS+22;
+      rct(fr,AC,pillX,pillY,pillW,pillH,1,27);
+      txt(fr,it.label,26,"Bold",W_,pillX,pillY+15,pillW,"CENTER");
+    });
+  }else if(sh.type==="sortgroup"){
+    const items=sh.items||[];
+    const n=items.length||1;
+    const cols=Math.min(4,n);
+    const rowsN=Math.max(1,Math.ceil(n/cols));
+    const cellW=Math.floor(920/cols),cellH=Math.min(220,Math.floor(650/rowsN));
+    items.forEach(function(it,idx){
+      const cx=60+(idx%cols)*cellW,cy=y0+10+Math.floor(idx/cols)*cellH;
+      const iconS=Math.min(cellW-30,cellH-30,150);
+      rct(fr,LGT,cx+10,cy+5,cellW-20,cellH-14,1,12);
+      if(it.icon)pic(fr,it.icon,cx+Math.floor((cellW-iconS)/2),cy+12,iconS,iconS);
+      else srct(fr,AC,cx+Math.floor((cellW-iconS)/2),cy+12,iconS,iconS,10,2);
+    });
+    const boxY=y0+10+rowsN*cellH+40;
+    const boxW=440,boxH=140;
+    rct(fr,HC,60,boxY,boxW,boxH,1,18);
+    srct(fr,AC,60,boxY,boxW,boxH,18,3);
+    txt(fr,sh.groupA,32,"Bold",AC,60,boxY+boxH/2-20,boxW,"CENTER");
+    rct(fr,HC,520,boxY,boxW,boxH,1,18);
+    srct(fr,AC,520,boxY,boxW,boxH,18,3);
+    txt(fr,sh.groupB,32,"Bold",AC,520,boxY+boxH/2-20,boxW,"CENTER");
+  }else if(sh.type==="iconmatch"){
+    const lefts=sh.lefts||[],rights=sh.rights||[];
+    const rowH=Math.floor(900/Math.max(1,lefts.length));
+    const iconS=Math.min(150,rowH-30);
+    lefts.forEach(function(l,idx){
+      const rowY=y0+10+idx*rowH;
+      const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
+      if(l.icon)pic(fr,l.icon,70,midY,iconS,iconS);
+      else srct(fr,AC,70,midY,iconS,iconS,14,2);
+      ell(fr,AC,70+iconS+16,midY+Math.floor(iconS/2)-8,16);
+    });
+    rights.forEach(function(r,idx){
+      const rowY=y0+10+idx*rowH;
+      const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
+      const rx=880-iconS;
+      if(r.icon)pic(fr,r.icon,rx,midY,iconS,iconS);
+      else srct(fr,AC,rx,midY,iconS,iconS,14,2);
+      ell(fr,AC,rx-32,midY+Math.floor(iconS/2)-8,16);
     });
   }else if(sh.type==="maze"){
     const M=sh.maze;
@@ -1886,6 +2098,7 @@ async function exportToFigma(){
           items:(actData.items||[]).filter(Boolean),
           images:actData.images||null,
           icons:actData.icons||null,
+          emotions:actData.emotions||null,
           age:currentAgeValue(),
           lang:LANG_INFO[actLang],langKey:actLang,
           level:document.getElementById('a-level').value,
