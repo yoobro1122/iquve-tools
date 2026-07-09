@@ -150,6 +150,8 @@
     .spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
     @keyframes spin{to{transform:rotate(360deg);}}
     @media(max-width:780px){.container{grid-template-columns:1fr;}.row2,.row3{grid-template-columns:1fr;}}
+    .floating-panel{max-height:calc(100vh - 100px);overflow-y:auto;}
+    @media(max-width:780px){.floating-panel{position:static !important;left:auto !important;width:auto !important;top:auto !important;max-height:none;}}
   </style>
 </head>
 <body>
@@ -159,7 +161,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-09-2</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-09-3</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -193,6 +195,13 @@
         <div class="cat-tabs" id="catTabs"></div>
         <div class="type-grid-v2" id="typeGrid"></div>
         <p class="hint" id="typeInfo" style="margin-top:10px;"></p>
+        <div class="field" style="margin-top:14px;"><label>난이도</label>
+          <select id="a-level">
+            <option value="easy">쉬움 ⭐</option>
+            <option value="normal" selected>보통 ⭐⭐</option>
+            <option value="hard">어려움 ⭐⭐⭐</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -248,35 +257,9 @@
           <p class="hint">💡 iQUVE 동화책 목록에 없는 책이나, 더 자세한 내용 기반이 필요할 때 사용하세요.</p>
         </div>
 
-        <div class="row3">
-          <div class="field"><label>대상 연령</label>
-            <select id="a-age">
-              <option value="3~4">3~4세</option>
-              <option value="4~5">4~5세</option>
-              <option value="5~6" selected>5~6세</option>
-              <option value="6~7">6~7세</option>
-              <option value="7~8">7~8세</option>
-            </select>
-          </div>
-          <div class="field"><label>난이도</label>
-            <select id="a-level">
-              <option value="easy">쉬움 ⭐</option>
-              <option value="normal" selected>보통 ⭐⭐</option>
-              <option value="hard">어려움 ⭐⭐⭐</option>
-            </select>
-          </div>
-          <div class="field"><label>활동지 수</label>
-            <select id="a-count">
-              <option value="1" selected>1장</option>
-              <option value="2">2장</option>
-              <option value="3">3장</option>
-            </select>
-          </div>
-        </div>
         <div class="field"><label>추가 요청사항</label>
           <textarea id="a-note" rows="2" placeholder="예: iQUVE 토끼 캐릭터 포함, 숫자 1~10, 특정 단어 포함"></textarea>
         </div>
-        <button class="btn btn-secondary" onclick="genActivityAI()" id="a-ai-btn">✨ AI로 활동지 내용 생성</button>
         <div id="a-ai-result" style="display:none;" class="ai-result">
           <div class="ai-result-label">✨ 생성 완료 — 아래 내용을 확인·수정한 뒤 피그마로 내보내세요</div>
           <div id="a-preview" style="display:flex;flex-direction:column;gap:12px;"></div>
@@ -340,32 +323,33 @@
 
 </div><!-- /main left -->
 
-<!-- ── 우측 패널 ── -->
-<div style="display:flex;flex-direction:column;gap:14px;">
-  <div class="card" style="position:sticky;top:68px;">
-    <div class="card-hd"><span>🎨</span><h2>피그마로 내보내기</h2></div>
-    <div class="card-bd" style="gap:12px;">
-      <div class="api-status-box" id="apiStatusBox">
-        <div id="figmaStatus">🔑 Figma: 확인 중...</div>
-        <div id="geminiStatus">🤖 Gemini: 확인 중...</div>
-      </div>
-      <div class="field"><label>피그마 파일</label>
-        <select id="figmaTarget" onchange="onFileSelect()">
-          <option value="CaPkjrFwlGO4WqVUVXKSBI">iQUVE 콘텐츠 메이커</option>
-          <option value="custom">직접 입력</option>
-        </select>
-      </div>
-      <div id="customKeyWrap" style="display:none;">
-        <input type="text" id="customKey" placeholder="피그마 파일 키">
-      </div>
-      <div class="field"><label>페이지 이름</label>
-        <input type="text" id="figmaPage" value="활동지">
-      </div>
-      <button class="btn btn-primary" onclick="exportToFigma()" id="exportBtn">🚀 피그마에 생성하기</button>
-      <a id="figmaLink" href="https://www.figma.com/design/CaPkjrFwlGO4WqVUVXKSBI" target="_blank"
-         class="btn btn-secondary" style="text-decoration:none;text-align:center;">🔗 피그마 파일 열기</a>
-      <div id="logBox" class="log-box" style="display:none;"></div>
+<!-- ── 우측 패널 (자리 확보용 placeholder — 실제 내용은 floatingPanel이 고정 위치로 표시) ── -->
+<div id="floatingPlaceholder"></div>
+
+<div class="card floating-panel" id="floatingPanel">
+  <div class="card-hd"><span>🚀</span><h2>생성 &amp; 내보내기</h2></div>
+  <div class="card-bd" style="gap:12px;">
+    <div class="api-status-box" id="apiStatusBox">
+      <div id="figmaStatus">🔑 Figma: 확인 중...</div>
+      <div id="geminiStatus">🤖 Gemini: 확인 중...</div>
     </div>
+    <button class="btn btn-secondary" onclick="genActivityAI()" id="a-ai-btn">✨ AI로 활동지 내용 생성</button>
+    <div class="field"><label>피그마 파일</label>
+      <select id="figmaTarget" onchange="onFileSelect()">
+        <option value="CaPkjrFwlGO4WqVUVXKSBI">iQUVE 콘텐츠 메이커</option>
+        <option value="custom">직접 입력</option>
+      </select>
+    </div>
+    <div id="customKeyWrap" style="display:none;">
+      <input type="text" id="customKey" placeholder="피그마 파일 키">
+    </div>
+    <div class="field"><label>페이지 이름</label>
+      <input type="text" id="figmaPage" value="활동지">
+    </div>
+    <button class="btn btn-primary" onclick="exportToFigma()" id="exportBtn">🚀 피그마에 생성하기</button>
+    <a id="figmaLink" href="https://www.figma.com/design/CaPkjrFwlGO4WqVUVXKSBI" target="_blank"
+       class="btn btn-secondary" style="text-decoration:none;text-align:center;">🔗 피그마 파일 열기</a>
+    <div id="logBox" class="log-box" style="display:none;"></div>
   </div>
 </div>
 
@@ -378,7 +362,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-09-2';
+const BUILD_VERSION='v2026-07-09-3';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
@@ -496,6 +480,8 @@ function switchSub(main,sub){
   tabs.forEach(t=>t.classList.remove('active'));
   document.getElementById(`${main}-${sub}`).classList.add('active');
   event.target.classList.add('active');
+  const aiBtn=document.getElementById('a-ai-btn');
+  if(aiBtn)aiBtn.style.display=(main==='activity'&&sub==='manual')?'none':'';
 }
 
 // ══════════════════════════════
@@ -680,6 +666,7 @@ const CAT_COLORS={
 
 // ── 계열/유형 UI ──
 function getTypeMeta(k){return ACT_TYPES[k]||ACT_TYPES_YOUNG[k];}
+function currentAgeValue(){return ageTier==='young'?'4~6':'7~9';}
 function renderAgeTierBar(){
   document.getElementById('ageTierBar').innerHTML=
     '<button class="age-tier-btn'+(ageTier==='young'?' active':'')+'" onclick="selAgeTier(\'young\')">🐣 4~6세 첫걸음<span class="sub">숫자세기·줄긋기·초성</span></button>'
@@ -855,8 +842,8 @@ function buildActPrompt(){
   const t=getTypeMeta(actType);
   const level=document.getElementById('a-level').value;
   const p=DIFF_PARAMS[actType][level];
-  const age=document.getElementById('a-age').value;
-  const count=parseInt(document.getElementById('a-count').value);
+  const age=currentAgeValue();
+  const count=1;
   const note=document.getElementById('a-note').value;
   const lang=LANG_INFO[actLang];
   const levelLabel={easy:'쉬움(연령 하한 기준, 아주 짧고 단순하게)',normal:'보통',hard:'어려움(연령 상한 기준, 사고력을 요구하게)'}[level];
@@ -1099,8 +1086,8 @@ async function genActivityAI(){
       if(!CFG.geminiKey){
         console.warn('이미지 생성 건너뜀: Gemini API 키 없음');
       }else{
-        const count=Math.max(1,parseInt(document.getElementById('a-count').value)||1);
-        const age=document.getElementById('a-age').value;
+        const count=1;
+        const age=currentAgeValue();
         const level=document.getElementById('a-level').value;
         try{
           actData.images=await genColoringImages(actType,actData.items,age,count,level,(i,n)=>{
@@ -1119,7 +1106,7 @@ async function genActivityAI(){
       if(!CFG.geminiKey){
         console.warn('아이콘 생성 건너뜀: Gemini API 키 없음');
       }else{
-        const age=document.getElementById('a-age').value;
+        const age=currentAgeValue();
         try{
           actData.icons=await genIcons(actData.items,age,(i,n,name)=>{
             btn.innerHTML='<div class="spinner"></div> 그림 아이콘 생성 중 ('+i+'/'+n+': '+name+')...';
@@ -1192,8 +1179,8 @@ function renderActPreview(){
     regenBtn.className='add-row-mini';regenBtn.textContent='🔄 도안 이미지 다시 생성';
     regenBtn.onclick=async()=>{
       if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
-      const count=Math.max(1,parseInt(document.getElementById('a-count').value)||1);
-      const age=document.getElementById('a-age').value;
+      const count=1;
+      const age=currentAgeValue();
       const level=document.getElementById('a-level').value;
       regenBtn.disabled=true;
       try{
@@ -1215,7 +1202,7 @@ function renderActPreview(){
     const copyBtn=document.createElement('button');
     copyBtn.textContent='📋 프롬프트 복사';
     copyBtn.style.cssText='padding:5px 10px;background:var(--indigo);color:white;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;';
-    const fullPromptText=buildImagePrompt(actData.type,actData.items,document.getElementById('a-age').value);
+    const fullPromptText=buildImagePrompt(actData.type,actData.items,currentAgeValue());
     copyBtn.onclick=async()=>{
       const body=extractImagePromptBody(fullPromptText);
       try{
@@ -1277,7 +1264,7 @@ function renderActPreview(){
     regenBtn.className='add-row-mini';regenBtn.textContent='🔄 아이콘 다시 생성';
     regenBtn.onclick=async()=>{
       if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
-      const age=document.getElementById('a-age').value;
+      const age=currentAgeValue();
       regenBtn.disabled=true;
       try{
         actData.icons=await genIcons(actData.items,age,(i,n,name)=>{
@@ -1787,7 +1774,23 @@ figma.notify("✅ "+META.typeName+" 활동지 "+SHEETS.length+"장 생성 완료
 })();`;
 
 // V2 초기화
+function positionFloatingPanel(){
+  const placeholder=document.getElementById('floatingPlaceholder');
+  const panel=document.getElementById('floatingPanel');
+  if(!placeholder||!panel)return;
+  if(window.innerWidth<=780){
+    panel.style.position='static';panel.style.left='';panel.style.width='';panel.style.top='';
+    return;
+  }
+  const rect=placeholder.getBoundingClientRect();
+  panel.style.position='fixed';
+  panel.style.left=rect.left+'px';
+  panel.style.width=rect.width+'px';
+  panel.style.top='84px';
+}
+window.addEventListener('resize',positionFloatingPanel);
 renderAgeTierBar();renderCatTabs();renderTypeGrid();initManualTypeSelect();
+positionFloatingPanel();
 
 // ══════════════════════════════
 // 직접작성 활동지 행 관리
@@ -1883,10 +1886,10 @@ async function exportToFigma(){
           items:(actData.items||[]).filter(Boolean),
           images:actData.images||null,
           icons:actData.icons||null,
-          age:document.getElementById('a-age').value,
+          age:currentAgeValue(),
           lang:LANG_INFO[actLang],langKey:actLang,
           level:document.getElementById('a-level').value,
-          count:parseInt(document.getElementById('a-count').value),
+          count:1,
           bookInfo:(bookTab==='book'&&selectedBook)?selectedBook.title:'',
           imageNote:'',pageName
         });
