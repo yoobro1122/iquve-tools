@@ -96,6 +96,8 @@
     .type-icon{font-size:26px;margin-bottom:6px;}
     .type-name{font-size:13px;font-weight:700;}
     .type-desc{font-size:11px;color:var(--gray);margin-top:3px;}
+    .nuri-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;}
+    .nuri-badge{font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:10px;white-space:nowrap;}
     .cat-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
     .cat-tab{padding:9px 16px;border:2px solid var(--border);border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;background:white;color:var(--gray);transition:all .15s;font-family:inherit;}
     .age-tier-btn{flex:1;padding:14px 12px;border:2px solid var(--border);border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;background:white;color:var(--gray);transition:all .15s;font-family:inherit;text-align:center;}
@@ -161,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-09-5</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-09-6</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -362,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-09-5';
+const BUILD_VERSION='v2026-07-09-6';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
@@ -609,33 +611,43 @@ const ACT_CATEGORIES={
   create:{name:'표현·창작',icon:'💭'},
   design:{name:'도안·그림',icon:'🖍️'},
 };
+// ══════════════════════════════
+// 2019 개정 누리과정 5개 영역 (3~5세 국가수준 공통 교육과정)
+// ══════════════════════════════
+const NURI_DOMAINS={
+  body:   {name:'신체운동·건강', short:'신체·건강', icon:'🏃', color:{r:0.85,g:0.35,b:0.30}},
+  comm:   {name:'의사소통',      short:'의사소통', icon:'💬', color:{r:0.20,g:0.45,b:0.85}},
+  social: {name:'사회관계',      short:'사회관계', icon:'🤝', color:{r:0.85,g:0.55,b:0.15}},
+  art:    {name:'예술경험',      short:'예술경험', icon:'🎨', color:{r:0.65,g:0.30,b:0.75}},
+  nature: {name:'자연탐구',      short:'자연탐구', icon:'🔍', color:{r:0.15,g:0.60,b:0.45}},
+};
 const ACT_TYPES={
-  fillblank:  {cat:'lang',  name:'빈칸 채우기',    icon:'🔡', desc:'문장 속 낱말 채우기',    fmt:'빈칸(___) 문장 | 정답'},
-  choseong:   {cat:'lang',  name:'초성 퀴즈',      icon:'🅰️', desc:'초성 보고 단어 맞히기',  fmt:'초성 | 정답 | 힌트'},
-  wordsearch: {cat:'lang',  name:'낱말 찾기',      icon:'🔍', desc:'격자에서 숨은 낱말 찾기',fmt:'낱말 (한 항목에 하나)'},
-  writing:    {cat:'lang',  name:'따라쓰기',       icon:'✏️', desc:'단어·문장 따라쓰기',     fmt:'따라쓸 단어/문장'},
-  bingo:      {cat:'lang',  name:'독서 빙고',      icon:'🎯', desc:'책 속 단어 빙고판',      fmt:'빙고 칸에 넣을 낱말'},
-  oxquiz:     {cat:'think', name:'O/X 퀴즈',       icon:'⭕', desc:'맞으면 O, 틀리면 X',     fmt:'문제 | O 또는 X'},
-  multichoice:{cat:'think', name:'고르기 퀴즈',    icon:'✅', desc:'보기 중 정답 고르기',    fmt:'문제 | 보기1 / 보기2 / 보기3 | 정답번호'},
-  sequence:   {cat:'think', name:'순서 맞추기',    icon:'🔢', desc:'이야기 순서 배열하기',   fmt:'장면 문장 (올바른 순서로 입력)'},
-  matching:   {cat:'think', name:'짝짓기 선긋기',  icon:'🔗', desc:'짝을 찾아 선으로 연결',  fmt:'왼쪽 | 오른쪽'},
-  emotion:    {cat:'think', name:'감정 고르기',    icon:'😊', desc:'인물의 감정 고르기',     fmt:'장면 | 감정1 / 감정2 / 감정3 | 정답'},
-  nextstory:  {cat:'create',name:'뒷이야기 상상',  icon:'💭', desc:'다음 이야기 상상해 쓰기',fmt:'생각을 여는 질문'},
-  letter:     {cat:'create',name:'주인공에게 편지',icon:'💌', desc:'문장 스타터 + 편지쓰기', fmt:'편지 시작 문장(스타터)'},
-  drawwrite:  {cat:'create',name:'그리고 쓰기',    icon:'🖼️', desc:'장면 그리기 + 한 줄 쓰기',fmt:'그릴 장면 설명'},
-  coloring:   {cat:'design',name:'색칠공부',       icon:'🖍️', desc:'도안 + 색칠 영역',       fmt:'도안 요소 설명'},
-  maze:       {cat:'design',name:'미로 찾기',      icon:'🌀', desc:'알고리즘 자동 생성 미로',fmt:'(자동 생성 — 입력 불필요)'},
-  dotline:    {cat:'design',name:'점선 잇기',      icon:'🔢', desc:'번호 순서대로 이어 그림 완성',fmt:'그릴 대상(사물/동물 이름 하나)'},
+  fillblank:  {cat:'lang',  name:'빈칸 채우기',    icon:'🔡', desc:'문장 속 낱말 채우기',    fmt:'빈칸(___) 문장 | 정답', nuri:['comm']},
+  choseong:   {cat:'lang',  name:'초성 퀴즈',      icon:'🅰️', desc:'초성 보고 단어 맞히기',  fmt:'초성 | 정답 | 힌트', nuri:['comm']},
+  wordsearch: {cat:'lang',  name:'낱말 찾기',      icon:'🔍', desc:'격자에서 숨은 낱말 찾기',fmt:'낱말 (한 항목에 하나)', nuri:['comm']},
+  writing:    {cat:'lang',  name:'따라쓰기',       icon:'✏️', desc:'단어·문장 따라쓰기',     fmt:'따라쓸 단어/문장', nuri:['comm','body']},
+  bingo:      {cat:'lang',  name:'독서 빙고',      icon:'🎯', desc:'책 속 단어 빙고판',      fmt:'빙고 칸에 넣을 낱말', nuri:['comm']},
+  oxquiz:     {cat:'think', name:'O/X 퀴즈',       icon:'⭕', desc:'맞으면 O, 틀리면 X',     fmt:'문제 | O 또는 X', nuri:['comm']},
+  multichoice:{cat:'think', name:'고르기 퀴즈',    icon:'✅', desc:'보기 중 정답 고르기',    fmt:'문제 | 보기1 / 보기2 / 보기3 | 정답번호', nuri:['comm']},
+  sequence:   {cat:'think', name:'순서 맞추기',    icon:'🔢', desc:'이야기 순서 배열하기',   fmt:'장면 문장 (올바른 순서로 입력)', nuri:['comm','nature']},
+  matching:   {cat:'think', name:'짝짓기 선긋기',  icon:'🔗', desc:'짝을 찾아 선으로 연결',  fmt:'왼쪽 | 오른쪽', nuri:['nature','social']},
+  emotion:    {cat:'think', name:'감정 고르기',    icon:'😊', desc:'인물의 감정 고르기',     fmt:'장면 | 감정1 / 감정2 / 감정3 | 정답', nuri:['social']},
+  nextstory:  {cat:'create',name:'뒷이야기 상상',  icon:'💭', desc:'다음 이야기 상상해 쓰기',fmt:'생각을 여는 질문', nuri:['comm','art']},
+  letter:     {cat:'create',name:'주인공에게 편지',icon:'💌', desc:'문장 스타터 + 편지쓰기', fmt:'편지 시작 문장(스타터)', nuri:['comm','social']},
+  drawwrite:  {cat:'create',name:'그리고 쓰기',    icon:'🖼️', desc:'장면 그리기 + 한 줄 쓰기',fmt:'그릴 장면 설명', nuri:['art','comm']},
+  coloring:   {cat:'design',name:'색칠공부',       icon:'🖍️', desc:'도안 + 색칠 영역',       fmt:'도안 요소 설명', nuri:['art','body']},
+  maze:       {cat:'design',name:'미로 찾기',      icon:'🌀', desc:'알고리즘 자동 생성 미로',fmt:'(자동 생성 — 입력 불필요)', nuri:['body','nature']},
+  dotline:    {cat:'design',name:'점선 잇기',      icon:'🔢', desc:'번호 순서대로 이어 그림 완성',fmt:'그릴 대상(사물/동물 이름 하나)', nuri:['body','nature']},
 };
 // 4~6세 첫걸음 유형 (그림 중심, 글 읽기 부담 최소화)
 const ACT_TYPES_YOUNG={
-  counting:  {cat:'young',name:'숫자 세기',   icon:'🔢', desc:'그림 개수 세고 숫자 고르기',   fmt:'사물/동물 이름 하나(예: 토끼)'},
-  linematch: {cat:'young',name:'줄긋기',      icon:'🔗', desc:'같은 그림끼리 선 잇기',        fmt:'사물/동물 이름 하나(예: 나비)'},
-  inipick:   {cat:'young',name:'초성 찾기',   icon:'🅰️', desc:'그림+초성 힌트로 낱말 맞히기', fmt:'사물/동물 이름 하나(예: 공룡→ㄱㄹ 힌트로 표시)'},
-  iniwrite:  {cat:'young',name:'초성 써보기', icon:'✏️', desc:'낱말 읽고 초성 따라쓰기',     fmt:'사물/동물 이름 하나(예: 나무)'},
-  feelmatch: {cat:'young',name:'감정 맞히기', icon:'😊', desc:'같은 주인공의 표정으로 감정 배우기', fmt:'주인공 이름 하나(예: 토끼)'},
-  sortgroup: {cat:'young',name:'분류하기',    icon:'🗂️', desc:'그림을 두 그룹으로 나누기',   fmt:'자동: 그룹 기준 + 사물 이름들'},
-  iconmatch: {cat:'young',name:'그림 매칭',   icon:'🔀', desc:'서로 관련된 그림끼리 선 잇기', fmt:'왼쪽 이름 | 오른쪽 이름 (예: 소 | 우유)'},
+  counting:  {cat:'young',name:'숫자 세기',   icon:'🔢', desc:'그림 개수 세고 숫자 고르기',   fmt:'사물/동물 이름 하나(예: 토끼)', nuri:['nature']},
+  linematch: {cat:'young',name:'줄긋기',      icon:'🔗', desc:'같은 그림끼리 선 잇기',        fmt:'사물/동물 이름 하나(예: 나비)', nuri:['body']},
+  inipick:   {cat:'young',name:'초성 찾기',   icon:'🅰️', desc:'그림+초성 힌트로 낱말 맞히기', fmt:'사물/동물 이름 하나(예: 공룡→ㄱㄹ 힌트로 표시)', nuri:['comm']},
+  iniwrite:  {cat:'young',name:'초성 써보기', icon:'✏️', desc:'낱말 읽고 초성 따라쓰기',     fmt:'사물/동물 이름 하나(예: 나무)', nuri:['comm','body']},
+  feelmatch: {cat:'young',name:'감정 맞히기', icon:'😊', desc:'같은 주인공의 표정으로 감정 배우기', fmt:'주인공 이름 하나(예: 토끼)', nuri:['social']},
+  sortgroup: {cat:'young',name:'분류하기',    icon:'🗂️', desc:'그림을 두 그룹으로 나누기',   fmt:'자동: 그룹 기준 + 사물 이름들', nuri:['nature']},
+  iconmatch: {cat:'young',name:'그림 매칭',   icon:'🔀', desc:'서로 관련된 그림끼리 선 잇기', fmt:'왼쪽 이름 | 오른쪽 이름 (예: 소 | 우유)', nuri:['nature','comm']},
 };
 const EMOTION_POOL=['기뻐요','슬퍼요','화나요','무서워요','놀랐어요','졸려요'];
 const DIFF_PARAMS={
@@ -699,16 +711,21 @@ function renderTypeGrid(){
   document.getElementById('typeGrid').innerHTML=Object.entries(typeSet).filter(([k,v])=>ageTier==='young'||v.cat===actCat).map(([k,v])=>
     '<div class="type-item'+(k===actType?' selected':'')+'" onclick="selTypeKey(\''+k+'\')">'
     +'<div class="type-icon">'+v.icon+'</div><div class="type-name">'+v.name+'</div>'
-    +'<div class="type-desc">'+v.desc+'</div></div>').join('');
+    +'<div class="type-desc">'+v.desc+'</div>'
+    +'<div class="nuri-badges">'+(v.nuri||[]).map(d=>'<span class="nuri-badge" style="background:'+nuriRGBA(d,0.12)+';color:'+nuriRGBA(d,1)+';">'+NURI_DOMAINS[d].icon+' '+NURI_DOMAINS[d].short+'</span>').join('')+'</div>'
+    +'</div>').join('');
   const t=getTypeMeta(actType);
-  document.getElementById('typeInfo').textContent=actType==='maze'
+  const nuriLine=(t.nuri||[]).map(d=>NURI_DOMAINS[d].icon+' '+NURI_DOMAINS[d].name).join(' · ');
+  const baseInfo=actType==='maze'
     ?'🌀 미로는 AI가 아닌 알고리즘으로 자동 생성돼요 — 난이도만 고르고 생성 버튼을 누르세요! (쉬움 8×8 / 보통 12×12 / 어려움 16×16)'
     :actType==='dotline'
     ?'🔢 점 배치는 AI가 아닌 알고리즘으로 100% 정확하게 그려져요 (별·하트·집·나무·물고기·다이아몬드·구름 중 자동 매칭). 대상 이름만 입력하면 돼요. (쉬움 10개 / 보통 16개 / 어려움 22개)'
     :ICON_ITEM_TYPES.has(actType)
     ?'🎨 사물/동물 이름만 입력하면 AI가 그림 아이콘을 그려서 활동지에 넣어줘요. '+t.fmt
     :'📝 항목 형식: '+t.fmt;
+  document.getElementById('typeInfo').textContent=baseInfo+(nuriLine?'  |  누리과정: '+nuriLine:'');
 }
+function nuriRGBA(key,a){const c=NURI_DOMAINS[key].color;return 'rgba('+Math.round(c.r*255)+','+Math.round(c.g*255)+','+Math.round(c.b*255)+','+a+')';}
 function selCat(k){
   actCat=k;
   selTypeKey(Object.keys(ACT_TYPES).find(t=>ACT_TYPES[t].cat===k));
@@ -1601,11 +1618,12 @@ function generateActivityCodeV2(o){
   const t=getTypeMeta(o.type);
   const sheets=buildSheets(o);
   const cc=CAT_COLORS[t.cat];
+  const nuriLabel=(t.nuri||[]).map(d=>NURI_DOMAINS[d].icon+' '+NURI_DOMAINS[d].name).join(' · ');
   const meta={
     typeName:t.name,age:o.age,flag:(o.lang&&o.lang.flag)||'',
     book:o.bookInfo||'',tip:(o.tip||'').slice(0,90),
     nameLine:NAME_LINES[o.langKey]||NAME_LINES.ko,
-    ac:cc.ac,hc:cc.hc,page:o.pageName||'활동지',
+    ac:cc.ac,hc:cc.hc,page:o.pageName||'활동지',nuriLabel:nuriLabel,
   };
   return '// iQUVE 활동지 자동 생성 — '+t.name+' ('+((o.lang&&o.lang.name)||'')+')\n'
     +'// Figma > Plugins > Development > Open Console 에서 실행\n'
@@ -1671,6 +1689,7 @@ for(let i=0;i<SHEETS.length;i++){
   txt(fr,sh.guide,28,"Regular",DARK,60,112,800);
   rct(fr,AC,880,52,140,52,1,26);
   txt(fr,META.flag+" "+META.age+"세",24,"Bold",W_,880,66,140,"CENTER");
+  if(META.nuriLabel)txt(fr,"누리과정 "+META.nuriLabel,16,"Regular",GRAY,880,112,140,"CENTER");
   if(META.book)txt(fr,"📖 "+META.book,22,"Regular",GRAY,60,154,800);
   const y0=220;
   if(sh.type==="fillblank"){
