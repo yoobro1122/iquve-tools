@@ -98,6 +98,9 @@
     .type-desc{font-size:11px;color:var(--gray);margin-top:3px;}
     .cat-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
     .cat-tab{padding:9px 16px;border:2px solid var(--border);border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;background:white;color:var(--gray);transition:all .15s;font-family:inherit;}
+    .age-tier-btn{flex:1;padding:14px 12px;border:2px solid var(--border);border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;background:white;color:var(--gray);transition:all .15s;font-family:inherit;text-align:center;}
+    .age-tier-btn .sub{display:block;font-size:11px;font-weight:500;margin-top:2px;opacity:0.85;}
+    .age-tier-btn.active{border-color:var(--indigo);background:var(--indigo);color:white;}
     .cat-tab.active{border-color:var(--indigo);background:var(--indigo);color:white;}
     .type-grid-v2{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;}
 
@@ -156,7 +159,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-08-5</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-09-2</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -186,6 +189,7 @@
     <div class="card">
       <div class="card-hd"><span>🎨</span><h2>활동지 유형</h2></div>
       <div class="card-bd">
+        <div class="age-tier-bar" id="ageTierBar" style="display:flex;gap:8px;margin-bottom:14px;"></div>
         <div class="cat-tabs" id="catTabs"></div>
         <div class="type-grid-v2" id="typeGrid"></div>
         <p class="hint" id="typeInfo" style="margin-top:10px;"></p>
@@ -374,9 +378,10 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-08-5';
+const BUILD_VERSION='v2026-07-09-2';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
+let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
 let actType='fillblank';
 let actCat='lang';
 let actData=null;
@@ -636,44 +641,78 @@ const ACT_TYPES={
   maze:       {cat:'design',name:'미로 찾기',      icon:'🌀', desc:'알고리즘 자동 생성 미로',fmt:'(자동 생성 — 입력 불필요)'},
   dotline:    {cat:'design',name:'점선 잇기',      icon:'🔢', desc:'번호 순서대로 이어 그림 완성',fmt:'그릴 대상(사물/동물 이름 하나)'},
 };
+// 4~6세 첫걸음 유형 (그림 중심, 글 읽기 부담 최소화)
+const ACT_TYPES_YOUNG={
+  counting:  {cat:'young',name:'숫자 세기',   icon:'🔢', desc:'그림 개수 세고 숫자 고르기',   fmt:'사물/동물 이름 하나(예: 토끼)'},
+  linematch: {cat:'young',name:'줄긋기',      icon:'🔗', desc:'같은 그림끼리 선 잇기',        fmt:'사물/동물 이름 하나(예: 나비)'},
+  inipick:   {cat:'young',name:'초성 찾기',   icon:'🅰️', desc:'그림 보고 첫 글자 고르기',     fmt:'사물/동물 이름 하나(예: 사과)'},
+  iniwrite:  {cat:'young',name:'초성 써보기', icon:'✏️', desc:'그림 보고 첫 글자 따라쓰기',   fmt:'사물/동물 이름 하나(예: 나무)'},
+};
 const DIFF_PARAMS={
-  fillblank:  {easy:{n:4,bank:true}, normal:{n:6,bank:true}, hard:{n:8,bank:false}},
-  choseong:   {easy:{n:4,hint:true},normal:{n:6,hint:true},hard:{n:8,hint:false}},
-  wordsearch: {easy:{grid:6,n:4},   normal:{grid:8,n:6},   hard:{grid:10,n:8}},
-  writing:    {easy:{n:4},          normal:{n:6},          hard:{n:8}},
-  bingo:      {easy:{grid:3},       normal:{grid:4},       hard:{grid:5}},
-  oxquiz:     {easy:{n:4},          normal:{n:6},          hard:{n:8}},
-  multichoice:{easy:{n:3,c:3},      normal:{n:4,c:3},      hard:{n:5,c:4}},
-  sequence:   {easy:{n:3},          normal:{n:4},          hard:{n:6}},
-  matching:   {easy:{n:3},          normal:{n:4},          hard:{n:6}},
-  emotion:    {easy:{n:2,c:3},      normal:{n:3,c:3},      hard:{n:4,c:4}},
-  nextstory:  {easy:{lines:4},      normal:{lines:6},      hard:{lines:8}},
-  letter:     {easy:{lines:5,starters:3},normal:{lines:7,starters:2},hard:{lines:9,starters:1}},
-  drawwrite:  {easy:{lines:1},      normal:{lines:2},      hard:{lines:3}},
-  coloring:   {easy:{n:3},          normal:{n:5},          hard:{n:7}},
-  maze:       {easy:{grid:8},       normal:{grid:12},      hard:{grid:16}},
-  dotline:    {easy:{dots:10},       normal:{dots:16},      hard:{dots:22}},
+  fillblank:  {easy:{n:3,bank:true}, normal:{n:4,bank:true}, hard:{n:6,bank:true}},
+  choseong:   {easy:{n:3,hint:true},normal:{n:4,hint:true},hard:{n:6,hint:true}},
+  wordsearch: {easy:{grid:5,n:3},   normal:{grid:6,n:4},   hard:{grid:8,n:6}},
+  writing:    {easy:{n:3},          normal:{n:4},          hard:{n:6}},
+  bingo:      {easy:{grid:2},       normal:{grid:3},       hard:{grid:4}},
+  oxquiz:     {easy:{n:3},          normal:{n:4},          hard:{n:6}},
+  multichoice:{easy:{n:2,c:2},      normal:{n:3,c:3},      hard:{n:4,c:3}},
+  sequence:   {easy:{n:2},          normal:{n:3},          hard:{n:4}},
+  matching:   {easy:{n:2},          normal:{n:3},          hard:{n:4}},
+  emotion:    {easy:{n:2,c:2},      normal:{n:2,c:3},      hard:{n:3,c:3}},
+  nextstory:  {easy:{lines:3},      normal:{lines:4},      hard:{lines:6}},
+  letter:     {easy:{lines:4,starters:3},normal:{lines:5,starters:3},hard:{lines:7,starters:2}},
+  drawwrite:  {easy:{lines:1},      normal:{lines:1},      hard:{lines:2}},
+  coloring:   {easy:{n:2},          normal:{n:3},          hard:{n:5}},
+  maze:       {easy:{grid:6},       normal:{grid:8},       hard:{grid:12}},
+  dotline:    {easy:{dots:8},       normal:{dots:10},      hard:{dots:16}},
+  counting:   {easy:{items:3,maxN:3}, normal:{items:4,maxN:5}, hard:{items:4,maxN:6}},
+  linematch:  {easy:{items:3},        normal:{items:4},        hard:{items:5}},
+  inipick:    {easy:{items:3,c:2},    normal:{items:4,c:2},    hard:{items:4,c:3}},
+  iniwrite:   {easy:{items:3,rows:4}, normal:{items:4,rows:5}, hard:{items:4,rows:6}},
 };
 const CAT_COLORS={
   lang:  {ac:{r:0.24,g:0.31,b:0.84},hc:{r:0.93,g:0.94,b:0.99}},
   think: {ac:{r:0.05,g:0.55,b:0.38},hc:{r:0.90,g:0.98,b:0.94}},
   create:{ac:{r:0.90,g:0.45,b:0.10},hc:{r:1.00,g:0.95,b:0.87}},
   design:{ac:{r:0.50,g:0.25,b:0.80},hc:{r:0.95,g:0.92,b:1.00}},
+  young: {ac:{r:0.95,g:0.45,b:0.55},hc:{r:1.00,g:0.94,b:0.96}},
 };
 
 // ── 계열/유형 UI ──
+function getTypeMeta(k){return ACT_TYPES[k]||ACT_TYPES_YOUNG[k];}
+function renderAgeTierBar(){
+  document.getElementById('ageTierBar').innerHTML=
+    '<button class="age-tier-btn'+(ageTier==='young'?' active':'')+'" onclick="selAgeTier(\'young\')">🐣 4~6세 첫걸음<span class="sub">숫자세기·줄긋기·초성</span></button>'
+    +'<button class="age-tier-btn'+(ageTier==='old'?' active':'')+'" onclick="selAgeTier(\'old\')">📚 7세 이상 심화<span class="sub">빈칸채우기·퀴즈 등 16종</span></button>';
+}
+function selAgeTier(tier){
+  ageTier=tier;
+  if(tier==='young'){actType='counting';actCat=null;}
+  else{actType='fillblank';actCat='lang';}
+  actData=null;
+  document.getElementById('a-ai-result').style.display='none';
+  renderAgeTierBar();renderCatTabs();renderTypeGrid();
+}
 function renderCatTabs(){
-  document.getElementById('catTabs').innerHTML=Object.entries(ACT_CATEGORIES).map(([k,v])=>
+  const box=document.getElementById('catTabs');
+  if(ageTier==='young'){box.innerHTML='';box.style.display='none';return;}
+  box.style.display='flex';
+  box.innerHTML=Object.entries(ACT_CATEGORIES).map(([k,v])=>
     '<button class="cat-tab'+(k===actCat?' active':'')+'" onclick="selCat(\''+k+'\')">'+v.icon+' '+v.name+'</button>').join('');
 }
 function renderTypeGrid(){
-  document.getElementById('typeGrid').innerHTML=Object.entries(ACT_TYPES).filter(([k,v])=>v.cat===actCat).map(([k,v])=>
+  const typeSet=ageTier==='young'?ACT_TYPES_YOUNG:ACT_TYPES;
+  document.getElementById('typeGrid').innerHTML=Object.entries(typeSet).filter(([k,v])=>ageTier==='young'||v.cat===actCat).map(([k,v])=>
     '<div class="type-item'+(k===actType?' selected':'')+'" onclick="selTypeKey(\''+k+'\')">'
     +'<div class="type-icon">'+v.icon+'</div><div class="type-name">'+v.name+'</div>'
     +'<div class="type-desc">'+v.desc+'</div></div>').join('');
-  const t=ACT_TYPES[actType];
+  const t=getTypeMeta(actType);
   document.getElementById('typeInfo').textContent=actType==='maze'
     ?'🌀 미로는 AI가 아닌 알고리즘으로 자동 생성돼요 — 난이도만 고르고 생성 버튼을 누르세요! (쉬움 8×8 / 보통 12×12 / 어려움 16×16)'
+    :actType==='dotline'
+    ?'🔢 점 배치는 AI가 아닌 알고리즘으로 100% 정확하게 그려져요 (별·하트·집·나무·물고기·다이아몬드·구름 중 자동 매칭). 대상 이름만 입력하면 돼요. (쉬움 10개 / 보통 16개 / 어려움 22개)'
+    :ICON_ITEM_TYPES.has(actType)
+    ?'🎨 사물/동물 이름만 입력하면 AI가 그림 아이콘을 그려서 활동지에 넣어줘요. '+t.fmt
     :'📝 항목 형식: '+t.fmt;
 }
 function selCat(k){
@@ -681,18 +720,23 @@ function selCat(k){
   selTypeKey(Object.keys(ACT_TYPES).find(t=>ACT_TYPES[t].cat===k));
 }
 function selTypeKey(k){
-  actType=k;actCat=ACT_TYPES[k].cat;actData=null;
+  actType=k;
+  if(ACT_TYPES[k]){actCat=ACT_TYPES[k].cat;}
+  actData=null;
   document.getElementById('a-ai-result').style.display='none';
   renderCatTabs();renderTypeGrid();
 }
 function initManualTypeSelect(){
   const sel=document.getElementById('am-type');
-  sel.innerHTML=Object.entries(ACT_TYPES).map(([k,v])=>'<option value="'+k+'">'+v.icon+' '+v.name+'</option>').join('');
+  sel.innerHTML=Object.entries(ACT_TYPES).map(([k,v])=>'<option value="'+k+'">'+v.icon+' '+v.name+'</option>').join('')
+    +'<optgroup label="4~6세 첫걸음">'
+    +Object.entries(ACT_TYPES_YOUNG).map(([k,v])=>'<option value="'+k+'">'+v.icon+' '+v.name+'</option>').join('')
+    +'</optgroup>';
   sel.value='writing';
   updateManualFmt();
 }
 function updateManualFmt(){
-  const t=ACT_TYPES[document.getElementById('am-type').value];
+  const t=getTypeMeta(document.getElementById('am-type').value);
   document.getElementById('am-fmt').textContent='형식: '+t.fmt;
 }
 
@@ -709,6 +753,10 @@ function perSheetN(type,p){
     case 'coloring':return p.n||5;
     case 'dotline':return 1;
     case 'maze':return 0;
+    case 'counting':return p.items||4;
+    case 'linematch':return p.items||4;
+    case 'inipick':return p.items||4;
+    case 'iniwrite':return p.items||4;
     default:return p.n||6;
   }
 }
@@ -797,10 +845,14 @@ const ITEM_SPECS={
   coloring:(p,n)=>'items: 색칠 도안에 들어갈 요소 '+n+'개. 형식 "요소 설명(배색 힌트 포함)".',
   dotline:(p,n)=>'items: 점 잇기 그림의 대상이 될 사물/동물 이름 '+n+'개 (각 시트마다 서로 다른 대상). 형식: "이름" 하나만(예: "토끼", "나비", "당근"). 윤곽이 단순하고 아이가 알아보기 쉬운 사물/동물로.',
   maze:()=>'',
+  counting:(p,n)=>'items: 그림으로 개수를 셀 수 있는 간단한 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 낱개로 세기 쉬운 것). 형식: "이름" 하나만(예: "토끼", "사과", "별"). 4~6세 아이가 아는 쉬운 낱말로.',
+  linematch:(p,n)=>'items: 줄긋기로 짝지을 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상). 형식: "이름" 하나만(예: "나비", "꽃"). 4~6세 아이가 아는 쉬운 낱말로.',
+  inipick:(p,n)=>'items: 초성 찾기에 쓸 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 두 글자 이상 낱말). 형식: "이름" 하나만(예: "사과", "고양이"). 4~6세 아이가 아는 쉬운 낱말로.',
+  iniwrite:(p,n)=>'items: 초성 따라쓰기에 쓸 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 두 글자 이상 낱말). 형식: "이름" 하나만(예: "나무", "구름"). 4~6세 아이가 아는 쉬운 낱말로.',
 };
 
 function buildActPrompt(){
-  const t=ACT_TYPES[actType];
+  const t=getTypeMeta(actType);
   const level=document.getElementById('a-level').value;
   const p=DIFF_PARAMS[actType][level];
   const age=document.getElementById('a-age').value;
@@ -839,7 +891,7 @@ function buildActPrompt(){
 }
 
 // 실제 도안 이미지가 필요한 유형 (색칠공부/점선잇기)
-const IMAGE_GEN_TYPES=new Set(['coloring','dotline']);
+const IMAGE_GEN_TYPES=new Set(['coloring']);
 
 // 나노바나나 형식 — 색칠공부 도안 이미지
 const COLORING_STYLE_BLOCK="Children's coloring book page illustration. Pure solid black bold clean outlines only, on a completely plain white background. No shading, no gradients, no gray tones, no hatching, no color fill of any kind — pure line art, ready to be colored in by hand. Simple, soft, rounded, chunky shapes with generous white space inside each outline for easy coloring. Strictly clean composition, completely devoid of any text characters, letters, numbers, words, signage, or typography.";
@@ -856,21 +908,7 @@ function buildColoringPrompt(elements,age){
     +'💡 생성 팁: 결과에 회색 음영이나 글자가 섞여 나오면 "no shading, no text, pure black outline only, white fill"를 프롬프트 끝에 다시 강조해서 재시도하세요.';
 }
 
-// 나노바나나 형식 — 점선잇기(숫자 연결 퍼즐) 도안 이미지
-function buildDotlinePrompt(subject,age,dots){
-  const s=subject||'a rabbit';
-  return '### 도안 이미지 — 점선 잇기 (숫자 연결 퍼즐)\n'
-    +'> 대상 연령: '+age+'세 · 점 개수: '+dots+'개\n\n'
-    +'<Style>Connect-the-dots (dot-to-dot) puzzle page for children. The picture is represented ONLY as a series of small solid black numbered dots — absolutely no outlines, no connecting lines, no shading, and no color anywhere in the image except the dots and their numbers. This is the one exception where numerals are required and intentional. Plain white background.</Style>\n'
-    +'<Subject>Exactly '+dots+' small solid black dots, numbered sequentially in plain simple sans-serif digits from 1 to '+dots+', placed in correct order tracing the silhouette outline of: '+s+'. Dots are spaced closely and evenly enough along the outline that connecting dot 1 → 2 → 3 → ... → '+dots+' with straight lines would clearly reveal a simple, recognizable outline of the subject. Do not draw any connecting lines, outline, or shading — show only the isolated numbered dots.</Subject>\n'
-    +'<Lighting>Flat, even, shadowless. No lighting effects, no gradients — pure black dots and numbers on white.</Lighting>\n'
-    +'<Mood>Playful, simple, satisfying puzzle-reveal feeling for a young child.</Mood>\n'
-    +'--ar 5:4\n\n'
-    +'💡 생성 팁: 점 순서나 위치가 그림과 안 맞으면 "the dots must follow a single continuous simple outline path, evenly spaced, no crossing lines"를 강조해서 재시도하세요. 숫자 연결 퍼즐은 이미지 AI가 정확히 맞추기 어려운 유형이라 여러 번 재생성이 필요할 수 있어요.';
-}
-
-function buildImagePrompt(type,elements,age,dots){
-  if(type==='dotline')return buildDotlinePrompt((elements||[])[0],age,dots||16);
+function buildImagePrompt(type,elements,age){
   return buildColoringPrompt(elements,age);
 }
 
@@ -880,15 +918,140 @@ function extractImagePromptBody(fullPrompt){
   return m?m[0]:fullPrompt;
 }
 
+// ══════════════════════════════
+// 한글 초성 추출 — 유니코드 조합 공식 사용 (AI 추측 아닌 100% 정확한 계산)
+// ══════════════════════════════
+const CHOSEONG_LIST=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function getChoseong(word){
+  const c=String(word||'').trim()[0];
+  if(!c)return '';
+  const code=c.charCodeAt(0)-0xAC00;
+  if(code<0||code>11171)return c; // 완성형 한글 음절이 아니면 첫 글자 그대로 반환
+  return CHOSEONG_LIST[Math.floor(code/(21*28))]||c;
+}
+function pickWrongChoseong(correct,count){
+  const pool=CHOSEONG_LIST.filter(c=>c!==correct);
+  const shuffled=shuffleArr(pool);
+  return shuffled.slice(0,count);
+}
+
+// ══════════════════════════════
+// 4~6세용 사물 아이콘 생성 (숫자세기/줄긋기/초성 유형 공용)
+// ══════════════════════════════
+const ICON_ITEM_TYPES=new Set(['counting','linematch','inipick','iniwrite']);
+
+function buildIconPrompt(name,age){
+  return '### 스티커 아이콘 — '+name+'\n'
+    +'> 대상 연령: '+age+'세\n\n'
+    +'<Style>Cute, simple, flat vector clip-art sticker illustration for a young children\'s learning app. Bright, cheerful, saturated pastel colors. Bold, clean, rounded outlines. Simple, friendly, appealing design suitable for ages 4 to 6. Centered single subject, isolated on a plain solid white background. No shadow, no background scenery, no text, no watermark, no extra decorative elements, no other objects in frame.</Style>\n'
+    +'<Subject>One single '+name+' only, drawn as a cute simple colorful sticker-style icon, filling most of the frame, nothing else visible.</Subject>\n'
+    +'<Lighting>Flat, even lighting. No gradients, no shadows — clean flat illustration.</Lighting>\n'
+    +'<Mood>Cheerful, warm, friendly, appealing to a young child.</Mood>\n'
+    +'--ar 1:1\n\n'
+    +'💡 생성 팁: 배경에 다른 사물이 같이 나오면 "isolated single object only, nothing else in frame, plain white background"를 강조해서 재시도하세요.';
+}
+
+async function genIcons(names,age,onProgress){
+  const uniq=[...new Set((names||[]).filter(Boolean))];
+  const icons={};
+  for(let i=0;i<uniq.length;i++){
+    if(onProgress)onProgress(i+1,uniq.length,uniq[i]);
+    try{
+      const prompt=extractImagePromptBody(buildIconPrompt(uniq[i],age));
+      const data=await callProxy('image',{contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:['TEXT','IMAGE']}});
+      console.log('[iQUVE] 아이콘 생성 원본 응답 ('+uniq[i]+'):',data);
+      if(data.error){console.warn('아이콘 생성 실패('+uniq[i]+'):',data.error);icons[uniq[i]]=null;continue;}
+      const parts=data.candidates?.[0]?.content?.parts||[];
+      const imgPart=parts.find(p=>p.inlineData||p.inline_data);
+      const inline=imgPart?.inlineData||imgPart?.inline_data;
+      icons[uniq[i]]=inline?.data||null;
+    }catch(e){console.warn('아이콘 생성 실패('+uniq[i]+'):',e);icons[uniq[i]]=null;}
+  }
+  return icons;
+}
+
+// ══════════════════════════════
+// 점선잇기 — 숫자 연결 퍼즐 (알고리즘, AI 불필요)
+// ══════════════════════════════
+function starPts(cx,cy,rOuter,rInner,spikes){
+  const pts=[];
+  for(let i=0;i<spikes*2;i++){
+    const r=i%2===0?rOuter:rInner;
+    const ang=(-90+i*(360/(spikes*2)))*Math.PI/180;
+    pts.push({x:cx+r*Math.cos(ang),y:cy+r*Math.sin(ang)});
+  }
+  return pts;
+}
+function heartPts(cx,cy,scale,n){
+  const pts=[];
+  for(let i=0;i<n;i++){
+    const t=(i/n)*2*Math.PI;
+    const x=16*Math.pow(Math.sin(t),3);
+    const yRaw=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
+    pts.push({x:cx+x*scale,y:cy-yRaw*scale});
+  }
+  return pts;
+}
+const DOTLINE_TEMPLATES={
+  star:{pts:starPts(50,50,45,18,5),keywords:['별','스타']},
+  heart:{pts:heartPts(50,45,2.2,16),keywords:['하트','사랑','심장']},
+  house:{pts:[{x:15,y:95},{x:15,y:50},{x:5,y:50},{x:50,y:10},{x:95,y:50},{x:85,y:50},{x:85,y:95}],keywords:['집','하우스','지붕']},
+  tree:{pts:[{x:50,y:10},{x:80,y:65},{x:58,y:65},{x:58,y:95},{x:42,y:95},{x:42,y:65},{x:20,y:65}],keywords:['나무','트리','소나무']},
+  fish:{pts:[{x:10,y:50},{x:30,y:30},{x:65,y:25},{x:85,y:15},{x:75,y:50},{x:85,y:85},{x:65,y:75},{x:30,y:70}],keywords:['물고기','생선','붕어','금붕어']},
+  diamond:{pts:[{x:50,y:8},{x:82,y:45},{x:50,y:92},{x:18,y:45}],keywords:['다이아몬드','보석','연']},
+  cloud:{pts:[{x:15,y:70},{x:15,y:55},{x:25,y:40},{x:40,y:45},{x:45,y:30},{x:60,y:30},{x:68,y:42},{x:80,y:45},{x:85,y:58},{x:85,y:70}],keywords:['구름','하늘']},
+};
+const DOTLINE_KEYS=Object.keys(DOTLINE_TEMPLATES);
+function pickDotTemplate(subject,idx){
+  const s=String(subject||'');
+  for(const key of DOTLINE_KEYS){
+    if(DOTLINE_TEMPLATES[key].keywords.some(kw=>s.includes(kw)))return key;
+  }
+  return DOTLINE_KEYS[idx%DOTLINE_KEYS.length];
+}
+function polyPerimeter(pts){
+  let total=0;
+  for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];total+=Math.hypot(b.x-a.x,b.y-a.y);}
+  return total;
+}
+function resamplePolygonToN(pts,n){
+  const total=polyPerimeter(pts);
+  const step=total/n;
+  const result=[{x:pts[0].x,y:pts[0].y}];
+  let travelled=0,segIdx=0,segTravelled=0;
+  let segStart=pts[0],segEnd=pts[1%pts.length];
+  let segLen=Math.hypot(segEnd.x-segStart.x,segEnd.y-segStart.y)||0.0001;
+  for(let k=1;k<n;k++){
+    const targetDist=k*step;
+    while(travelled+(segLen-segTravelled)<targetDist-1e-9){
+      travelled+=(segLen-segTravelled);
+      segIdx=(segIdx+1)%pts.length;
+      segStart=pts[segIdx];segEnd=pts[(segIdx+1)%pts.length];
+      segLen=Math.hypot(segEnd.x-segStart.x,segEnd.y-segStart.y)||0.0001;
+      segTravelled=0;
+    }
+    const remain=targetDist-travelled;
+    const t=Math.min(1,Math.max(0,remain/segLen));
+    result.push({x:segStart.x+(segEnd.x-segStart.x)*t,y:segStart.y+(segEnd.y-segStart.y)*t});
+    segTravelled=remain;
+  }
+  return result;
+}
+function genDotline(subject,idx,dotsN){
+  const key=pickDotTemplate(subject,idx);
+  const pts=resamplePolygonToN(DOTLINE_TEMPLATES[key].pts,dotsN);
+  return {shape:key,dots:pts};
+}
+
+
+
 
 async function genColoringImages(type,elements,age,count,level,onProgress){
   const images=[];
-  const dots=(DIFF_PARAMS.dotline[level]||DIFF_PARAMS.dotline.normal).dots;
   for(let i=0;i<count;i++){
     if(onProgress)onProgress(i+1,count);
     try{
-      const subjectForThisSheet=type==='dotline'?(elements[i]||elements[0]||'토끼'):elements;
-      const prompt=extractImagePromptBody(buildImagePrompt(type,type==='dotline'?[subjectForThisSheet]:elements,age,dots));
+      const prompt=extractImagePromptBody(buildImagePrompt(type,elements,age));
       const data=await callProxy('image',{contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:['TEXT','IMAGE']}});
       console.log('[iQUVE] 이미지 생성 원본 응답('+(i+1)+'/'+count+'):',data);
       if(data.error){console.warn('이미지 생성 실패:',data.error);images.push(null);continue;}
@@ -930,7 +1093,7 @@ async function genActivityAI(){
       try{parsed=JSON.parse(m[0]);}
       catch{throw new Error('AI 응답 파싱 실패 — 다시 시도해주세요. (받은 내용: '+snippet+(raw.length>200?'…':'')+')');}
     }
-    actData={type:actType,title:parsed.title||ACT_TYPES[actType].name,guide:parsed.guide||'',tip:parsed.tip||'',items:(parsed.items||[]).map(String),images:null};
+    actData={type:actType,title:parsed.title||getTypeMeta(actType).name,guide:parsed.guide||'',tip:parsed.tip||'',items:(parsed.items||[]).map(String),images:null};
 
     if(IMAGE_GEN_TYPES.has(actType)){
       if(!CFG.geminiKey){
@@ -952,6 +1115,25 @@ async function genActivityAI(){
         }
       }
     }
+    if(ICON_ITEM_TYPES.has(actType)){
+      if(!CFG.geminiKey){
+        console.warn('아이콘 생성 건너뜀: Gemini API 키 없음');
+      }else{
+        const age=document.getElementById('a-age').value;
+        try{
+          actData.icons=await genIcons(actData.items,age,(i,n,name)=>{
+            btn.innerHTML='<div class="spinner"></div> 그림 아이콘 생성 중 ('+i+'/'+n+': '+name+')...';
+          });
+          const vals=Object.values(actData.icons);
+          if(vals.length&&vals.every(x=>!x)){
+            alert('내용은 생성됐지만 그림 아이콘은 자동으로 만들지 못했어요. (이미지 모델/키를 확인해주세요)');
+          }
+        }catch(e){
+          console.warn('아이콘 생성 중 오류:',e);
+          alert('내용은 생성됐지만 그림 아이콘 생성 중 오류가 났어요: '+e.message);
+        }
+      }
+    }
     renderActPreview();
   }catch(e){alert('오류: '+e.message);}
   finally{btn.innerHTML='✨ AI로 활동지 내용 생성';btn.disabled=false;}
@@ -962,7 +1144,7 @@ function renderActPreview(){
   const wrap=document.getElementById('a-ai-result');
   const box=document.getElementById('a-preview');
   wrap.style.display='block';box.innerHTML='';
-  const t=ACT_TYPES[actData.type];
+  const t=getTypeMeta(actData.type);
   const mkField=(label,key)=>{
     const d=document.createElement('div');d.className='field';
     const lb=document.createElement('label');lb.textContent=label;d.appendChild(lb);
@@ -1033,11 +1215,7 @@ function renderActPreview(){
     const copyBtn=document.createElement('button');
     copyBtn.textContent='📋 프롬프트 복사';
     copyBtn.style.cssText='padding:5px 10px;background:var(--indigo);color:white;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;';
-    const previewLevel=document.getElementById('a-level').value;
-    const previewDots=(DIFF_PARAMS.dotline[previewLevel]||DIFF_PARAMS.dotline.normal).dots;
-    const fullPromptText=actData.type==='dotline'
-      ?buildImagePrompt('dotline',[actData.items[0]],document.getElementById('a-age').value,previewDots)
-      :buildImagePrompt(actData.type,actData.items,document.getElementById('a-age').value);
+    const fullPromptText=buildImagePrompt(actData.type,actData.items,document.getElementById('a-age').value);
     copyBtn.onclick=async()=>{
       const body=extractImagePromptBody(fullPromptText);
       try{
@@ -1056,11 +1234,61 @@ function renderActPreview(){
     const promptHint=document.createElement('p');
     promptHint.className='hint';
     promptHint.style.padding='0 12px 10px';
-    promptHint.textContent='💡 자동 이미지 생성이 실패하거나 결과가 마음에 안 들면, 이 프롬프트를 복사해서 Gemini 앱이나 AI Studio의 나노바나나(Nano Banana)에 직접 붙여넣어 이미지를 만든 뒤 피그마에 수동으로 삽입하세요.'
-      +(actData.type==='dotline'?' (활동지가 여러 장이면 시트마다 다른 대상으로 자동 생성돼요 — 위 프롬프트는 1번째 시트 기준 예시예요.)':'');
+    promptHint.textContent='💡 자동 이미지 생성이 실패하거나 결과가 마음에 안 들면, 이 프롬프트를 복사해서 Gemini 앱이나 AI Studio의 나노바나나(Nano Banana)에 직접 붙여넣어 이미지를 만든 뒤 피그마에 수동으로 삽입하세요.';
     promptWrap.appendChild(promptHint);
     imgSection.appendChild(promptWrap);
     box.appendChild(imgSection);
+  }
+  if(ICON_ITEM_TYPES.has(actData.type)){
+    const iconSection=document.createElement('div');
+    iconSection.style.cssText='display:flex;flex-direction:column;gap:8px;';
+    const label=document.createElement('div');label.className='act-section-title';
+    label.textContent='🎨 생성된 그림 아이콘';
+    iconSection.appendChild(label);
+    const thumbs=document.createElement('div');
+    thumbs.style.cssText='display:flex;gap:8px;flex-wrap:wrap;';
+    const iconMap=actData.icons||{};
+    const names=[...new Set((actData.items||[]).filter(Boolean))];
+    if(names.length){
+      names.forEach(name=>{
+        const b64=iconMap[name];
+        const cell=document.createElement('div');cell.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
+        if(b64){
+          const im=document.createElement('img');
+          im.src='data:image/png;base64,'+b64;
+          im.style.cssText='width:90px;height:90px;object-fit:contain;border:1px solid var(--border);border-radius:10px;background:white;';
+          cell.appendChild(im);
+        }else{
+          const bad=document.createElement('div');
+          bad.style.cssText='width:90px;height:90px;border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--gray);';
+          bad.textContent='생성 실패';
+          cell.appendChild(bad);
+        }
+        const cap=document.createElement('span');cap.style.cssText='font-size:11px;color:var(--gray);';cap.textContent=name;
+        cell.appendChild(cap);
+        thumbs.appendChild(cell);
+      });
+    }else{
+      const none=document.createElement('p');none.className='hint';none.textContent='아직 생성된 아이콘이 없어요.';
+      thumbs.appendChild(none);
+    }
+    iconSection.appendChild(thumbs);
+    const regenBtn=document.createElement('button');
+    regenBtn.className='add-row-mini';regenBtn.textContent='🔄 아이콘 다시 생성';
+    regenBtn.onclick=async()=>{
+      if(!CFG.geminiKey){alert('Gemini API 키가 필요해요.');return;}
+      const age=document.getElementById('a-age').value;
+      regenBtn.disabled=true;
+      try{
+        actData.icons=await genIcons(actData.items,age,(i,n,name)=>{
+          regenBtn.textContent='생성 중 ('+i+'/'+n+': '+name+')...';
+        });
+      }catch(e){alert('아이콘 재생성 실패: '+e.message);}
+      regenBtn.disabled=false;regenBtn.textContent='🔄 아이콘 다시 생성';
+      renderActPreview();
+    };
+    iconSection.appendChild(regenBtn);
+    box.appendChild(iconSection);
   }
   const st=document.createElement('div');st.className='act-section-title';
   st.innerHTML='📝 항목 <span style="font-size:11px;font-weight:400;color:var(--gray);">형식: '+t.fmt+'</span>';
@@ -1085,7 +1313,7 @@ function renderActPreview(){
 // ══════════════════════════════
 function buildSheet(o,p,ch,idx){
   const t=o.type;
-  const sh={type:t,title:o.title||ACT_TYPES[t].name,guide:o.guide||''};
+  const sh={type:t,title:o.title||getTypeMeta(t).name,guide:o.guide||''};
   if(t==='fillblank'){
     sh.items=ch.map(s=>{
       const parts=splitBar(s);let q=parts[0]||String(s);const a=parts[1]||'';
@@ -1156,8 +1384,37 @@ function buildSheet(o,p,ch,idx){
     sh.elements=ch.map(s=>splitBar(s)[0]).filter(Boolean);sh.imageNote=o.imageNote||'';
     sh.imageBase64=(o.images&&o.images[idx])||null;
   }else if(t==='dotline'){
-    sh.elements=ch.map(s=>splitBar(s)[0]).filter(Boolean);sh.imageNote=o.imageNote||'';
-    sh.imageBase64=(o.images&&o.images[idx])||null;
+    const subject=ch[0]?splitBar(ch[0])[0]:'별';
+    const dotsN=p.dots||16;
+    const dl=genDotline(subject,idx,dotsN);
+    sh.subject=subject;sh.dotShape=dl.shape;sh.dots=dl.dots;
+  }else if(t==='counting'){
+    const maxN=p.maxN||5;
+    sh.items=ch.map(s=>{
+      const name=splitBar(s)[0];
+      const count=1+Math.floor(Math.random()*maxN);
+      return {name,count,maxN,icon:(o.icons&&o.icons[name])||null};
+    });
+  }else if(t==='linematch'){
+    sh.pairs=ch.map(s=>{
+      const name=splitBar(s)[0];
+      return {name,icon:(o.icons&&o.icons[name])||null};
+    });
+  }else if(t==='inipick'){
+    const c=p.c||2;
+    sh.items=ch.map(s=>{
+      const name=splitBar(s)[0];
+      const correct=getChoseong(name);
+      const choices=shuffleArr([correct,...pickWrongChoseong(correct,c-1)]);
+      return {name,correct,choices,icon:(o.icons&&o.icons[name])||null};
+    });
+    sh.answer='정답: '+sh.items.map((i,k)=>(k+1)+'.'+i.correct).join('  ');
+  }else if(t==='iniwrite'){
+    const rows=p.rows||5;
+    sh.items=ch.map(s=>{
+      const name=splitBar(s)[0];
+      return {name,correct:getChoseong(name),rows,icon:(o.icons&&o.icons[name])||null};
+    });
   }else if(t==='maze'){
     sh.maze=genMaze(p.grid||12);
   }
@@ -1169,7 +1426,7 @@ function buildSheets(o){
   const items=(o.items||[]).filter(x=>x&&String(x).trim());
   const per=perSheetN(o.type,p);
   const count=Math.max(1,o.count||1);
-  const reuse=['coloring','dotline','drawwrite','nextstory','letter'];
+  const reuse=['coloring','dotline','drawwrite','nextstory','letter','counting','linematch','inipick','iniwrite'];
   const chunks=[];
   if(o.type==='maze'){
     for(let i=0;i<count;i++)chunks.push([]);
@@ -1197,7 +1454,7 @@ const NAME_LINES={
 };
 
 function generateActivityCodeV2(o){
-  const t=ACT_TYPES[o.type];
+  const t=getTypeMeta(o.type);
   const sheets=buildSheets(o);
   const cc=CAT_COLORS[t.cat];
   const meta={
@@ -1423,15 +1680,95 @@ for(let i=0;i<SHEETS.length;i++){
       txt(fr,s1,26,"Regular",{r:0.66,g:0.69,b:0.78},110,y0+220,860,"CENTER");
     }
   }else if(sh.type==="dotline"){
-    if(sh.imageBase64&&pic(fr,sh.imageBase64,60,y0+10,960,790)){
-      // 실제 생성된 도안 이미지 삽입됨
-    }else{
-      srct(fr,AC,60,y0+10,960,790,20,3);
-      let s2="[ 점선 잇기 도안 영역 — 번호 순서대로 이으면 그림 완성 ]";
-      if(sh.imageNote)s2+="\\n\\n"+sh.imageNote;
-      if(sh.elements&&sh.elements.length)s2+="\\n\\n그릴 대상: "+sh.elements.join(", ");
-      txt(fr,s2,26,"Regular",{r:0.66,g:0.69,b:0.78},110,y0+220,860,"CENTER");
-    }
+    srct(fr,AC,60,y0+10,960,790,20,3);
+    const S=680,ox=200,oy=y0+65;
+    (sh.dots||[]).forEach(function(d,i){
+      const px=ox+d.x/100*S,py=oy+d.y/100*S;
+      ell(fr,DARK,px-6,py-6,12);
+      txt(fr,String(i+1),20,"Bold",DARK,px+9,py-26,60);
+    });
+    if(sh.subject)txt(fr,"🔢 번호를 순서대로 이어서 그림을 완성해 보세요 · 대상: "+sh.subject,22,"Regular",GRAY,60,y0+815,960,"CENTER");
+  }else if(sh.type==="counting"){
+    const items=sh.items||[];
+    const cols=2;
+    const cellW=470;
+    const rowsN=Math.max(1,Math.ceil(items.length/cols));
+    const cellH=Math.floor(900/rowsN);
+    items.forEach(function(it,idx){
+      const cx=60+(idx%cols)*(cellW+20),cy=y0+10+Math.floor(idx/cols)*cellH;
+      rct(fr,LGT,cx,cy,cellW,cellH-16,1,14);
+      const iconS=Math.max(28,Math.min(64,Math.floor((cellW-40)/Math.max(1,it.count))-6));
+      const totalW=it.count*(iconS+8)-8;
+      const startX=cx+Math.floor((cellW-totalW)/2);
+      for(let k=0;k<it.count;k++){
+        if(it.icon)pic(fr,it.icon,startX+k*(iconS+8),cy+16,iconS,iconS);
+        else srct(fr,AC,startX+k*(iconS+8),cy+16,iconS,iconS,10,2);
+      }
+      const numS=44,ngap=10;
+      const numY=cy+16+iconS+18;
+      const totalNumW=it.maxN*(numS+ngap)-ngap;
+      const numStartX=cx+Math.max(6,Math.floor((cellW-totalNumW)/2));
+      for(let n=1;n<=it.maxN;n++){
+        const nx=numStartX+(n-1)*(numS+ngap);
+        sell(fr,AC,nx,numY,numS,3);
+        txt(fr,String(n),26,"Bold",DARK,nx,numY+8,numS,"CENTER");
+      }
+    });
+  }else if(sh.type==="linematch"){
+    const pairs=sh.pairs||[];
+    const rowH=Math.floor(900/Math.max(1,pairs.length));
+    const iconS=Math.min(100,rowH-40);
+    pairs.forEach(function(pr,idx){
+      const rowY=y0+10+idx*rowH;
+      const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
+      if(pr.icon){pic(fr,pr.icon,80,midY,iconS,iconS);pic(fr,pr.icon,880-iconS,midY,iconS,iconS);}
+      else{srct(fr,AC,80,midY,iconS,iconS,14,2);srct(fr,AC,880-iconS,midY,iconS,iconS,14,2);}
+      const lineY=midY+Math.floor(iconS/2);
+      const startX=80+iconS+24,endX=880-iconS-24;
+      const dotCount=16;
+      for(let d=0;d<=dotCount;d++){
+        const dx=startX+(endX-startX)*d/dotCount;
+        ell(fr,GRAY,dx-4,lineY-4,8);
+      }
+    });
+  }else if(sh.type==="inipick"){
+    const items=sh.items||[];
+    const rowH=Math.floor(900/Math.max(1,items.length));
+    items.forEach(function(it,idx){
+      const rowY=y0+10+idx*rowH;
+      const iconS=Math.min(110,rowH-30);
+      const iconY=rowY+Math.floor((rowH-iconS)/2);
+      if(it.icon)pic(fr,it.icon,60,iconY,iconS,iconS);
+      else srct(fr,AC,60,iconY,iconS,iconS,14,2);
+      const chW=Math.min(120,Math.floor((900-iconS-40)/Math.max(1,it.choices.length))-16);
+      const chGap=16;
+      const startX=60+iconS+40;
+      it.choices.forEach(function(c,ci){
+        const ccx=startX+ci*(chW+chGap);
+        const ccy=rowY+Math.floor((rowH-chW)/2);
+        srct(fr,AC,ccx,ccy,chW,chW,Math.floor(chW/2),3);
+        txt(fr,c,Math.floor(chW*0.45),"Bold",DARK,ccx,ccy+Math.floor(chW/2)-Math.floor(chW*0.27),chW,"CENTER");
+      });
+    });
+  }else if(sh.type==="iniwrite"){
+    const items=sh.items||[];
+    const blockH=Math.floor(900/Math.max(1,items.length));
+    items.forEach(function(it,idx){
+      const by=y0+10+idx*blockH;
+      const iconS=Math.min(80,blockH-24);
+      const iconY=by+Math.floor((blockH-iconS)/2);
+      if(it.icon)pic(fr,it.icon,60,iconY,iconS,iconS);
+      else srct(fr,AC,60,iconY,iconS,iconS,12,2);
+      const traceX=60+iconS+30;
+      const cellW=Math.floor((960-iconS-30)/Math.max(1,it.rows));
+      for(let r=0;r<it.rows;r++){
+        const rcx=traceX+r*cellW;
+        rct(fr,LGT,rcx,by,cellW-8,blockH-16,1,10);
+        const fs=Math.min(60,blockH-30);
+        const col=r===0?DARK:{r:0.75,g:0.78,b:0.9};
+        txt(fr,it.correct,fs,"Bold",col,rcx,by+Math.floor((blockH-16-fs)/2)-2,cellW-8,"CENTER");
+      }
+    });
   }else if(sh.type==="maze"){
     const M=sh.maze;
     M.walls.forEach(function(w){rct(fr,DARK,60+w[0],y0+w[1],w[2],w[3]);});
@@ -1450,7 +1787,7 @@ figma.notify("✅ "+META.typeName+" 활동지 "+SHEETS.length+"장 생성 완료
 })();`;
 
 // V2 초기화
-renderCatTabs();renderTypeGrid();initManualTypeSelect();
+renderAgeTierBar();renderCatTabs();renderTypeGrid();initManualTypeSelect();
 
 // ══════════════════════════════
 // 직접작성 활동지 행 관리
@@ -1545,6 +1882,7 @@ async function exportToFigma(){
           type:actData.type,title:actData.title,guide:actData.guide,tip:actData.tip,
           items:(actData.items||[]).filter(Boolean),
           images:actData.images||null,
+          icons:actData.icons||null,
           age:document.getElementById('a-age').value,
           lang:LANG_INFO[actLang],langKey:actLang,
           level:document.getElementById('a-level').value,
@@ -1559,6 +1897,7 @@ async function exportToFigma(){
           guide:document.getElementById('am-guide').value||'함께 해봐요!',
           tip:'',
           items:manualRows.filter(Boolean),
+          icons:null,
           age:document.getElementById('am-age').value,
           lang:LANG_INFO[actLangManual],langKey:actLangManual,
           level:'normal',count:1,bookInfo:'',
