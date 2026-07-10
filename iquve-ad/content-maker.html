@@ -163,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-3</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-5</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -364,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-10-3';
+const BUILD_VERSION='v2026-07-10-5';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
@@ -644,7 +644,7 @@ const ACT_TYPES_YOUNG={
   counting:  {cat:'young',name:'숫자 세기',   icon:'🔢', desc:'그림 개수 세고 숫자 고르기',   fmt:'이름 | 시각적 설명 (예: 토끼 | 하얀 토끼 한 마리)', nuri:['nature']},
   linematch: {cat:'young',name:'줄긋기',      icon:'🔗', desc:'같은 그림끼리 선 잇기',        fmt:'이름 | 시각적 설명 (예: 나비 | 노란 날개 나비)', nuri:['body']},
   inipick:   {cat:'young',name:'초성 찾기',   icon:'🅰️', desc:'그림+초성 힌트로 낱말 맞히기', fmt:'이름 | 시각적 설명 (예: 공룡 | 초록색 아기 공룡, →ㄱㄹ 힌트로 표시)', nuri:['comm']},
-  iniwrite:  {cat:'young',name:'초성 써보기', icon:'✏️', desc:'낱말 읽고 초성 따라쓰기',     fmt:'이름 | 시각적 설명 (예: 나무 | 초록 잎이 달린 나무)', nuri:['comm','body']},
+  iniwrite:  {cat:'young',name:'초성 써보기', icon:'✏️', desc:'첫 칸에 낱말 제시, 나머지는 직접 채워 씀', fmt:'이름 | 시각적 설명 (예: 나무 | 초록 잎이 달린 나무)', nuri:['comm','body']},
   feelmatch: {cat:'young',name:'감정 맞히기', icon:'😊', desc:'같은 주인공의 표정으로 감정 배우기', fmt:'주인공 이름 하나(예: 토끼)', nuri:['social']},
   sortgroup: {cat:'young',name:'분류하기',    icon:'🗂️', desc:'그림을 두 그룹으로 나누기',   fmt:'자동: 그룹 기준 + 이름 | 시각적 설명 | 그룹번호', nuri:['nature']},
   iconmatch: {cat:'young',name:'그림 매칭',   icon:'🔀', desc:'서로 관련된 그림끼리 선 잇기', fmt:'왼쪽이름 | 왼쪽설명 | 오른쪽이름 | 오른쪽설명 (예: 소 | 목장 젖소 | 우유 | 유리컵에 담긴 우유)', nuri:['nature','comm']},
@@ -1710,125 +1710,6 @@ function faintDots(p,x1,y1,x2,y2,steps){
     ell(p,col,dx-4,dy-4,8);
   }
 }
-// 세로형 모음(ㅏㅐㅑㅒㅓㅔㅕㅖㅢㅣ)은 초성이 글자 왼쪽에, 가로형 모음(ㅗㅛㅜㅠㅡ 등)은 초성이 위쪽에 위치
-const JUNG_LEFT_IDX=[0,1,2,3,4,5,6,7,19,20];
-function choseongIsLeft(ch){
-  const code=ch.charCodeAt(0)-0xAC00;
-  if(code<0||code>11171)return true;
-  const jung=Math.floor((code%(21*28))/28);
-  return JUNG_LEFT_IDX.indexOf(jung)>=0;
-}
-// 한 글자의 영역별 bounding box 계산 (vectorNetwork의 vertices/segments 참조)
-function bboxOfRegion(region,verts,segs){
-  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  region.loops.forEach(function(loop){
-    loop.forEach(function(segIdx){
-      const seg=segs[segIdx];
-      [seg.start,seg.end].forEach(function(vi){
-        const v=verts[vi];
-        if(v.x<minX)minX=v.x; if(v.x>maxX)maxX=v.x;
-        if(v.y<minY)minY=v.y; if(v.y>maxY)maxY=v.y;
-      });
-    });
-  });
-  return {minX:minX,minY:minY,maxX:maxX,maxY:maxY};
-}
-// 한 글자를 실제 벡터 아웃라인으로 바꾼 뒤(figma.flatten), 초성이 위치한 영역(region)만
-// 다른 색으로 채색. 벡터 변환/영역 분리가 실패하면 반투명 박스로 덮는 이전 방식으로 자동 대체.
-async function vectorizeCharChoseong(p,ch,x,y,fontSize,darkColor,grayColor){
-  function makeTextNode(){
-    const t=figma.createText();p.appendChild(t);
-    t.fontName={family:"Noto Sans KR",style:"Bold"};
-    t.characters=ch;
-    t.fontSize=fontSize;
-    t.fills=[{type:"SOLID",color:darkColor}];
-    t.textAutoResize="WIDTH_AND_HEIGHT";
-    t.x=x;t.y=y;
-    return t;
-  }
-  // 반투명 흰색 박스로 초성 자리를 덮어 흐리게 보이는 폴백(영역 분리가 안 될 때 사용)
-  function overlayFallback(baseNode){
-    const left=choseongIsLeft(ch);
-    const w=baseNode.width||fontSize,h=baseNode.height||fontSize;
-    const box=figma.createRectangle();p.appendChild(box);
-    box.fills=[{type:"SOLID",color:{r:1,g:1,b:1}}];box.opacity=0.55;
-    if(left){box.x=x+w*0.03;box.y=y-h*0.03;box.resize(w*0.44,h*1.06);}
-    else{box.x=x+w*0.03;box.y=y-h*0.03;box.resize(w*0.94,h*0.46);}
-  }
-
-  let vec=null;
-  // flatten 자체가 타이밍 문제 등으로 실패할 수 있어 한 번 더 시도
-  for(let attempt=0;attempt<2;attempt++){
-    const t=makeTextNode();
-    try{
-      vec=figma.flatten([t]);
-      break;
-    }catch(err){
-      console.log("[iQUVE] 벡터 변환 실패(시도 "+(attempt+1)+"/2), 글자:",ch,err);
-      vec=null;
-      if(attempt===1){
-        // 두 번 다 실패 — 방금 만든 텍스트를 그대로 두고 위에 흐림 박스만 덮음
-        overlayFallback(t);
-        return;
-      }
-    }
-  }
-  if(!vec)return;
-
-  try{
-    const net=vec.vectorNetwork;
-    const regionCount=net&&net.regions?net.regions.length:0;
-    console.log("[iQUVE] 글자 '"+ch+"' 벡터화 성공, region 개수:",regionCount,
-      regionCount?net.regions.map(function(r,idx){const b=bboxOfRegion(r,net.vertices,net.segments);return idx+":["+Math.round(b.minX)+","+Math.round(b.minY)+"~"+Math.round(b.maxX)+","+Math.round(b.maxY)+"]";}):[]);
-
-    if(regionCount<2){
-      // region이 1개 이하면 초성만 따로 칠할 수가 없음 — 흐림 박스를 겹쳐서 최대한 비슷하게 표현
-      console.log("[iQUVE] region이 "+regionCount+"개뿐이라 초성 분리 불가 -> 흐림 박스로 대체:",ch);
-      overlayFallback(vec);
-      return;
-    }
-
-    const left=choseongIsLeft(ch);
-    const nodeW=vec.width,nodeH=vec.height;
-    const newRegions=net.regions.map(function(region){
-      const bbox=bboxOfRegion(region,net.vertices,net.segments);
-      const cx=(bbox.minX+bbox.maxX)/2,cy=(bbox.minY+bbox.maxY)/2;
-      const isConsonant=left?(cx<nodeW*0.46):(cy<nodeH*0.46);
-      return {windingRule:region.windingRule,loops:region.loops,
-        fills:[{type:"SOLID",color:isConsonant?grayColor:darkColor}]};
-    });
-    const consonantCount=newRegions.filter(function(r){return r.fills[0].color===grayColor;}).length;
-    console.log("[iQUVE] '"+ch+"' 초성으로 분류된 region 수:",consonantCount,"/",regionCount);
-    if(consonantCount===0||consonantCount===regionCount){
-      // 전부 한쪽으로만 분류됐다면(경계값이 이 글자엔 안 맞았다는 뜻) 흐림 박스로 대체
-      console.log("[iQUVE] 좌우/상하 분류가 애매함 -> 흐림 박스로 대체:",ch);
-      overlayFallback(vec);
-      return;
-    }
-    const newNetwork={vertices:net.vertices,segments:net.segments,regions:newRegions};
-    if(typeof vec.setVectorNetworkAsync==="function"){
-      await vec.setVectorNetworkAsync(newNetwork);
-    }else{
-      vec.vectorNetwork=newNetwork;
-    }
-  }catch(err){
-    console.log("[iQUVE] 초성 영역 분리 실패, 흐림 박스로 대체:",ch,err);
-    overlayFallback(vec);
-  }
-}
-// 단어 전체를 벡터화해서 그리며, 각 글자의 초성 영역만 회색으로 표시
-async function drawWordChoseongVector(p,word,x,y,fontSize,maxWidth,darkColor,grayColor){
-  const chars=Array.from(String(word||''));
-  const n=chars.length||1;
-  const charW=Math.min(fontSize*1.08,maxWidth/n);
-  const totalW=charW*n;
-  let cx=x+Math.max(0,Math.floor((maxWidth-totalW)/2));
-  for(let k=0;k<chars.length;k++){
-    await vectorizeCharChoseong(p,chars[k],cx,y,fontSize,darkColor,grayColor);
-    cx+=charW;
-  }
-  return totalW;
-}
 const base=page.children.length;
 for(let i=0;i<SHEETS.length;i++){
   const sh=SHEETS[i];
@@ -2065,7 +1946,7 @@ for(let i=0;i<SHEETS.length;i++){
       txt(fr,it.correct,fs,"Bold",AC,hintX,rowY+Math.floor(rowH/2)-Math.floor(fs/2),hintW,"CENTER");
     });
   }else if(sh.type==="iniwrite"){
-    // 그림 + 전체 낱말을 그대로 보여주되, 초성이 있는 자리만 실제 벡터 아웃라인으로 분리해 회색으로 표시
+    // 첫 칸에만 낱말을 써 주고, 나머지 칸은 완전히 빈 칸으로 둠 — 마케터가 피그마에서 직접 채워 씀
     const items=sh.items||[];
     const blockH=Math.floor(900/Math.max(1,items.length));
     for(let idx=0;idx<items.length;idx++){
@@ -2077,22 +1958,19 @@ for(let i=0;i<SHEETS.length;i++){
       else srct(fr,AC,iconX,iconY,iconS,iconS,12,2);
       const traceX=iconX+iconS+30;
       const cellW=Math.floor((960-iconS-30)/Math.max(1,it.rows));
-      const wlen=Math.max(1,String(it.word||'').length);
       for(let r=0;r<it.rows;r++){
         const rcx=traceX+r*cellW;
         rct(fr,LGT,rcx,by,cellW-8,blockH-16,1,10);
-        const fs=Math.min(64,blockH-30,Math.floor((cellW-16)/(wlen*1.1)));
-        const wordY=by+Math.floor((blockH-16-fs)/2)-2;
         if(r===0){
-          // 첫 칸은 참고용 예시 — 전체 진하게, 흐림 없이
-          let cx=rcx+8+Math.max(0,Math.floor((cellW-16-fs*1.08*wlen)/2));
-          const modelChars=Array.from(String(it.word||''));
-          for(let mc=0;mc<modelChars.length;mc++){
-            txt(fr,modelChars[mc],fs,"Bold",DARK,cx,wordY,fs+6,"CENTER");
-            cx+=fs*1.08;
+          // 첫 칸에만 낱말을 크게 표시 — 나머지 칸은 의도적으로 비워둠
+          const chars=Array.from(String(it.word||''));
+          const wlen=Math.max(1,chars.length);
+          const perCharW=(cellW-24)/wlen;
+          const wordFs=Math.min(48,Math.floor(blockH*0.5),Math.floor(perCharW/1.05));
+          const wordY=by+Math.floor((blockH-16-wordFs)/2);
+          for(let c=0;c<chars.length;c++){
+            txt(fr,chars[c],wordFs,"Bold",DARK,rcx+12+c*perCharW,wordY,perCharW,"CENTER");
           }
-        }else{
-          await drawWordChoseongVector(fr,it.word,rcx+8,wordY,fs,cellW-16,DARK,{r:0.72,g:0.75,b:0.8});
         }
       }
     }
