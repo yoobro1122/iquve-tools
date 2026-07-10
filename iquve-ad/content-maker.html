@@ -163,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-6</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-8</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -364,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-10-6';
+const BUILD_VERSION='v2026-07-10-8';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
@@ -1734,10 +1734,10 @@ for(let i=0;i<SHEETS.length;i++){
   rct(fr,HC,0,0,W,190);
   txt(fr,sh.title,48,"Bold",AC,60,36,800);
   txt(fr,sh.guide,28,"Regular",DARK,60,112,800);
-  rct(fr,AC,860,50,160,56,1,28);
-  txt(fr,"누리과정",22,"Bold",W_,860,64,160,"CENTER");
-  if(META.nuriLabel)txt(fr,META.nuriLabel,15,"Regular",GRAY,860,112,160,"CENTER");
-  if(META.book)txt(fr,"📖 "+META.book,22,"Regular",GRAY,60,154,800);
+  rct(fr,AC,810,44,210,72,1,20);
+  txt(fr,"누리과정",12,"Regular",W_,810,54,210,"CENTER");
+  if(META.nuriLabel)txt(fr,META.nuriLabel,19,"Bold",W_,810,72,210,"CENTER");
+  if(META.book)txt(fr,"📖 "+META.book,22,"Regular",GRAY,60,154,750);
   const y0=220;
   if(sh.type==="fillblank"){
     let y=y0+10;
@@ -1904,18 +1904,42 @@ for(let i=0;i<SHEETS.length;i++){
     const cellW=470;
     const rowsN=Math.max(1,Math.ceil(items.length/cols));
     const cellH=Math.floor(900/rowsN);
+    // 개수에 따른 줄 배치: 1~3개는 한 줄, 4개는 2x2, 5개는 3+2, 6개는 3+3
+    function countLayoutRows(n){
+      if(n<=3)return [n];
+      if(n===4)return [2,2];
+      if(n===5)return [3,2];
+      return [3,3];
+    }
     items.forEach(function(it,idx){
       const cx=60+(idx%cols)*(cellW+20),cy=y0+10+Math.floor(idx/cols)*cellH;
       rct(fr,LGT,cx,cy,cellW,cellH-16,1,14);
-      const iconS=Math.max(40,Math.min(120,Math.floor((cellW-30)/Math.max(1,it.count))-4));
-      const totalW=it.count*(iconS+8)-8;
-      const startX=cx+Math.floor((cellW-totalW)/2);
-      for(let k=0;k<it.count;k++){
-        if(it.icon)pic(fr,it.icon,startX+k*(iconS+8),cy+16,iconS,iconS);
-        else srct(fr,AC,startX+k*(iconS+8),cy+16,iconS,iconS,10,2);
-      }
+
+      const layout=countLayoutRows(it.count);
+      const gridRows=layout.length;
+      const maxCols=Math.max.apply(null,layout);
+      const gridAreaH=Math.floor((cellH-16)*0.62);
+      const gridAreaW=cellW-32;
+      const colGap=10,rowGap=10;
+      const cardS=Math.max(56,Math.min(Math.floor(gridAreaW/maxCols)-colGap,Math.floor(gridAreaH/gridRows)-rowGap,128));
+      const gridTotalH=gridRows*cardS+(gridRows-1)*rowGap;
+      let iy=cy+14+Math.max(0,Math.floor((gridAreaH-gridTotalH)/2));
+      layout.forEach(function(rowCount){
+        const rowTotalW=rowCount*cardS+(rowCount-1)*colGap;
+        let ix=cx+Math.floor((cellW-rowTotalW)/2);
+        for(let c=0;c<rowCount;c++){
+          rct(fr,{r:1,g:1,b:1},ix,iy,cardS,cardS,1,14); // 그림 하나마다 개별 흰색 카드
+          const iconPad=Math.floor(cardS*0.13);
+          const iconInner=cardS-iconPad*2;
+          if(it.icon)pic(fr,it.icon,ix+iconPad,iy+iconPad,iconInner,iconInner);
+          else srct(fr,AC,ix+iconPad,iy+iconPad,iconInner,iconInner,8,2);
+          ix+=cardS+colGap;
+        }
+        iy+=cardS+rowGap;
+      });
+
       const numS=48,ngap=10;
-      const numY=cy+16+iconS+18;
+      const numY=cy+16+gridAreaH+18;
       const totalNumW=it.maxN*(numS+ngap)-ngap;
       const numStartX=cx+Math.max(6,Math.floor((cellW-totalNumW)/2));
       for(let n=1;n<=it.maxN;n++){
@@ -1927,7 +1951,7 @@ for(let i=0;i<SHEETS.length;i++){
   }else if(sh.type==="linematch"){
     const pairs=sh.pairs||[];
     const rowH=Math.floor(900/Math.max(1,pairs.length));
-    const iconS=Math.min(190,rowH-20);
+    const iconS=Math.max(144,Math.min(190,rowH-20));
     pairs.forEach(function(pr,idx){
       const rowY=y0+10+idx*rowH;
       const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
@@ -1950,7 +1974,7 @@ for(let i=0;i<SHEETS.length;i++){
     const rowH=Math.floor(900/Math.max(1,items.length));
     items.forEach(function(it,idx){
       const rowY=y0+10+idx*rowH;
-      const iconS=Math.min(200,rowH-20);
+      const iconS=Math.max(144,Math.min(200,rowH-20));
       const iconY=rowY+Math.floor((rowH-iconS)/2);
       if(it.icon)pic(fr,it.icon,60,iconY,iconS,iconS);
       else srct(fr,AC,60,iconY,iconS,iconS,14,2);
@@ -1966,7 +1990,7 @@ for(let i=0;i<SHEETS.length;i++){
     for(let idx=0;idx<items.length;idx++){
       const it=items[idx];
       const by=y0+10+idx*blockH;
-      const iconS=Math.min(100,blockH-56);
+      const iconS=Math.max(144,Math.min(160,blockH-56));
       const iconX=60,iconY=by+6;
       if(it.icon)pic(fr,it.icon,iconX,iconY,iconS,iconS);
       else srct(fr,AC,iconX,iconY,iconS,iconS,12,2);
@@ -1984,7 +2008,7 @@ for(let i=0;i<SHEETS.length;i++){
   }else if(sh.type==="feelmatch"){
     const icons=sh.icons||[];
     const rowH=Math.floor(900/Math.max(1,icons.length));
-    const iconS=Math.min(190,rowH-20);
+    const iconS=Math.max(144,Math.min(190,rowH-20));
     icons.forEach(function(it,idx){
       const rowY=y0+10+idx*rowH;
       const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
@@ -2021,7 +2045,7 @@ for(let i=0;i<SHEETS.length;i++){
     const cellW=Math.floor(960/cols),cellH=Math.floor(midH/rowsN);
     items.forEach(function(it,idx){
       const cx=60+(idx%cols)*cellW,cy=midY0+Math.floor(idx/cols)*cellH;
-      const iconS=Math.min(cellW-20,cellH-20,190);
+      const iconS=Math.max(144,Math.min(cellW-20,cellH-20,190));
       const ix=cx+Math.floor((cellW-iconS)/2),iy=cy+Math.floor((cellH-iconS)/2);
       if(it.icon)pic(fr,it.icon,ix,iy,iconS,iconS);
       else srct(fr,AC,ix,iy,iconS,iconS,10,2);
@@ -2029,7 +2053,7 @@ for(let i=0;i<SHEETS.length;i++){
   }else if(sh.type==="iconmatch"){
     const lefts=sh.lefts||[],rights=sh.rights||[];
     const rowH=Math.floor(900/Math.max(1,lefts.length));
-    const iconS=Math.min(190,rowH-20);
+    const iconS=Math.max(144,Math.min(190,rowH-20));
     lefts.forEach(function(l,idx){
       const rowY=y0+10+idx*rowH;
       const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
@@ -2060,7 +2084,7 @@ for(let i=0;i<SHEETS.length;i++){
   if(sh.answer)txt(fr,sh.answer,20,"Regular",{r:0.8,g:0.82,b:0.87},60,1160,960);
   rct(fr,AC,60,1196,960,3,0.2);
   if(META.tip&&i===0)txt(fr,"💡 "+META.tip,18,"Regular",GRAY,60,1216,960);
-  txt(fr,"iQUVE 대화하는 동화책  ·  학습자료 무단 배포 금지",22,"Regular",GRAY,0,1306,W,"CENTER");
+  txt(fr,"iQUVE  ·  학습자료 무단 배포 금지",22,"Regular",GRAY,0,1306,W,"CENTER");
 }
 figma.viewport.scrollAndZoomIntoView(page.children);
 figma.notify("✅ "+META.typeName+" 활동지 "+SHEETS.length+"장 생성 완료!");
