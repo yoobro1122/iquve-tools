@@ -163,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-5</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-6</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -364,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-10-5';
+const BUILD_VERSION='v2026-07-10-6';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
@@ -644,7 +644,7 @@ const ACT_TYPES_YOUNG={
   counting:  {cat:'young',name:'숫자 세기',   icon:'🔢', desc:'그림 개수 세고 숫자 고르기',   fmt:'이름 | 시각적 설명 (예: 토끼 | 하얀 토끼 한 마리)', nuri:['nature']},
   linematch: {cat:'young',name:'줄긋기',      icon:'🔗', desc:'같은 그림끼리 선 잇기',        fmt:'이름 | 시각적 설명 (예: 나비 | 노란 날개 나비)', nuri:['body']},
   inipick:   {cat:'young',name:'초성 찾기',   icon:'🅰️', desc:'그림+초성 힌트로 낱말 맞히기', fmt:'이름 | 시각적 설명 (예: 공룡 | 초록색 아기 공룡, →ㄱㄹ 힌트로 표시)', nuri:['comm']},
-  iniwrite:  {cat:'young',name:'초성 써보기', icon:'✏️', desc:'첫 칸에 낱말 제시, 나머지는 직접 채워 씀', fmt:'이름 | 시각적 설명 (예: 나무 | 초록 잎이 달린 나무)', nuri:['comm','body']},
+  iniwrite:  {cat:'young',name:'한글쓰기', icon:'✏️', desc:'낱말의 첫 글자만 따라쓰기', fmt:'이름 | 시각적 설명 (예: 아빠 | 안경 쓴 아빠)', nuri:['comm','body']},
   feelmatch: {cat:'young',name:'감정 맞히기', icon:'😊', desc:'같은 주인공의 표정으로 감정 배우기', fmt:'주인공 이름 하나(예: 토끼)', nuri:['social']},
   sortgroup: {cat:'young',name:'분류하기',    icon:'🗂️', desc:'그림을 두 그룹으로 나누기',   fmt:'자동: 그룹 기준 + 이름 | 시각적 설명 | 그룹번호', nuri:['nature']},
   iconmatch: {cat:'young',name:'그림 매칭',   icon:'🔀', desc:'서로 관련된 그림끼리 선 잇기', fmt:'왼쪽이름 | 왼쪽설명 | 오른쪽이름 | 오른쪽설명 (예: 소 | 목장 젖소 | 우유 | 유리컵에 담긴 우유)', nuri:['nature','comm']},
@@ -864,7 +864,7 @@ const ITEM_SPECS={
   counting:(p,n)=>'items: 그림으로 개수를 셀 수 있는 간단한 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 낱개로 세기 쉬운 것). 형식: "이름 | 시각적 설명". 4~6세 아이가 아는 쉬운 낱말로.'+ICON_DISAMBIG_RULE,
   linematch:(p,n)=>'items: 줄긋기로 짝지을 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상). 형식: "이름 | 시각적 설명". 4~6세 아이가 아는 쉬운 낱말로.'+ICON_DISAMBIG_RULE,
   inipick:(p,n)=>'items: 초성 찾기에 쓸 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 두 글자 이상 낱말). 형식: "이름 | 시각적 설명". 4~6세 아이가 아는 쉬운 낱말로.'+ICON_DISAMBIG_RULE,
-  iniwrite:(p,n)=>'items: 초성 따라쓰기에 쓸 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 두 글자 이상 낱말). 형식: "이름 | 시각적 설명". 4~6세 아이가 아는 쉬운 낱말로.'+ICON_DISAMBIG_RULE,
+  iniwrite:(p,n)=>'items: 한글쓰기 연습에 쓸 사물/동물 이름 '+n+'개 (문제마다 서로 다른 대상, 두 글자 이상 낱말). 형식: "이름 | 시각적 설명". 4~6세 아이가 아는 쉬운 낱말로.\n\n⚠️ 중요: 반드시 낱말의 "첫 번째 글자"에 받침이 없는 낱말만 고르세요 (아이가 그 첫 글자를 따라 쓰는 연습을 할 거예요). 예를 들어 "아빠"(첫 글자 "아"=받침 없음, OK), "나무"(첫 글자 "나"=받침 없음, OK), "기린"(첫 글자 "기"=받침 없음, OK)은 좋고, "공룡"(첫 글자 "공"=받침 ㅇ 있음, 사용 금지), "안경"(첫 글자 "안"=받침 ㄴ 있음, 사용 금지), "연필"(첫 글자 "연"=받침 ㄴ 있음, 사용 금지)처럼 첫 글자에 받침이 있는 낱말은 절대 쓰지 마세요.'+ICON_DISAMBIG_RULE,
   feelmatch:(p,n)=>'items: 이 활동지의 주인공이 될 동물/캐릭터 이름 1개. 형식: "이름" 하나만(예: "토끼", "곰"). 표정을 다양하게 지을 수 있는 친근한 동물로.',
   sortgroup:(p,n)=>'items: 총 '+n+'개의 문자열. 첫 번째 항목은 반드시 "그룹A 라벨 | 그룹B 라벨" 형식(예: "과일 | 채소", "하늘에 사는 동물 | 물에 사는 동물")으로 이 활동의 분류 기준 두 가지를 정하세요. 그 다음 '+(n-1)+'개 항목은 "사물/동물 이름 | 시각적 설명 | 그룹번호(1 또는 2)" 형식으로, 각각 어느 그룹에 속하는지 정확하게 표시하세요. 두 그룹에 각각 최소 1개 이상 섞어서 배치하고, 4~6세 아이가 명확히 구분할 수 있는 쉬운 기준으로 정하세요.'+ICON_DISAMBIG_RULE,
   iconmatch:(p,n)=>'items: 서로 관련있는 두 사물/동물을 짝지은 쌍 '+n+'개. 형식: "왼쪽 이름 | 왼쪽 시각적 설명 | 오른쪽 이름 | 오른쪽 시각적 설명" (예: "소 | 목장의 젖소 | 우유 | 하얀 우유가 담긴 유리컵"). 왼쪽과 오른쪽은 서로 다른 사물이어야 하고, 4~6세 아이가 관계를 이해할 수 있는 쉬운 짝으로.'+ICON_DISAMBIG_RULE,
@@ -1230,6 +1230,19 @@ function renderActPreview(){
   mkField('활동지 제목','title');
   mkField('아이에게 보여줄 안내 문구','guide');
   mkField('부모/교사 활용 팁 (첫 장 하단에 작게 표기)','tip');
+  if(actData.type==='iniwrite'){
+    const bad=(actData.items||[]).filter(Boolean).map(s=>splitBar(s)[0]).filter(name=>{
+      const c=Array.from(name)[0];
+      const code=c?c.charCodeAt(0)-0xAC00:-1;
+      return code>=0&&code<=11171&&(code%28)!==0; // 종성(받침) 인덱스가 0이 아니면 받침 있음
+    });
+    if(bad.length){
+      const warn=document.createElement('p');warn.className='hint';
+      warn.style.cssText='color:#b45309;font-weight:700;';
+      warn.textContent='⚠️ 첫 글자에 받침이 있는 낱말이 섞여 있어요: '+bad.join(', ')+' — 위 항목에서 다른 낱말로 바꿔주세요 (예: 받침 있는 "공룡" 대신 "고양이"처럼 첫 글자에 받침 없는 낱말로).';
+      box.appendChild(warn);
+    }
+  }
   if(actData.type==='maze'){
     const p=document.createElement('p');p.className='hint';
     p.textContent='🌀 미로는 피그마 내보내기 시 난이도에 맞춰 자동 생성돼요. 활동지 수만큼 서로 다른 미로가 만들어져요!';
@@ -1572,7 +1585,8 @@ function buildSheet(o,p,ch,idx){
     const rows=p.rows||5;
     sh.items=ch.map(s=>{
       const name=splitBar(s)[0];
-      return {name,word:name,correct:getChoseongAll(name),rows,icon:(o.icons&&o.icons[name])||null};
+      const firstChar=Array.from(name)[0]||name;
+      return {name,word:name,firstChar,rows,icon:(o.icons&&o.icons[name])||null};
     });
   }else if(t==='feelmatch'){
     const subject=ch[0]?splitBar(ch[0])[0]:'토끼';
@@ -1946,32 +1960,25 @@ for(let i=0;i<SHEETS.length;i++){
       txt(fr,it.correct,fs,"Bold",AC,hintX,rowY+Math.floor(rowH/2)-Math.floor(fs/2),hintW,"CENTER");
     });
   }else if(sh.type==="iniwrite"){
-    // 첫 칸에만 낱말을 써 주고, 나머지 칸은 완전히 빈 칸으로 둠 — 마케터가 피그마에서 직접 채워 씀
+    // 낱말의 첫 글자(받침 없는 글자)만 반복해서 따라쓰기 — 기존 '따라쓰기' 유형과 동일하게 검증된 방식
     const items=sh.items||[];
     const blockH=Math.floor(900/Math.max(1,items.length));
     for(let idx=0;idx<items.length;idx++){
       const it=items[idx];
       const by=y0+10+idx*blockH;
-      const iconS=Math.min(110,blockH-40);
-      const iconX=60,iconY=by+Math.floor((blockH-iconS)/2);
+      const iconS=Math.min(100,blockH-56);
+      const iconX=60,iconY=by+6;
       if(it.icon)pic(fr,it.icon,iconX,iconY,iconS,iconS);
       else srct(fr,AC,iconX,iconY,iconS,iconS,12,2);
+      txt(fr,it.word,16,"Regular",GRAY,iconX,iconY+iconS+6,iconS,"CENTER");
       const traceX=iconX+iconS+30;
       const cellW=Math.floor((960-iconS-30)/Math.max(1,it.rows));
+      const fs=Math.min(80,blockH-30);
       for(let r=0;r<it.rows;r++){
         const rcx=traceX+r*cellW;
         rct(fr,LGT,rcx,by,cellW-8,blockH-16,1,10);
-        if(r===0){
-          // 첫 칸에만 낱말을 크게 표시 — 나머지 칸은 의도적으로 비워둠
-          const chars=Array.from(String(it.word||''));
-          const wlen=Math.max(1,chars.length);
-          const perCharW=(cellW-24)/wlen;
-          const wordFs=Math.min(48,Math.floor(blockH*0.5),Math.floor(perCharW/1.05));
-          const wordY=by+Math.floor((blockH-16-wordFs)/2);
-          for(let c=0;c<chars.length;c++){
-            txt(fr,chars[c],wordFs,"Bold",DARK,rcx+12+c*perCharW,wordY,perCharW,"CENTER");
-          }
-        }
+        const col=r===0?DARK:{r:0.72,g:0.75,b:0.86};
+        txt(fr,it.firstChar,fs,"Bold",col,rcx,by+Math.floor((blockH-16-fs)/2)-2,cellW-8,"CENTER");
       }
     }
   }else if(sh.type==="feelmatch"){
