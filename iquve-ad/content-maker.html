@@ -163,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-10</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-11</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -364,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-10-10';
+const BUILD_VERSION='v2026-07-10-11';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='advanced'; // 'baby'(베베단계) | 'stage'(1~4단계) | 'advanced'(심화단계)
@@ -644,7 +644,7 @@ const ACT_TYPES={
 const ACT_TYPES_BABY={
   imageguess:{cat:'baby',name:'이미지 맞추기', icon:'🖼️', desc:'큰 그림 4개 보고 무엇인지 맞히기', fmt:'이름 | 시각적 설명 (예: 사자 | 갈기가 있는 사자)', nuri:['comm']},
   linematch: {cat:'baby',name:'줄긋기',       icon:'🔗', desc:'실루엣과 실제 그림을 선으로 잇기', fmt:'이름 | 시각적 설명 (예: 나비 | 노란 날개 나비)', nuri:['body']},
-  feelmatch: {cat:'baby',name:'감정 맞히기',   icon:'😊', desc:'같은 주인공의 표정으로 감정 배우기', fmt:'주인공 이름 하나(예: 토끼)', nuri:['social']},
+  feelmatch: {cat:'baby',name:'감정 맞히기',   icon:'😊', desc:'표정 크게 보고 어떤 감정일지 말해보기', fmt:'주인공 이름 하나(예: 토끼)', nuri:['social']},
 };
 // 1~4단계 (4종)
 const ACT_TYPES_STAGE={
@@ -1687,11 +1687,9 @@ function buildSheet(o,p,ch,idx){
   }else if(t==='feelmatch'){
     const subject=ch[0]?splitBar(ch[0])[0]:'토끼';
     const emotions=(o.emotions&&o.emotions.length)?o.emotions:EMOTION_POOL.slice(0,p.n||3);
-    const order=shuffleArr(emotions.map((_,i)=>i));
     sh.subject=subject;
-    sh.icons=emotions.map(em=>({label:em,icon:(o.icons&&o.icons[em])||null}));
-    sh.labels=order.map(i=>emotions[i]);
-    sh.linkTo=emotions.map((_,i)=>order.indexOf(i)); // icons[i] ↔ labels[linkTo[i]]
+    sh.items=emotions.map(em=>({label:em,icon:(o.icons&&o.icons[em])||null}));
+    sh.answer='정답: '+emotions.join(' · ');
   }else if(t==='sortgroup'){
     const labelParts=ch[0]?splitBar(ch[0]):['그룹A','그룹B'];
     const groupA=labelParts[0]||'그룹A',groupB=labelParts[1]||'그룹B';
@@ -2107,27 +2105,20 @@ for(let i=0;i<SHEETS.length;i++){
       }
     }
   }else if(sh.type==="feelmatch"){
-    const icons=sh.icons||[];
-    const rowH=Math.floor(900/Math.max(1,icons.length));
-    const iconS=Math.max(144,Math.min(190,rowH-20));
-    icons.forEach(function(it,idx){
-      const rowY=y0+10+idx*rowH;
-      const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
-      if(it.icon)pic(fr,it.icon,80,midY,iconS,iconS);
-      else srct(fr,AC,80,midY,iconS,iconS,16,2);
-    });
-    (sh.labels||[]).forEach(function(label,idx){
-      const rowY=y0+10+idx*rowH;
-      const pillW=280,pillH=64;
-      const pillX=980-pillW,pillY=rowY+Math.floor(rowH/2)-Math.floor(pillH/2);
-      rct(fr,AC,pillX,pillY,pillW,pillH,1,32);
-      txt(fr,label,26,"Bold",W_,pillX,pillY+18,pillW,"CENTER");
-    });
-    // 정답 연결선을 흐리게 미리 표시 — 아이는 그 위를 따라 이어보면 돼요
-    (sh.linkTo||[]).forEach(function(toIdx,idx){
-      const y1=y0+10+idx*rowH+Math.floor(rowH/2);
-      const y2=y0+10+toIdx*rowH+Math.floor(rowH/2);
-      faintDots(fr,80+iconS+10,y1,980-280-10,y2,16);
+    // 매칭이나 글자 없이, 표정 이미지만 크게 보여줌 — 아이가 보고 어떤 감정인지 말로 이야기하는 방식
+    const items=sh.items||[];
+    const n=Math.max(1,items.length);
+    const cols=n>=3?2:n; // 1~2개는 한 줄, 3~4개는 2열
+    const rowsN=Math.max(1,Math.ceil(n/cols));
+    const gap=24;
+    const cellW=Math.floor((960-gap*(cols-1))/cols);
+    const cellH=Math.floor((920-gap*(rowsN-1))/rowsN);
+    items.forEach(function(it,idx){
+      const cx=60+(idx%cols)*(cellW+gap),cy=y0+(Math.floor(idx/cols))*(cellH+gap);
+      rct(fr,LGT,cx,cy,cellW,cellH,1,20);
+      const pad=Math.floor(Math.min(cellW,cellH)*0.08);
+      if(it.icon)pic(fr,it.icon,cx+pad,cy+pad,cellW-pad*2,cellH-pad*2);
+      else srct(fr,AC,cx+pad,cy+pad,cellW-pad*2,cellH-pad*2,16,3);
     });
   }else if(sh.type==="sortgroup"){
     const items=sh.items||[];
