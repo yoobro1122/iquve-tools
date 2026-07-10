@@ -163,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-2</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-3</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -364,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-10-2';
+const BUILD_VERSION='v2026-07-10-3';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
@@ -1736,35 +1736,75 @@ function bboxOfRegion(region,verts,segs){
 // 한 글자를 실제 벡터 아웃라인으로 바꾼 뒤(figma.flatten), 초성이 위치한 영역(region)만
 // 다른 색으로 채색. 벡터 변환/영역 분리가 실패하면 반투명 박스로 덮는 이전 방식으로 자동 대체.
 async function vectorizeCharChoseong(p,ch,x,y,fontSize,darkColor,grayColor){
-  const t=figma.createText();p.appendChild(t);
-  t.fontName={family:"Noto Sans KR",style:"Bold"};
-  t.characters=ch;
-  t.fontSize=fontSize;
-  t.fills=[{type:"SOLID",color:darkColor}];
-  t.textAutoResize="WIDTH_AND_HEIGHT";
-  t.x=x;t.y=y;
-
-  let vec;
-  try{
-    vec=figma.flatten([t]);
-  }catch(err){
-    console.log("[iQUVE] 벡터 변환 실패, 일반 텍스트로 유지:",ch,err);
-    return; // t가 이미 화면에 남아있어 그대로 보임(폴백)
+  function makeTextNode(){
+    const t=figma.createText();p.appendChild(t);
+    t.fontName={family:"Noto Sans KR",style:"Bold"};
+    t.characters=ch;
+    t.fontSize=fontSize;
+    t.fills=[{type:"SOLID",color:darkColor}];
+    t.textAutoResize="WIDTH_AND_HEIGHT";
+    t.x=x;t.y=y;
+    return t;
   }
+  // 반투명 흰색 박스로 초성 자리를 덮어 흐리게 보이는 폴백(영역 분리가 안 될 때 사용)
+  function overlayFallback(baseNode){
+    const left=choseongIsLeft(ch);
+    const w=baseNode.width||fontSize,h=baseNode.height||fontSize;
+    const box=figma.createRectangle();p.appendChild(box);
+    box.fills=[{type:"SOLID",color:{r:1,g:1,b:1}}];box.opacity=0.55;
+    if(left){box.x=x+w*0.03;box.y=y-h*0.03;box.resize(w*0.44,h*1.06);}
+    else{box.x=x+w*0.03;box.y=y-h*0.03;box.resize(w*0.94,h*0.46);}
+  }
+
+  let vec=null;
+  // flatten 자체가 타이밍 문제 등으로 실패할 수 있어 한 번 더 시도
+  for(let attempt=0;attempt<2;attempt++){
+    const t=makeTextNode();
+    try{
+      vec=figma.flatten([t]);
+      break;
+    }catch(err){
+      console.log("[iQUVE] 벡터 변환 실패(시도 "+(attempt+1)+"/2), 글자:",ch,err);
+      vec=null;
+      if(attempt===1){
+        // 두 번 다 실패 — 방금 만든 텍스트를 그대로 두고 위에 흐림 박스만 덮음
+        overlayFallback(t);
+        return;
+      }
+    }
+  }
+  if(!vec)return;
 
   try{
     const net=vec.vectorNetwork;
-    if(!net||!net.regions||!net.regions.length)throw new Error("영역 정보 없음");
+    const regionCount=net&&net.regions?net.regions.length:0;
+    console.log("[iQUVE] 글자 '"+ch+"' 벡터화 성공, region 개수:",regionCount,
+      regionCount?net.regions.map(function(r,idx){const b=bboxOfRegion(r,net.vertices,net.segments);return idx+":["+Math.round(b.minX)+","+Math.round(b.minY)+"~"+Math.round(b.maxX)+","+Math.round(b.maxY)+"]";}):[]);
+
+    if(regionCount<2){
+      // region이 1개 이하면 초성만 따로 칠할 수가 없음 — 흐림 박스를 겹쳐서 최대한 비슷하게 표현
+      console.log("[iQUVE] region이 "+regionCount+"개뿐이라 초성 분리 불가 -> 흐림 박스로 대체:",ch);
+      overlayFallback(vec);
+      return;
+    }
+
     const left=choseongIsLeft(ch);
     const nodeW=vec.width,nodeH=vec.height;
     const newRegions=net.regions.map(function(region){
       const bbox=bboxOfRegion(region,net.vertices,net.segments);
       const cx=(bbox.minX+bbox.maxX)/2,cy=(bbox.minY+bbox.maxY)/2;
       const isConsonant=left?(cx<nodeW*0.46):(cy<nodeH*0.46);
-      const merged={windingRule:region.windingRule,loops:region.loops,
+      return {windingRule:region.windingRule,loops:region.loops,
         fills:[{type:"SOLID",color:isConsonant?grayColor:darkColor}]};
-      return merged;
     });
+    const consonantCount=newRegions.filter(function(r){return r.fills[0].color===grayColor;}).length;
+    console.log("[iQUVE] '"+ch+"' 초성으로 분류된 region 수:",consonantCount,"/",regionCount);
+    if(consonantCount===0||consonantCount===regionCount){
+      // 전부 한쪽으로만 분류됐다면(경계값이 이 글자엔 안 맞았다는 뜻) 흐림 박스로 대체
+      console.log("[iQUVE] 좌우/상하 분류가 애매함 -> 흐림 박스로 대체:",ch);
+      overlayFallback(vec);
+      return;
+    }
     const newNetwork={vertices:net.vertices,segments:net.segments,regions:newRegions};
     if(typeof vec.setVectorNetworkAsync==="function"){
       await vec.setVectorNetworkAsync(newNetwork);
@@ -1772,8 +1812,8 @@ async function vectorizeCharChoseong(p,ch,x,y,fontSize,darkColor,grayColor){
       vec.vectorNetwork=newNetwork;
     }
   }catch(err){
-    // 영역 분리는 실패했지만 벡터 변환 자체는 됐으니, 최소한 진한 단색 글자로는 정상 표시됨
-    console.log("[iQUVE] 초성 영역 분리 실패, 단색 글자로 유지:",ch,err);
+    console.log("[iQUVE] 초성 영역 분리 실패, 흐림 박스로 대체:",ch,err);
+    overlayFallback(vec);
   }
 }
 // 단어 전체를 벡터화해서 그리며, 각 글자의 초성 영역만 회색으로 표시
