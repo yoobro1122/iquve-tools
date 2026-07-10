@@ -163,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-9</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-10</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -364,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-10-9';
+const BUILD_VERSION='v2026-07-10-10';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='advanced'; // 'baby'(베베단계) | 'stage'(1~4단계) | 'advanced'(심화단계)
@@ -1041,33 +1041,60 @@ async function genIcons(entries,age,onProgress){
 }
 
 // 이미 생성된 아이콘 이미지 그 자체를 흑백 실루엣으로 변환 (같은 소스라서 모양이 100% 일치함)
-// 흰색에 가까운 픽셀(배경)은 흰색 유지, 그 외(사물)는 진한 검정으로 — AI를 다시 안 부르므로 토큰도 안 씀
+// 테두리(가장자리)에서부터 흰색/투명 픽셀을 따라 채워나가서 "진짜 배경"만 찾아냄.
+// 이렇게 해야 토끼·북극곰처럼 몸통 자체가 흰색인 경우에도, 테두리 안에 갇힌 흰 부분은
+// 배경으로 착각하지 않고 검게 채워져서 꽉 찬 실루엣이 나옴 (단순히 "흰색이면 배경" 판정은 이게 안 됨)
 function makeSilhouetteFromBase64(b64){
   return new Promise((resolve)=>{
     let done=false;
     const finish=(val)=>{if(done)return;done=true;clearTimeout(timer);resolve(val);};
     // onload/onerror가 어떤 이유로든 끝까지 안 불릴 경우를 대비한 안전장치 — 이게 없으면
     // 실루엣 하나가 멈췄을 때 "그림 생성" 버튼 전체가 영원히 로딩중으로 멈출 수 있음
-    const timer=setTimeout(()=>{console.warn('실루엣 변환 타임아웃 — 원본 이미지로 대체');finish(null);},4000);
+    const timer=setTimeout(()=>{console.warn('실루엣 변환 타임아웃 — 원본 이미지로 대체');finish(null);},6000);
     try{
       const img=new Image();
       img.onload=()=>{
         try{
+          const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
           const canvas=document.createElement('canvas');
-          canvas.width=img.naturalWidth||img.width;
-          canvas.height=img.naturalHeight||img.height;
+          canvas.width=w;canvas.height=h;
           const ctx=canvas.getContext('2d');
           ctx.drawImage(img,0,0);
-          const data=ctx.getImageData(0,0,canvas.width,canvas.height);
-          const px=data.data;
+          const imgData=ctx.getImageData(0,0,w,h);
+          const px=imgData.data;
           const WHITE_T=232;
-          for(let i=0;i<px.length;i+=4){
-            const r=px[i],g=px[i+1],b=px[i+2],a=px[i+3];
-            const isBg=a<12||(r>WHITE_T&&g>WHITE_T&&b>WHITE_T);
-            if(isBg){px[i]=255;px[i+1]=255;px[i+2]=255;px[i+3]=255;}
-            else{px[i]=24;px[i+1]=26;px[i+2]=34;px[i+3]=255;}
+          const n=w*h;
+          const isBgColor=new Uint8Array(n); // 흰색/투명에 가까운 픽셀인지(배경 "후보")
+          for(let i=0;i<n;i++){
+            const o=i*4;
+            const r=px[o],g=px[o+1],b=px[o+2],a=px[o+3];
+            isBgColor[i]=(a<12)||(r>WHITE_T&&g>WHITE_T&&b>WHITE_T)?1:0;
           }
-          ctx.putImageData(data,0,0);
+          // 이미지 가장자리(테두리)에서 출발해서, 배경색 후보 픽셀을 따라 안쪽으로 퍼져나감(BFS)
+          // -> 테두리와 안 이어져 있고 갇혀있는 흰색(예: 토끼 몸통 안쪽)은 배경 처리가 안 됨
+          const visited=new Uint8Array(n);
+          const queue=new Int32Array(n);
+          let qHead=0,qTail=0;
+          function tryPush(idx){
+            if(!visited[idx]&&isBgColor[idx]){visited[idx]=1;queue[qTail++]=idx;}
+          }
+          for(let x=0;x<w;x++){tryPush(x);tryPush((h-1)*w+x);}
+          for(let y=0;y<h;y++){tryPush(y*w);tryPush(y*w+(w-1));}
+          while(qHead<qTail){
+            const idx=queue[qHead++];
+            const x=idx%w,y=(idx/w)|0;
+            if(x>0)tryPush(idx-1);
+            if(x<w-1)tryPush(idx+1);
+            if(y>0)tryPush(idx-w);
+            if(y<h-1)tryPush(idx+w);
+          }
+          // 테두리에서부터 도달 가능한(=진짜 배경) 픽셀만 흰색 유지, 나머지는 전부 꽉 찬 검정
+          for(let i=0;i<n;i++){
+            const o=i*4;
+            if(visited[i]){px[o]=255;px[o+1]=255;px[o+2]=255;px[o+3]=255;}
+            else{px[o]=24;px[o+1]=26;px[o+2]=34;px[o+3]=255;}
+          }
+          ctx.putImageData(imgData,0,0);
           finish(canvas.toDataURL('image/png').split(',')[1]);
         }catch(err){console.warn('실루엣 변환 실패:',err);finish(null);}
       };
@@ -2038,11 +2065,9 @@ for(let i=0;i<SHEETS.length;i++){
       else srct(fr,AC,880-iconS,midY,iconS,iconS,14,2);
       const lineY=midY+Math.floor(iconS/2);
       const startX=80+iconS+24,endX=880-iconS-24;
-      const dotCount=20;
-      for(let d=0;d<=dotCount;d++){
-        const dx=startX+(endX-startX)*d/dotCount;
-        ell(fr,DARK,dx-4,lineY-4,8);
-      }
+      // 점선 없이, 양 끝에 빨간 점만 — 아이가 직접 두 점을 이어서 정답을 맞히게 함
+      ell(fr,RED,startX-8,lineY-8,16);
+      ell(fr,RED,endX-8,lineY-8,16);
     });
   }else if(sh.type==="inipick"){
     // 그림 + 초성 힌트(예: "ㄱㄹ")를 함께 보여주고 어떤 낱말인지 맞히기 — 선택형 아님
