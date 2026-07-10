@@ -163,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-11</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-12</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -364,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-10-11';
+const BUILD_VERSION='v2026-07-10-12';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='advanced'; // 'baby'(베베단계) | 'stage'(1~4단계) | 'advanced'(심화단계)
@@ -1775,15 +1775,22 @@ const W=1080,H=1350;
 await figma.loadFontAsync({family:"Noto Sans KR",style:"Bold"});
 await figma.loadFontAsync({family:"Noto Sans KR",style:"Regular"});
 await figma.loadFontAsync({family:"Noto Sans KR",style:"Medium"});
+let MARUBURI_FAMILY="Noto Sans KR"; // 한글쓰기 전용 폰트 — 없으면 기본 폰트로 자동 대체
+try{
+  await figma.loadFontAsync({family:"MaruBuri",style:"Bold"});
+  MARUBURI_FAMILY="MaruBuri";
+}catch(err){
+  console.warn("[iQUVE] MaruBuri 폰트를 찾을 수 없어 Noto Sans KR로 대체합니다. Figma에 MaruBuri OTF를 설치해주세요.",err);
+}
 const W_={r:1,g:1,b:1},DARK={r:26/255,g:31/255,b:54/255},GRAY={r:0.62,g:0.65,b:0.72},LGT={r:0.97,g:0.97,b:0.99},RED={r:0.9,g:0.25,b:0.25};
 const AC=META.ac,HC=META.hc;
 let page=figma.root.children.find(p=>p.name===META.page);
 if(!page){page=figma.createPage();page.name=META.page;}
 await figma.setCurrentPageAsync(page);
-function txt(p,s,sz,st,c,x,y,w,align){
+function txt(p,s,sz,st,c,x,y,w,align,family){
   if(s===undefined||s===null||s==="")return;
   const t=figma.createText();p.appendChild(t);
-  t.fontName={family:"Noto Sans KR",style:st||"Regular"};
+  t.fontName={family:family||"Noto Sans KR",style:st||"Regular"};
   t.characters=String(s);t.fontSize=sz;
   t.fills=[{type:"SOLID",color:c}];
   t.x=x;t.y=y;t.resize(w,sz+24);t.textAutoResize="HEIGHT";
@@ -2101,7 +2108,7 @@ for(let i=0;i<SHEETS.length;i++){
         const rcx=traceX+r*cellW;
         rct(fr,LGT,rcx,by,cellW-8,blockH-16,1,10);
         const col=r===0?DARK:{r:0.72,g:0.75,b:0.86};
-        txt(fr,it.firstChar,fs,"Bold",col,rcx,by+Math.floor((blockH-16-fs)/2)-2,cellW-8,"CENTER");
+        txt(fr,it.firstChar,fs,"Bold",col,rcx,by+Math.floor((blockH-16-fs)/2)-2,cellW-8,"CENTER",MARUBURI_FAMILY);
       }
     }
   }else if(sh.type==="feelmatch"){
