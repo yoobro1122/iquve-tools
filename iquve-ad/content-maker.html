@@ -163,7 +163,7 @@
     <a href="../index.html" class="back">← 홈</a>
     <div class="logo">i<em>Q</em>UVE</div>
     <div class="ptitle">콘텐츠 메이커</div>
-    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-09-9</span>
+    <span id="buildVersion" style="font-size:11px;font-weight:700;color:#fff;background:#3d4fd7;padding:3px 9px;border-radius:20px;margin-left:8px;letter-spacing:0.3px;">v2026-07-10-2</span>
   </div>
   <a href="settings.html" class="slink">⚙️ API 설정</a>
 </header>
@@ -364,7 +364,7 @@
 const SUPABASE_URL='https://emgsqnzfdvvbtooouaap.supabase.co';
 const ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0';
 const PROXY=`${SUPABASE_URL}/functions/v1/gemini-proxy`;
-const BUILD_VERSION='v2026-07-09-9';
+const BUILD_VERSION='v2026-07-10-2';
 console.log('%c[iQUVE content-maker] '+BUILD_VERSION,'font-weight:bold;color:#3d4fd7;font-size:13px;');
 let CFG={};
 let ageTier='old'; // 'young'(4~6세) | 'old'(7세 이상)
@@ -989,7 +989,7 @@ function buildIconPrompt(name,desc,age){
     :'One single '+name+' only, drawn as a cute simple colorful sticker-style icon, filling most of the frame, nothing else visible.';
   return '### 스티커 아이콘 — '+name+(desc?' ('+desc+')':'')+'\n'
     +'> 대상 연령: '+age+'세\n\n'
-    +'<Style>Cute, simple, flat vector clip-art sticker illustration for a young children\'s learning app. Bright, cheerful, saturated pastel colors. Bold, clean, rounded outlines. Simple, friendly, appealing design suitable for ages 4 to 6. Centered single subject, isolated on a plain solid white background. No shadow, no background scenery, no text, no watermark, no extra decorative elements, no other objects in frame.</Style>\n'
+    +'<Style>Cute, simple, flat vector clip-art sticker illustration for a young children\'s learning app. Bold, vivid, highly saturated, richly pigmented colors (NOT pastel, NOT washed out, NOT desaturated — bright punchy poster-like colors similar to a vibrant cartoon sticker pack). Bold, clean, thick dark outlines. Simple, friendly, appealing design suitable for ages 4 to 6. Centered single subject, isolated on a plain solid white background. No shadow, no background scenery, no text, no watermark, no extra decorative elements, no other objects in frame.</Style>\n'
     +'<Subject>'+subjectLine+'</Subject>\n'
     +'<Lighting>Flat, even lighting. No gradients, no shadows — clean flat illustration.</Lighting>\n'
     +'<Mood>Cheerful, warm, friendly, appealing to a young child.</Mood>\n'
@@ -1026,7 +1026,7 @@ async function genIcons(entries,age,onProgress){
 function buildEmotionIconPrompt(subject,emotion,age){
   return '### 스티커 아이콘 — '+subject+' ('+emotion+')\n'
     +'> 대상 연령: '+age+'세\n\n'
-    +'<Style>Cute, simple, flat vector clip-art sticker illustration for a young children\'s learning app. Bright, cheerful, saturated pastel colors. Bold, clean, rounded outlines. Centered single subject, isolated on a plain solid white background. No shadow, no background scenery, no text, no watermark, no extra objects in frame.</Style>\n'
+    +'<Style>Cute, simple, flat vector clip-art sticker illustration for a young children\'s learning app. Bold, vivid, highly saturated, richly pigmented colors (NOT pastel, NOT washed out, NOT desaturated — bright punchy poster-like colors similar to a vibrant cartoon sticker pack). Bold, clean, thick dark outlines. Centered single subject, isolated on a plain solid white background. No shadow, no background scenery, no text, no watermark, no extra objects in frame.</Style>\n'
     +'<Subject>A close-up face/head portrait of one single '+subject+', showing a clear, exaggerated, easy-to-read facial expression of feeling "'+emotion+'". Same character design and art style as other expression variants of this subject — only the facial expression changes.</Subject>\n'
     +'<Lighting>Flat, even lighting. No gradients, no shadows.</Lighting>\n'
     +'<Mood>Expressive, clear, exaggerated emotion that a young child can easily recognize at a glance.</Mood>\n'
@@ -1710,6 +1710,85 @@ function faintDots(p,x1,y1,x2,y2,steps){
     ell(p,col,dx-4,dy-4,8);
   }
 }
+// 세로형 모음(ㅏㅐㅑㅒㅓㅔㅕㅖㅢㅣ)은 초성이 글자 왼쪽에, 가로형 모음(ㅗㅛㅜㅠㅡ 등)은 초성이 위쪽에 위치
+const JUNG_LEFT_IDX=[0,1,2,3,4,5,6,7,19,20];
+function choseongIsLeft(ch){
+  const code=ch.charCodeAt(0)-0xAC00;
+  if(code<0||code>11171)return true;
+  const jung=Math.floor((code%(21*28))/28);
+  return JUNG_LEFT_IDX.indexOf(jung)>=0;
+}
+// 한 글자의 영역별 bounding box 계산 (vectorNetwork의 vertices/segments 참조)
+function bboxOfRegion(region,verts,segs){
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  region.loops.forEach(function(loop){
+    loop.forEach(function(segIdx){
+      const seg=segs[segIdx];
+      [seg.start,seg.end].forEach(function(vi){
+        const v=verts[vi];
+        if(v.x<minX)minX=v.x; if(v.x>maxX)maxX=v.x;
+        if(v.y<minY)minY=v.y; if(v.y>maxY)maxY=v.y;
+      });
+    });
+  });
+  return {minX:minX,minY:minY,maxX:maxX,maxY:maxY};
+}
+// 한 글자를 실제 벡터 아웃라인으로 바꾼 뒤(figma.flatten), 초성이 위치한 영역(region)만
+// 다른 색으로 채색. 벡터 변환/영역 분리가 실패하면 반투명 박스로 덮는 이전 방식으로 자동 대체.
+async function vectorizeCharChoseong(p,ch,x,y,fontSize,darkColor,grayColor){
+  const t=figma.createText();p.appendChild(t);
+  t.fontName={family:"Noto Sans KR",style:"Bold"};
+  t.characters=ch;
+  t.fontSize=fontSize;
+  t.fills=[{type:"SOLID",color:darkColor}];
+  t.textAutoResize="WIDTH_AND_HEIGHT";
+  t.x=x;t.y=y;
+
+  let vec;
+  try{
+    vec=figma.flatten([t]);
+  }catch(err){
+    console.log("[iQUVE] 벡터 변환 실패, 일반 텍스트로 유지:",ch,err);
+    return; // t가 이미 화면에 남아있어 그대로 보임(폴백)
+  }
+
+  try{
+    const net=vec.vectorNetwork;
+    if(!net||!net.regions||!net.regions.length)throw new Error("영역 정보 없음");
+    const left=choseongIsLeft(ch);
+    const nodeW=vec.width,nodeH=vec.height;
+    const newRegions=net.regions.map(function(region){
+      const bbox=bboxOfRegion(region,net.vertices,net.segments);
+      const cx=(bbox.minX+bbox.maxX)/2,cy=(bbox.minY+bbox.maxY)/2;
+      const isConsonant=left?(cx<nodeW*0.46):(cy<nodeH*0.46);
+      const merged={windingRule:region.windingRule,loops:region.loops,
+        fills:[{type:"SOLID",color:isConsonant?grayColor:darkColor}]};
+      return merged;
+    });
+    const newNetwork={vertices:net.vertices,segments:net.segments,regions:newRegions};
+    if(typeof vec.setVectorNetworkAsync==="function"){
+      await vec.setVectorNetworkAsync(newNetwork);
+    }else{
+      vec.vectorNetwork=newNetwork;
+    }
+  }catch(err){
+    // 영역 분리는 실패했지만 벡터 변환 자체는 됐으니, 최소한 진한 단색 글자로는 정상 표시됨
+    console.log("[iQUVE] 초성 영역 분리 실패, 단색 글자로 유지:",ch,err);
+  }
+}
+// 단어 전체를 벡터화해서 그리며, 각 글자의 초성 영역만 회색으로 표시
+async function drawWordChoseongVector(p,word,x,y,fontSize,maxWidth,darkColor,grayColor){
+  const chars=Array.from(String(word||''));
+  const n=chars.length||1;
+  const charW=Math.min(fontSize*1.08,maxWidth/n);
+  const totalW=charW*n;
+  let cx=x+Math.max(0,Math.floor((maxWidth-totalW)/2));
+  for(let k=0;k<chars.length;k++){
+    await vectorizeCharChoseong(p,chars[k],cx,y,fontSize,darkColor,grayColor);
+    cx+=charW;
+  }
+  return totalW;
+}
 const base=page.children.length;
 for(let i=0;i<SHEETS.length;i++){
   const sh=SHEETS[i];
@@ -1720,9 +1799,9 @@ for(let i=0;i<SHEETS.length;i++){
   rct(fr,HC,0,0,W,190);
   txt(fr,sh.title,48,"Bold",AC,60,36,800);
   txt(fr,sh.guide,28,"Regular",DARK,60,112,800);
-  rct(fr,AC,880,52,140,52,1,26);
-  txt(fr,META.flag+" "+META.age+"세",24,"Bold",W_,880,66,140,"CENTER");
-  if(META.nuriLabel)txt(fr,"누리과정 "+META.nuriLabel,16,"Regular",GRAY,880,112,140,"CENTER");
+  rct(fr,AC,860,50,160,56,1,28);
+  txt(fr,"누리과정",22,"Bold",W_,860,64,160,"CENTER");
+  if(META.nuriLabel)txt(fr,META.nuriLabel,15,"Regular",GRAY,860,112,160,"CENTER");
   if(META.book)txt(fr,"📖 "+META.book,22,"Regular",GRAY,60,154,800);
   const y0=220;
   if(sh.type==="fillblank"){
@@ -1893,7 +1972,7 @@ for(let i=0;i<SHEETS.length;i++){
     items.forEach(function(it,idx){
       const cx=60+(idx%cols)*(cellW+20),cy=y0+10+Math.floor(idx/cols)*cellH;
       rct(fr,LGT,cx,cy,cellW,cellH-16,1,14);
-      const iconS=Math.max(36,Math.min(96,Math.floor((cellW-40)/Math.max(1,it.count))-6));
+      const iconS=Math.max(40,Math.min(120,Math.floor((cellW-30)/Math.max(1,it.count))-4));
       const totalW=it.count*(iconS+8)-8;
       const startX=cx+Math.floor((cellW-totalW)/2);
       for(let k=0;k<it.count;k++){
@@ -1913,7 +1992,7 @@ for(let i=0;i<SHEETS.length;i++){
   }else if(sh.type==="linematch"){
     const pairs=sh.pairs||[];
     const rowH=Math.floor(900/Math.max(1,pairs.length));
-    const iconS=Math.min(150,rowH-30);
+    const iconS=Math.min(190,rowH-20);
     pairs.forEach(function(pr,idx){
       const rowY=y0+10+idx*rowH;
       const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
@@ -1926,6 +2005,9 @@ for(let i=0;i<SHEETS.length;i++){
         const dx=startX+(endX-startX)*d/dotCount;
         ell(fr,GRAY,dx-4,lineY-4,8);
       }
+      // 가운데에 좀 더 눈에 띄는 연결점 — 목표 지점을 직관적으로 잡아주기 위함
+      const midX=startX+(endX-startX)/2;
+      ell(fr,AC,midX-9,lineY-9,18);
     });
   }else if(sh.type==="inipick"){
     // 그림 + 초성 힌트(예: "ㄱㄹ")를 함께 보여주고 어떤 낱말인지 맞히기 — 선택형 아님
@@ -1933,7 +2015,7 @@ for(let i=0;i<SHEETS.length;i++){
     const rowH=Math.floor(900/Math.max(1,items.length));
     items.forEach(function(it,idx){
       const rowY=y0+10+idx*rowH;
-      const iconS=Math.min(170,rowH-30);
+      const iconS=Math.min(200,rowH-20);
       const iconY=rowY+Math.floor((rowH-iconS)/2);
       if(it.icon)pic(fr,it.icon,60,iconY,iconS,iconS);
       else srct(fr,AC,60,iconY,iconS,iconS,14,2);
@@ -1943,30 +2025,41 @@ for(let i=0;i<SHEETS.length;i++){
       txt(fr,it.correct,fs,"Bold",AC,hintX,rowY+Math.floor(rowH/2)-Math.floor(fs/2),hintW,"CENTER");
     });
   }else if(sh.type==="iniwrite"){
-    // 그림 + 아래 낱말(읽기용) + 초성을 여러 번 따라쓰기
+    // 그림 + 전체 낱말을 그대로 보여주되, 초성이 있는 자리만 실제 벡터 아웃라인으로 분리해 회색으로 표시
     const items=sh.items||[];
     const blockH=Math.floor(900/Math.max(1,items.length));
-    items.forEach(function(it,idx){
+    for(let idx=0;idx<items.length;idx++){
+      const it=items[idx];
       const by=y0+10+idx*blockH;
-      const iconS=Math.min(90,blockH-60);
-      const iconX=60,iconY=by+6;
+      const iconS=Math.min(110,blockH-40);
+      const iconX=60,iconY=by+Math.floor((blockH-iconS)/2);
       if(it.icon)pic(fr,it.icon,iconX,iconY,iconS,iconS);
       else srct(fr,AC,iconX,iconY,iconS,iconS,12,2);
-      txt(fr,it.word,24,"Bold",DARK,iconX,iconY+iconS+8,iconS,"CENTER");
-      const traceX=iconX+iconS+24;
-      const cellW=Math.floor((960-iconS-24)/Math.max(1,it.rows));
+      const traceX=iconX+iconS+30;
+      const cellW=Math.floor((960-iconS-30)/Math.max(1,it.rows));
+      const wlen=Math.max(1,String(it.word||'').length);
       for(let r=0;r<it.rows;r++){
         const rcx=traceX+r*cellW;
-        rct(fr,LGT,rcx,by,cellW-6,blockH-16,1,10);
-        const fs=Math.min(84,blockH-16,Math.floor((cellW-6)/(Math.max(1,it.correct.length)*0.62)));
-        const col=r===0?DARK:{r:0.75,g:0.78,b:0.9};
-        txt(fr,it.correct,fs,"Bold",col,rcx,by+Math.floor((blockH-16-fs)/2)-2,cellW-6,"CENTER");
+        rct(fr,LGT,rcx,by,cellW-8,blockH-16,1,10);
+        const fs=Math.min(64,blockH-30,Math.floor((cellW-16)/(wlen*1.1)));
+        const wordY=by+Math.floor((blockH-16-fs)/2)-2;
+        if(r===0){
+          // 첫 칸은 참고용 예시 — 전체 진하게, 흐림 없이
+          let cx=rcx+8+Math.max(0,Math.floor((cellW-16-fs*1.08*wlen)/2));
+          const modelChars=Array.from(String(it.word||''));
+          for(let mc=0;mc<modelChars.length;mc++){
+            txt(fr,modelChars[mc],fs,"Bold",DARK,cx,wordY,fs+6,"CENTER");
+            cx+=fs*1.08;
+          }
+        }else{
+          await drawWordChoseongVector(fr,it.word,rcx+8,wordY,fs,cellW-16,DARK,{r:0.72,g:0.75,b:0.8});
+        }
       }
-    });
+    }
   }else if(sh.type==="feelmatch"){
     const icons=sh.icons||[];
     const rowH=Math.floor(900/Math.max(1,icons.length));
-    const iconS=Math.min(150,rowH-30);
+    const iconS=Math.min(190,rowH-20);
     icons.forEach(function(it,idx){
       const rowY=y0+10+idx*rowH;
       const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
@@ -2003,7 +2096,7 @@ for(let i=0;i<SHEETS.length;i++){
     const cellW=Math.floor(960/cols),cellH=Math.floor(midH/rowsN);
     items.forEach(function(it,idx){
       const cx=60+(idx%cols)*cellW,cy=midY0+Math.floor(idx/cols)*cellH;
-      const iconS=Math.min(cellW-30,cellH-30,150);
+      const iconS=Math.min(cellW-20,cellH-20,190);
       const ix=cx+Math.floor((cellW-iconS)/2),iy=cy+Math.floor((cellH-iconS)/2);
       if(it.icon)pic(fr,it.icon,ix,iy,iconS,iconS);
       else srct(fr,AC,ix,iy,iconS,iconS,10,2);
@@ -2011,7 +2104,7 @@ for(let i=0;i<SHEETS.length;i++){
   }else if(sh.type==="iconmatch"){
     const lefts=sh.lefts||[],rights=sh.rights||[];
     const rowH=Math.floor(900/Math.max(1,lefts.length));
-    const iconS=Math.min(150,rowH-30);
+    const iconS=Math.min(190,rowH-20);
     lefts.forEach(function(l,idx){
       const rowY=y0+10+idx*rowH;
       const midY=rowY+Math.floor(rowH/2)-Math.floor(iconS/2);
