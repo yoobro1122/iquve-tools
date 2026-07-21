@@ -680,6 +680,12 @@ function DbTab() {
   const [platform, setPlatform] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<{
+    partnership_status: string;
+    contact_dm: string;
+    memo: string;
+  }>({ partnership_status: "", contact_dm: "", memo: "" });
 
   const load = async () => {
     setLoading(true);
@@ -703,30 +709,40 @@ function DbTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateField = async (id: string, field: string, value: string) => {
-    await fetch(`/api/influencers/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
+  const startEdit = (r: InfluencerRow) => {
+    setEditingId(r.id);
+    setDraft({
+      partnership_status: r.partnership_status,
+      contact_dm: r.contact_dm ?? "",
+      memo: r.memo ?? "",
     });
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
-  const updateStatus = async (id: string, newStatus: string) => {
-    await fetch(`/api/influencers/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ partnership_status: newStatus }),
-    });
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, partnership_status: newStatus } : r))
-    );
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = async (id: string) => {
+    try {
+      const res = await fetch(`/api/influencers/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...draft } : r)));
+      setEditingId(null);
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   const remove = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
     await fetch(`/api/influencers/${id}`, { method: "DELETE" });
     setRows((prev) => prev.filter((r) => r.id !== id));
+    if (editingId === id) setEditingId(null);
   };
 
   return (
@@ -803,51 +819,82 @@ function DbTab() {
               <td className="p-2">{r.display_name ?? r.handle}</td>
               <td className="p-2">{r.followers_count?.toLocaleString() ?? "-"}</td>
               <td className="p-2">
-                <select
-                  className="border border-slate-300 rounded px-2 py-1 text-xs"
-                  value={r.partnership_status}
-                  onChange={(e) => updateStatus(r.id, e.target.value)}
-                >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td className="p-2">
-                <input
-                  type="text"
-                  defaultValue={r.contact_dm ?? ""}
-                  placeholder="DM, 이메일, 오픈채팅 등"
-                  className="w-40 border border-slate-200 rounded px-2 py-1 text-xs focus:border-slate-400"
-                  onBlur={(e) => {
-                    if (e.target.value !== (r.contact_dm ?? "")) {
-                      updateField(r.id, "contact_dm", e.target.value);
+                {editingId === r.id ? (
+                  <select
+                    className="border border-slate-300 rounded px-2 py-1 text-xs"
+                    value={draft.partnership_status}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, partnership_status: e.target.value }))
                     }
-                  }}
-                />
+                  >
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs">{r.partnership_status}</span>
+                )}
               </td>
               <td className="p-2">
-                <input
-                  type="text"
-                  defaultValue={r.memo ?? ""}
-                  placeholder="메모"
-                  className="w-40 border border-slate-200 rounded px-2 py-1 text-xs focus:border-slate-400"
-                  onBlur={(e) => {
-                    if (e.target.value !== (r.memo ?? "")) {
-                      updateField(r.id, "memo", e.target.value);
-                    }
-                  }}
-                />
+                {editingId === r.id ? (
+                  <input
+                    type="text"
+                    value={draft.contact_dm}
+                    placeholder="DM, 이메일, 오픈채팅 등"
+                    className="w-40 border border-slate-300 rounded px-2 py-1 text-xs focus:border-slate-400"
+                    onChange={(e) => setDraft((d) => ({ ...d, contact_dm: e.target.value }))}
+                  />
+                ) : (
+                  <span className="text-xs text-slate-600">{r.contact_dm ?? "-"}</span>
+                )}
               </td>
               <td className="p-2">
-                <button
-                  onClick={() => remove(r.id)}
-                  className="text-xs text-red-500 hover:underline"
-                >
-                  삭제
-                </button>
+                {editingId === r.id ? (
+                  <input
+                    type="text"
+                    value={draft.memo}
+                    placeholder="메모"
+                    className="w-40 border border-slate-300 rounded px-2 py-1 text-xs focus:border-slate-400"
+                    onChange={(e) => setDraft((d) => ({ ...d, memo: e.target.value }))}
+                  />
+                ) : (
+                  <span className="text-xs text-slate-500">{r.memo ?? "-"}</span>
+                )}
+              </td>
+              <td className="p-2 whitespace-nowrap">
+                {editingId === r.id ? (
+                  <>
+                    <button
+                      onClick={() => saveEdit(r.id)}
+                      className="text-xs text-emerald-600 hover:underline mr-2"
+                    >
+                      저장
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="text-xs text-slate-400 hover:underline"
+                    >
+                      취소
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => startEdit(r)}
+                      className="text-xs text-slate-600 hover:underline mr-2"
+                    >
+                      수정
+                    </button>
+                    <button
+                      onClick={() => remove(r.id)}
+                      className="text-xs text-red-500 hover:underline"
+                    >
+                      삭제
+                    </button>
+                  </>
+                )}
               </td>
             </tr>
           ))}
