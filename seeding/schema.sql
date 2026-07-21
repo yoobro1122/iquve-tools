@@ -35,8 +35,10 @@ create trigger trg_influencers_updated_at
 before update on influencers
 for each row execute function set_updated_at();
 
--- API 키 저장용 테이블 (앱 설정 탭에서 입력, 이미 쓰고 계신 api_config 패턴과 동일)
-create table if not exists api_config (
+-- API 키 저장용 테이블 (앱 설정 탭에서 입력)
+-- 이름을 seeding_api_config로 분리한 이유: 기존에 Gemini 키 등을 저장하던
+-- api_config 테이블은 컬럼 구조가 다를 수 있어, 그걸 건드리지 않기 위함입니다.
+create table if not exists seeding_api_config (
   key text primary key,   -- 예: 'youtube_api_key', 'ig_access_token', 'naver_client_id'
   value text not null,
   updated_at timestamptz default now()

@@ -1,18 +1,18 @@
 import { getSupabaseServer } from "./supabase";
 
-// 앱 "설정" 탭에서 입력한 API 키를 Supabase api_config 테이블에서 읽고 씁니다.
-// (기존 Gemini API 키 저장 방식과 동일한 패턴)
+// 앱 "설정" 탭에서 입력한 API 키를 Supabase seeding_api_config 테이블에서 읽고 씁니다.
+// (기존 Gemini 키를 저장하던 api_config 테이블과는 별도 테이블입니다 - 컬럼 구조 충돌 방지)
 
 export async function getConfig(key: string): Promise<string | null> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
-    .from("api_config")
+    .from("seeding_api_config")
     .select("value")
     .eq("key", key)
     .maybeSingle();
 
   if (error) {
-    console.error(`api_config 조회 실패 (${key}):`, error.message);
+    console.error(`seeding_api_config 조회 실패 (${key}):`, error.message);
     return null;
   }
   return data?.value ?? null;
@@ -21,7 +21,7 @@ export async function getConfig(key: string): Promise<string | null> {
 export async function setConfig(key: string, value: string): Promise<void> {
   const supabase = getSupabaseServer();
   const { error } = await supabase
-    .from("api_config")
+    .from("seeding_api_config")
     .upsert({ key, value, updated_at: new Date().toISOString() });
 
   if (error) throw new Error(error.message);
@@ -38,7 +38,7 @@ export async function getConfigStatuses(
 ): Promise<Record<string, ConfigStatus>> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
-    .from("api_config")
+    .from("seeding_api_config")
     .select("key, updated_at")
     .in("key", keys);
 
