@@ -61,7 +61,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
 const APP_VERSION =
-  "v3.0.0 (2026-07-21) - 인스타그램 HikerAPI로 전환 (App Review 불필요)";
+  "v3.1.0 (2026-07-21) - 인스타그램 키워드 계정 검색 추가 (HikerAPI)";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -437,6 +437,41 @@ function InstagramTab() {
   const [loadingDiscover, setLoadingDiscover] = useState(false);
   const [savedUsernames, setSavedUsernames] = useState<Set<string>>(new Set());
 
+  const [keyword, setKeyword] = useState("육아");
+  const [searchCandidates, setSearchCandidates] = useState<
+    {
+      username: string;
+      fullName: string | null;
+      isVerified: boolean;
+      followerCount: number | null;
+    }[]
+  >([]);
+  const [loadingKeywordSearch, setLoadingKeywordSearch] = useState(false);
+
+  const searchByKeyword = async () => {
+    if (!keyword.trim()) return;
+    setLoadingKeywordSearch(true);
+    try {
+      const res = await fetch(`/api/instagram/search?q=${encodeURIComponent(keyword)}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSearchCandidates(data.results);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoadingKeywordSearch(false);
+    }
+  };
+
+  const addCandidateToUsernameInput = (username: string) => {
+    const existing = usernameInput
+      .split(/[\n,]/)
+      .map((u) => u.trim().replace(/^@/, ""))
+      .filter(Boolean);
+    if (existing.includes(username)) return;
+    setUsernameInput((prev) => (prev.trim() ? `${prev.trim()}\n${username}` : username));
+  };
+
   const runDiscover = async () => {
     const usernames = usernameInput
       .split(/[\n,]/)
@@ -493,12 +528,66 @@ function InstagramTab() {
     <div className="space-y-8">
       <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded p-2">
         HikerAPI(서드파티)로 공개 프로필을 조회해요. Meta 공식 App Review 없이 바로 작동해요.
-        해시태그로 계정을 자동 발견하는 기능은 아직 없어서, username을 알고 있는 계정 위주로
-        입력해주세요.
       </p>
 
+      {/* 1단계: 키워드로 계정 찾기 */}
       <section className="space-y-3">
-        <h2 className="font-medium text-sm">username 일괄 조회 (HikerAPI)</h2>
+        <h2 className="font-medium text-sm">1단계 · 키워드로 계정 찾기</h2>
+        <p className="text-xs text-slate-500">
+          검색 결과에는 팔로워수가 없을 수 있어요 — 마음에 드는 계정을 "추가"하면 아래 2단계
+          입력창에 들어가고, 거기서 일괄 조회하면 팔로워수·소개글까지 채워집니다.
+        </p>
+        <div className="flex gap-2">
+          <input
+            className="border border-slate-300 rounded px-3 py-2 text-sm w-56"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="예: 육아, 아이책"
+          />
+          <button
+            onClick={searchByKeyword}
+            disabled={loadingKeywordSearch}
+            className="bg-slate-900 text-white rounded px-4 py-2 text-sm disabled:opacity-50"
+          >
+            {loadingKeywordSearch ? "검색 중..." : "계정 검색"}
+          </button>
+        </div>
+        <div className="space-y-1.5">
+          {searchCandidates.map((c) => (
+            <div
+              key={c.username}
+              className="flex items-center gap-3 border border-slate-200 rounded p-2.5 bg-white text-sm"
+            >
+              <a
+                href={`https://www.instagram.com/${c.username}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 hover:underline"
+              >
+                @{c.username} {c.fullName && `(${c.fullName})`} {c.isVerified && "✔️"}
+                {c.followerCount != null && (
+                  <span className="text-xs text-slate-400">
+                    {" "}
+                    · 팔로워 {c.followerCount.toLocaleString()}명
+                  </span>
+                )}
+              </a>
+              <button
+                onClick={() => addCandidateToUsernameInput(c.username)}
+                className="text-xs border border-slate-300 rounded px-3 py-1 hover:bg-slate-50"
+              >
+                + 추가
+              </button>
+            </div>
+          ))}
+          {searchCandidates.length === 0 && !loadingKeywordSearch && (
+            <p className="text-xs text-slate-400">검색 결과가 여기 표시됩니다.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-3 border-t border-slate-200 pt-6">
+        <h2 className="font-medium text-sm">2단계 · username 일괄 조회 (HikerAPI)</h2>
         <textarea
           className="w-full border border-slate-300 rounded px-3 py-2 text-sm h-24"
           placeholder="username을 한 줄에 하나씩 입력 (예: iquve_official)"
