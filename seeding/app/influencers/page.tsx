@@ -7,9 +7,9 @@ type Tab = "db" | "youtube" | "instagram" | "naver" | "settings";
 interface YoutubeResult {
   channelId: string;
   title: string;
+  description: string;
   subscriberCount: number;
   videoCount: number;
-  lastUploadAt: string | null;
   thumbnail: string;
 }
 
@@ -25,6 +25,7 @@ interface HashtagMedia {
 interface DiscoverResult {
   username: string;
   name: string | null;
+  biography: string | null;
   followersCount: number;
   lastMediaTimestamp: string | null;
   isRecentlyActive: boolean;
@@ -49,12 +50,13 @@ interface InfluencerRow {
   contact_dm: string | null;
   partnership_status: string;
   memo: string | null;
+  source_permalink: string | null;
 }
 
 const STATUS_OPTIONS = ["연락전", "협의중", "완료", "보류"];
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
-const APP_VERSION = "v1.1.0 (2026-07-21) - DB 관리 수정/저장 토글, seeding_api_config 분리";
+const APP_VERSION = "v1.6.0 (2026-07-21) - 유튜브/인스타 소개글 표시 및 메모 자동 저장";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -240,19 +242,34 @@ function SettingsTab() {
 function YoutubeTab() {
   const [query, setQuery] = useState("육아 그림책");
   const [minSubs, setMinSubs] = useState(1000);
+  const [maxResults, setMaxResults] = useState(25);
+  const [sort, setSort] = useState("subscribers_desc");
   const [results, setResults] = useState<YoutubeResult[]>([]);
+  const [resultMeta, setResultMeta] = useState<{
+    requestedCount: number;
+    returnedCount: number;
+    afterFilterCount: number;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
   const search = async () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/youtube/search?q=${encodeURIComponent(query)}&minSubscribers=${minSubs}`
+        `/api/youtube/search?q=${encodeURIComponent(
+          query
+        )}&minSubscribers=${minSubs}&maxResults=${maxResults}&sort=${sort}`
       );
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResults(data.results);
+      setResultMeta({
+        requestedCount: data.requestedCount,
+        returnedCount: data.returnedCount,
+        afterFilterCount: data.afterFilterCount,
+      });
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -271,11 +288,13 @@ function YoutubeTab() {
           handle: r.channelId,
           display_name: r.title,
           followers_count: r.subscriberCount,
+          source_permalink: `https://www.youtube.com/channel/${r.channelId}`,
+          memo: r.description || null,
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      alert(`${r.title} 저장 완료`);
+      setSavedIds((prev) => new Set(prev).add(r.channelId));
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -304,6 +323,27 @@ function YoutubeTab() {
             onChange={(e) => setMinSubs(Number(e.target.value))}
           />
         </div>
+        <div className="w-32">
+          <label className="block text-xs text-slate-500 mb-1">가져올 개수</label>
+          <input
+            type="number"
+            max={50}
+            className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+            value={maxResults}
+            onChange={(e) => setMaxResults(Math.min(Number(e.target.value), 50))}
+          />
+        </div>
+        <div className="w-40">
+          <label className="block text-xs text-slate-500 mb-1">정렬</label>
+          <select
+            className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+          >
+            <option value="subscribers_desc">구독자 많은순</option>
+            <option value="subscribers_asc">구독자 적은순</option>
+          </select>
+        </div>
         <button
           onClick={search}
           disabled={loading}
@@ -312,6 +352,15 @@ function YoutubeTab() {
           {loading ? "검색 중..." : "검색"}
         </button>
       </div>
+
+      {resultMeta && (
+        <p className="text-xs text-slate-400">
+          유튜브에 {resultMeta.requestedCount}개 요청 → {resultMeta.returnedCount}개 응답 →
+          최소 구독자수 조건 적용 후 {resultMeta.afterFilterCount}개 표시 중
+          {resultMeta.returnedCount === resultMeta.requestedCount &&
+            " (더 있을 수 있어요 — '가져올 개수'를 늘려서 다시 검색해보세요, 최대 50)"}
+        </p>
+      )}
 
       <div className="space-y-2">
         {results.map((r) => (
@@ -323,19 +372,35 @@ function YoutubeTab() {
               <img src={r.thumbnail} alt="" className="w-10 h-10 rounded-full" />
             )}
             <div className="flex-1">
-              <div className="font-medium text-sm">{r.title}</div>
+              <a
+                href={`https://www.youtube.com/channel/${r.channelId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-sm text-slate-900 hover:underline"
+              >
+                {r.title} ↗
+              </a>
               <div className="text-xs text-slate-500">
                 구독자 {r.subscriberCount.toLocaleString()}명 · 영상 {r.videoCount}개
-                {r.lastUploadAt &&
-                  ` · 최근 업로드 ${new Date(r.lastUploadAt).toLocaleDateString("ko-KR")}`}
               </div>
+              {r.description && (
+                <div className="text-xs text-slate-400 mt-1 line-clamp-2">{r.description}</div>
+              )}
             </div>
             <button
               onClick={() => saveToDb(r)}
-              disabled={saving === r.channelId}
-              className="text-xs border border-slate-300 rounded px-3 py-1.5 hover:bg-slate-50"
+              disabled={saving === r.channelId || savedIds.has(r.channelId)}
+              className={`text-xs border rounded px-3 py-1.5 ${
+                savedIds.has(r.channelId)
+                  ? "border-emerald-300 text-emerald-600 bg-emerald-50"
+                  : "border-slate-300 hover:bg-slate-50"
+              }`}
             >
-              {saving === r.channelId ? "저장 중..." : "DB에 등록"}
+              {saving === r.channelId
+                ? "저장 중..."
+                : savedIds.has(r.channelId)
+                ? "등록 완료 ✓"
+                : "DB에 등록"}
             </button>
           </div>
         ))}
@@ -356,6 +421,7 @@ function InstagramTab() {
   const [discoverResults, setDiscoverResults] = useState<DiscoverResult[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [loadingDiscover, setLoadingDiscover] = useState(false);
+  const [savedUsernames, setSavedUsernames] = useState<Set<string>>(new Set());
 
   const searchHashtag = async () => {
     setLoadingMedia(true);
@@ -407,11 +473,13 @@ function InstagramTab() {
           handle: r.username,
           display_name: r.name,
           followers_count: r.followersCount,
+          source_permalink: `https://www.instagram.com/${r.username}/`,
+          memo: r.biography || null,
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      alert(`@${r.username} 저장 완료`);
+      setSavedUsernames((prev) => new Set(prev).add(r.username));
     } catch (err: any) {
       alert(err.message);
     }
@@ -505,9 +573,14 @@ function InstagramTab() {
               className="flex items-center gap-3 border border-slate-200 rounded p-3 bg-white"
             >
               <div className="flex-1">
-                <div className="font-medium text-sm">
-                  @{r.username} {r.name && `(${r.name})`}
-                </div>
+                <a
+                  href={`https://www.instagram.com/${r.username}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-sm text-slate-900 hover:underline"
+                >
+                  @{r.username} {r.name && `(${r.name})`} ↗
+                </a>
                 <div className="text-xs text-slate-500">
                   팔로워 {r.followersCount.toLocaleString()}명 ·{" "}
                   {r.isRecentlyActive ? (
@@ -518,12 +591,20 @@ function InstagramTab() {
                   {r.lastMediaTimestamp &&
                     ` · 마지막 게시 ${new Date(r.lastMediaTimestamp).toLocaleDateString("ko-KR")}`}
                 </div>
+                {r.biography && (
+                  <div className="text-xs text-slate-400 mt-1 line-clamp-2">{r.biography}</div>
+                )}
               </div>
               <button
                 onClick={() => saveToDb(r)}
-                className="text-xs border border-slate-300 rounded px-3 py-1.5 hover:bg-slate-50"
+                disabled={savedUsernames.has(r.username)}
+                className={`text-xs border rounded px-3 py-1.5 ${
+                  savedUsernames.has(r.username)
+                    ? "border-emerald-300 text-emerald-600 bg-emerald-50"
+                    : "border-slate-300 hover:bg-slate-50"
+                }`}
               >
-                DB에 등록
+                {savedUsernames.has(r.username) ? "등록 완료 ✓" : "DB에 등록"}
               </button>
             </div>
           ))}
@@ -540,6 +621,7 @@ function NaverTab() {
   const [results, setResults] = useState<NaverBlogResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [followerInputs, setFollowerInputs] = useState<Record<string, string>>({});
+  const [savedLinks, setSavedLinks] = useState<Set<string>>(new Set());
 
   const search = async () => {
     setLoading(true);
@@ -576,7 +658,7 @@ function NaverTab() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      alert(`${r.bloggername} 저장 완료`);
+      setSavedLinks((prev) => new Set(prev).add(r.bloggerlink + r.link));
     } catch (err: any) {
       alert(err.message);
     }
@@ -663,9 +745,14 @@ function NaverTab() {
                 />
                 <button
                   onClick={() => saveToDb(r)}
-                  className="text-xs border border-slate-300 rounded px-3 py-1.5 hover:bg-slate-50 whitespace-nowrap"
+                  disabled={savedLinks.has(r.bloggerlink + r.link)}
+                  className={`text-xs border rounded px-3 py-1.5 whitespace-nowrap ${
+                    savedLinks.has(r.bloggerlink + r.link)
+                      ? "border-emerald-300 text-emerald-600 bg-emerald-50"
+                      : "border-slate-300 hover:bg-slate-50"
+                  }`}
                 >
-                  DB에 등록
+                  {savedLinks.has(r.bloggerlink + r.link) ? "등록 완료 ✓" : "DB에 등록"}
                 </button>
               </div>
             </div>
@@ -820,7 +907,20 @@ function DbTab() {
                   ? "인스타"
                   : "네이버"}
               </td>
-              <td className="p-2">{r.display_name ?? r.handle}</td>
+              <td className="p-2">
+                {r.source_permalink ? (
+                  <a
+                    href={r.source_permalink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-slate-900 hover:underline"
+                  >
+                    {r.display_name ?? r.handle} ↗
+                  </a>
+                ) : (
+                  <span>{r.display_name ?? r.handle}</span>
+                )}
+              </td>
               <td className="p-2">{r.followers_count?.toLocaleString() ?? "-"}</td>
               <td className="p-2">
                 {editingId === r.id ? (

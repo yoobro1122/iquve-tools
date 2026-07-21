@@ -63,6 +63,7 @@ export async function getHashtagRecentMedia(
 export interface BusinessDiscoveryResult {
   username: string;
   name: string | null;
+  biography: string | null; // 프로필 소개글
   followersCount: number;
   mediaCount: number;
   lastMediaTimestamp: string | null;
@@ -87,7 +88,7 @@ export async function discoverBusinessAccounts(
   // Business Discovery는 계정당 1개씩 순차 조회 (Meta 권장: 과도한 호출 시 딜레이 필요)
   for (const username of usernames) {
     try {
-      const fields = `business_discovery.username(${username}){username,name,followers_count,media_count,media.limit(5){timestamp}}`;
+      const fields = `business_discovery.username(${username}){username,name,biography,followers_count,media_count,media.limit(5){timestamp}}`;
       const url = `${GRAPH_BASE}/${igUserId}?fields=${encodeURIComponent(
         fields
       )}&access_token=${token}`;
@@ -111,6 +112,7 @@ export async function discoverBusinessAccounts(
       results.push({
         username: bd.username,
         name: bd.name ?? null,
+        biography: bd.biography ?? null,
         followersCount,
         mediaCount: Number(bd.media_count ?? 0),
         lastMediaTimestamp,
