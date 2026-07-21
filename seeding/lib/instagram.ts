@@ -60,6 +60,16 @@ export async function getHashtagRecentMedia(
   }));
 }
 
+export interface BusinessDiscoveryResult {
+  username: string;
+  name: string | null;
+  biography: string | null; // 프로필 소개글
+  followersCount: number;
+  mediaCount: number;
+  lastMediaTimestamp: string | null;
+  isRecentlyActive: boolean; // 최근 7일 이내 게시물 존재 여부
+}
+
 export interface BusinessDiscoveryError {
   username: string;
   reason: string;
