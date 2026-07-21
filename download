@@ -1,0 +1,11 @@
+# Supabase 연결 정보 (필수 - 이 두 값만 Vercel 환경변수로 등록하면 됩니다)
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# 아래 키들은 배포 후 앱의 "설정" 탭에서 입력하면 되므로,
+# 로컬 개발 중 임시로 쓰고 싶을 때만 채우세요 (선택 사항).
+YOUTUBE_API_KEY=
+IG_ACCESS_TOKEN=
+IG_BUSINESS_ACCOUNT_ID=
+NAVER_CLIENT_ID=
+NAVER_CLIENT_SECRET=
