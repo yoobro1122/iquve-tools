@@ -15,6 +15,33 @@ export interface HikerProfile {
   isVerified: boolean;
   publicEmail: string | null; // 비즈니스 계정인 경우 공개 이메일이 내려오기도 함
   publicPhoneNumber: string | null;
+  lastPostAt: string | null; // 최근 게시물 작성일 (ISO 문자열)
+}
+
+// 최근 게시물 1개의 작성일을 조회. 응답 필드가 taken_at(초 단위 유닉스타임)일 것으로
+// 가정하고 방어적으로 파싱합니다.
+async function getLatestPostDate(userId: string, accessKey: string): Promise<string | null> {
+  try {
+    const url = `${HIKER_BASE}/v1/user/medias?user_id=${encodeURIComponent(userId)}&amount=1`;
+    const res = await fetch(url, {
+      headers: { "x-access-key": accessKey, accept: "application/json" },
+    });
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const items: any[] = Array.isArray(data) ? data : data.items ?? data.medias ?? [];
+    const first = items[0];
+    if (!first) return null;
+
+    const rawTakenAt = first.taken_at ?? first.taken_at_ts ?? first.device_timestamp;
+    if (!rawTakenAt) return null;
+
+    // 초 단위 유닉스타임으로 가정 (Instagram 관례). 이미 ms 단위면 자동으로 큰 값이 나옴.
+    const ms = Number(rawTakenAt) < 10_000_000_000 ? Number(rawTakenAt) * 1000 : Number(rawTakenAt);
+    return new Date(ms).toISOString();
+  } catch {
+    return null;
+  }
 }
 
 export interface HikerProfileError {
@@ -111,6 +138,9 @@ export async function fetchHikerProfiles(
         continue;
       }
 
+      const userId = data.pk ? String(data.pk) : null;
+      const lastPostAt = userId ? await getLatestPostDate(userId, accessKey) : null;
+
       results.push({
         username: data.username ?? username,
         name: data.full_name ?? null,
@@ -120,6 +150,7 @@ export async function fetchHikerProfiles(
         isVerified: Boolean(data.is_verified),
         publicEmail: data.public_email ?? null,
         publicPhoneNumber: data.public_phone_number ?? null,
+        lastPostAt,
       });
 
       // 호출 간 약간의 딜레이 (레이트리밋 보호)

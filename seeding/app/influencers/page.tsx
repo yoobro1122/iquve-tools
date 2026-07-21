@@ -23,6 +23,7 @@ interface DiscoverResult {
   isVerified: boolean;
   publicEmail: string | null;
   publicPhoneNumber: string | null;
+  lastPostAt: string | null;
 }
 
 interface NaverBlogResult {
@@ -61,7 +62,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
 const APP_VERSION =
-  "v3.1.0 (2026-07-21) - 인스타그램 키워드 계정 검색 추가 (HikerAPI)";
+  "v3.2.0 (2026-07-21) - 인스타 검색결과에 팔로워수·최근게시물일 자동 표시";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -438,38 +439,30 @@ function InstagramTab() {
   const [savedUsernames, setSavedUsernames] = useState<Set<string>>(new Set());
 
   const [keyword, setKeyword] = useState("육아");
-  const [searchCandidates, setSearchCandidates] = useState<
-    {
-      username: string;
-      fullName: string | null;
-      isVerified: boolean;
-      followerCount: number | null;
-    }[]
-  >([]);
   const [loadingKeywordSearch, setLoadingKeywordSearch] = useState(false);
+
+  const applyDiscoverResponse = (data: any) => {
+    setDiscoverResults(data.results ?? []);
+    setDiscoverErrors(data.errors ?? []);
+    setFilteredByMinFollowers(data.filteredByMinFollowers ?? []);
+    setAlreadyInDb(data.alreadyInDb ?? []);
+  };
 
   const searchByKeyword = async () => {
     if (!keyword.trim()) return;
     setLoadingKeywordSearch(true);
     try {
-      const res = await fetch(`/api/instagram/search?q=${encodeURIComponent(keyword)}`);
+      const res = await fetch(
+        `/api/instagram/search?q=${encodeURIComponent(keyword)}&minFollowers=${minFollowers}`
+      );
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setSearchCandidates(data.results);
+      applyDiscoverResponse(data);
     } catch (err: any) {
       alert(err.message);
     } finally {
       setLoadingKeywordSearch(false);
     }
-  };
-
-  const addCandidateToUsernameInput = (username: string) => {
-    const existing = usernameInput
-      .split(/[\n,]/)
-      .map((u) => u.trim().replace(/^@/, ""))
-      .filter(Boolean);
-    if (existing.includes(username)) return;
-    setUsernameInput((prev) => (prev.trim() ? `${prev.trim()}\n${username}` : username));
   };
 
   const runDiscover = async () => {
@@ -490,10 +483,7 @@ function InstagramTab() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setDiscoverResults(data.results);
-      setDiscoverErrors(data.errors ?? []);
-      setFilteredByMinFollowers(data.filteredByMinFollowers ?? []);
-      setAlreadyInDb(data.alreadyInDb ?? []);
+      applyDiscoverResponse(data);
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -528,73 +518,21 @@ function InstagramTab() {
     <div className="space-y-8">
       <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded p-2">
         HikerAPI(서드파티)로 공개 프로필을 조회해요. Meta 공식 App Review 없이 바로 작동해요.
+        키워드 검색과 username 직접 입력 모두 아래 같은 결과 목록에 나와요.
       </p>
 
-      {/* 1단계: 키워드로 계정 찾기 */}
       <section className="space-y-3">
-        <h2 className="font-medium text-sm">1단계 · 키워드로 계정 찾기</h2>
-        <p className="text-xs text-slate-500">
-          검색 결과에는 팔로워수가 없을 수 있어요 — 마음에 드는 계정을 "추가"하면 아래 2단계
-          입력창에 들어가고, 거기서 일괄 조회하면 팔로워수·소개글까지 채워집니다.
-        </p>
-        <div className="flex gap-2">
-          <input
-            className="border border-slate-300 rounded px-3 py-2 text-sm w-56"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="예: 육아, 아이책"
-          />
-          <button
-            onClick={searchByKeyword}
-            disabled={loadingKeywordSearch}
-            className="bg-slate-900 text-white rounded px-4 py-2 text-sm disabled:opacity-50"
-          >
-            {loadingKeywordSearch ? "검색 중..." : "계정 검색"}
-          </button>
-        </div>
-        <div className="space-y-1.5">
-          {searchCandidates.map((c) => (
-            <div
-              key={c.username}
-              className="flex items-center gap-3 border border-slate-200 rounded p-2.5 bg-white text-sm"
-            >
-              <a
-                href={`https://www.instagram.com/${c.username}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 hover:underline"
-              >
-                @{c.username} {c.fullName && `(${c.fullName})`} {c.isVerified && "✔️"}
-                {c.followerCount != null && (
-                  <span className="text-xs text-slate-400">
-                    {" "}
-                    · 팔로워 {c.followerCount.toLocaleString()}명
-                  </span>
-                )}
-              </a>
-              <button
-                onClick={() => addCandidateToUsernameInput(c.username)}
-                className="text-xs border border-slate-300 rounded px-3 py-1 hover:bg-slate-50"
-              >
-                + 추가
-              </button>
-            </div>
-          ))}
-          {searchCandidates.length === 0 && !loadingKeywordSearch && (
-            <p className="text-xs text-slate-400">검색 결과가 여기 표시됩니다.</p>
-          )}
-        </div>
-      </section>
-
-      <section className="space-y-3 border-t border-slate-200 pt-6">
-        <h2 className="font-medium text-sm">2단계 · username 일괄 조회 (HikerAPI)</h2>
-        <textarea
-          className="w-full border border-slate-300 rounded px-3 py-2 text-sm h-24"
-          placeholder="username을 한 줄에 하나씩 입력 (예: iquve_official)"
-          value={usernameInput}
-          onChange={(e) => setUsernameInput(e.target.value)}
-        />
+        <h2 className="font-medium text-sm">키워드로 계정 찾기</h2>
         <div className="flex gap-2 items-end">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">검색 키워드</label>
+            <input
+              className="border border-slate-300 rounded px-3 py-2 text-sm w-56"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="예: 육아, 아이책"
+            />
+          </div>
           <div className="w-40">
             <label className="block text-xs text-slate-500 mb-1">최소 팔로워수</label>
             <input
@@ -605,14 +543,38 @@ function InstagramTab() {
             />
           </div>
           <button
-            onClick={runDiscover}
-            disabled={loadingDiscover}
+            onClick={searchByKeyword}
+            disabled={loadingKeywordSearch}
             className="bg-slate-900 text-white rounded px-4 py-2 text-sm disabled:opacity-50"
           >
-            {loadingDiscover ? "조회 중..." : "일괄 조회"}
+            {loadingKeywordSearch ? "검색 중..." : "계정 검색"}
           </button>
         </div>
+        <p className="text-xs text-slate-400">
+          검색 후보(최대 20개)를 찾아서 팔로워수·소개글·최근 게시물일까지 자동으로 채워요.
+          후보가 많을수록 조회 비용이 조금 더 들어요 (계정당 약 2회 호출).
+        </p>
+      </section>
 
+      <section className="space-y-3 border-t border-slate-200 pt-6">
+        <h2 className="font-medium text-sm">또는 username 직접 입력해서 조회</h2>
+        <textarea
+          className="w-full border border-slate-300 rounded px-3 py-2 text-sm h-20"
+          placeholder="username을 한 줄에 하나씩 입력 (예: iquve_official)"
+          value={usernameInput}
+          onChange={(e) => setUsernameInput(e.target.value)}
+        />
+        <button
+          onClick={runDiscover}
+          disabled={loadingDiscover}
+          className="bg-slate-900 text-white rounded px-4 py-2 text-sm disabled:opacity-50"
+        >
+          {loadingDiscover ? "조회 중..." : "일괄 조회"}
+        </button>
+      </section>
+
+      <section className="space-y-3 border-t border-slate-200 pt-6">
+        <h2 className="font-medium text-sm">결과</h2>
         <div className="space-y-1.5">
           {discoverResults.map((r) => (
             <div
@@ -630,6 +592,13 @@ function InstagramTab() {
                 </a>
                 <div className="text-xs text-slate-500">
                   팔로워 {r.followersCount.toLocaleString()}명 · 게시물 {r.mediaCount}개
+                  {r.lastPostAt && (
+                    <>
+                      {" "}
+                      · 최근 게시물{" "}
+                      {new Date(r.lastPostAt).toLocaleDateString("ko-KR")}
+                    </>
+                  )}
                   {(r.publicEmail || r.publicPhoneNumber) && (
                     <span className="text-emerald-600">
                       {" "}
@@ -644,7 +613,7 @@ function InstagramTab() {
               <button
                 onClick={() => saveToDb(r)}
                 disabled={savedUsernames.has(r.username)}
-                className={`text-xs border rounded px-3 py-1.5 ${
+                className={`text-xs border rounded px-3 py-1.5 whitespace-nowrap ${
                   savedUsernames.has(r.username)
                     ? "border-emerald-300 text-emerald-600 bg-emerald-50"
                     : "border-slate-300 hover:bg-slate-50"
@@ -654,6 +623,9 @@ function InstagramTab() {
               </button>
             </div>
           ))}
+          {discoverResults.length === 0 && !loadingKeywordSearch && !loadingDiscover && (
+            <p className="text-xs text-slate-400">검색 결과가 여기 표시됩니다.</p>
+          )}
         </div>
 
         {discoverErrors.length > 0 && (
