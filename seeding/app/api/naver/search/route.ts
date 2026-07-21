@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchNaverBlogs, isWithinDays, dedupeByBlogger } from "@/lib/naver";
+import { getSupabaseServer } from "@/lib/supabase";
 
 // GET /api/naver/search?q=육아 그림책&withinDays=7&dedupe=true
 export async function GET(req: NextRequest) {
@@ -21,6 +22,15 @@ export async function GET(req: NextRequest) {
     if (dedupe) {
       results = dedupeByBlogger(results);
     }
+
+    // 이미 DB에 등록된 블로그는 결과에서 제외
+    const supabase = getSupabaseServer();
+    const { data: existing } = await supabase
+      .from("influencers")
+      .select("handle")
+      .eq("platform", "naver_blog");
+    const existingHandles = new Set((existing ?? []).map((r: any) => r.handle));
+    results = results.filter((r) => !existingHandles.has(r.bloggerlink));
 
     return NextResponse.json({
       results,

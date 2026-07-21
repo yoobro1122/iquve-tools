@@ -11,15 +11,7 @@ interface YoutubeResult {
   subscriberCount: number;
   videoCount: number;
   thumbnail: string;
-}
-
-interface HashtagMedia {
-  id: string;
-  permalink: string;
-  timestamp: string;
-  likeCount: number;
-  commentsCount: number;
-  caption: string | null;
+  lastUploadAt: string | null;
 }
 
 interface DiscoverResult {
@@ -56,7 +48,8 @@ interface InfluencerRow {
 const STATUS_OPTIONS = ["연락전", "협의중", "완료", "보류"];
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
-const APP_VERSION = "v1.6.0 (2026-07-21) - 유튜브/인스타 소개글 표시 및 메모 자동 저장";
+const APP_VERSION =
+  "v1.8.0 (2026-07-21) - 인스타 해시태그 검색 잠정 제거, 네이버 sim 정렬";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -342,6 +335,7 @@ function YoutubeTab() {
           >
             <option value="subscribers_desc">구독자 많은순</option>
             <option value="subscribers_asc">구독자 적은순</option>
+            <option value="recent_upload">최근 업로드순</option>
           </select>
         </div>
         <button
@@ -382,6 +376,8 @@ function YoutubeTab() {
               </a>
               <div className="text-xs text-slate-500">
                 구독자 {r.subscriberCount.toLocaleString()}명 · 영상 {r.videoCount}개
+                {r.lastUploadAt &&
+                  ` · 최근 업로드 ${new Date(r.lastUploadAt).toLocaleDateString("ko-KR")}`}
               </div>
               {r.description && (
                 <div className="text-xs text-slate-400 mt-1 line-clamp-2">{r.description}</div>
@@ -413,29 +409,12 @@ function YoutubeTab() {
 }
 
 function InstagramTab() {
-  const [hashtag, setHashtag] = useState("육아");
-  const [media, setMedia] = useState<HashtagMedia[]>([]);
   const [usernameInput, setUsernameInput] = useState("");
   const [minFollowers, setMinFollowers] = useState(5000);
   const [activeWithinDays, setActiveWithinDays] = useState(7);
   const [discoverResults, setDiscoverResults] = useState<DiscoverResult[]>([]);
-  const [loadingMedia, setLoadingMedia] = useState(false);
   const [loadingDiscover, setLoadingDiscover] = useState(false);
   const [savedUsernames, setSavedUsernames] = useState<Set<string>>(new Set());
-
-  const searchHashtag = async () => {
-    setLoadingMedia(true);
-    try {
-      const res = await fetch(`/api/instagram/hashtag-media?tag=${encodeURIComponent(hashtag)}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setMedia(data.results);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoadingMedia(false);
-    }
-  };
 
   const runDiscover = async () => {
     const usernames = usernameInput
@@ -487,51 +466,16 @@ function InstagramTab() {
 
   return (
     <div className="space-y-8">
-      {/* 1단계: 해시태그로 게시물 발견 */}
-      <section className="space-y-3">
-        <h2 className="font-medium text-sm">1단계 · 해시태그로 게시물 찾기</h2>
-        <p className="text-xs text-slate-500">
-          Meta 정책상 게시물 소유 계정명(username)은 API로 제공되지 않습니다. 아래 permalink를
-          열어 계정을 확인한 뒤, 2단계에 username을 입력하세요.
-        </p>
-        <div className="flex gap-2">
-          <input
-            className="border border-slate-300 rounded px-3 py-2 text-sm w-48"
-            value={hashtag}
-            onChange={(e) => setHashtag(e.target.value)}
-            placeholder="예: 육아"
-          />
-          <button
-            onClick={searchHashtag}
-            disabled={loadingMedia}
-            className="bg-slate-900 text-white rounded px-4 py-2 text-sm disabled:opacity-50"
-          >
-            {loadingMedia ? "조회 중..." : "게시물 조회"}
-          </button>
-        </div>
-        <div className="space-y-1.5">
-          {media.map((m) => (
-            <a
-              key={m.id}
-              href={m.permalink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block border border-slate-200 rounded p-2.5 bg-white text-xs hover:bg-slate-50"
-            >
-              <span className="text-slate-900 font-medium">{m.permalink}</span>
-              <span className="text-slate-500">
-                {" "}
-                · 좋아요 {m.likeCount} · 댓글 {m.commentsCount} ·{" "}
-                {new Date(m.timestamp).toLocaleDateString("ko-KR")}
-              </span>
-            </a>
-          ))}
-        </div>
-      </section>
+      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2">
+        해시태그로 게시물을 찾는 기능은 Meta의 정식 승인(App Review)이 필요해서 잠시 뺐어요.
+        지금은 아래처럼 username을 직접 입력해서 Business Discovery만 테스트하는 상태예요.
+        이것도 같은 이유로 에러가 나면, 인스타그램 자동 조회 자체가 이 앱에서는 승인 전까지
+        어렵다는 뜻이에요.
+      </p>
 
-      {/* 2단계: username 일괄 조회 */}
-      <section className="space-y-3 border-t border-slate-200 pt-6">
-        <h2 className="font-medium text-sm">2단계 · username 일괄 조회 (자동 필터링)</h2>
+      {/* username 일괄 조회 */}
+      <section className="space-y-3">
+        <h2 className="font-medium text-sm">username 일괄 조회 (Business Discovery)</h2>
         <textarea
           className="w-full border border-slate-300 rounded px-3 py-2 text-sm h-24"
           placeholder="username을 한 줄에 하나씩 입력 (예: iquve_official)"
@@ -654,6 +598,7 @@ function NaverTab() {
           display_name: r.bloggername,
           followers_count: followerRaw ? Number(followerRaw) : null,
           source_permalink: r.link,
+          memo: r.description || null,
         }),
       });
       const data = await res.json();

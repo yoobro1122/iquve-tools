@@ -13,11 +13,13 @@ export interface YoutubeChannelResult {
   subscriberCount: number;
   viewCount: number;
   videoCount: number;
+  lastUploadAt: string | null;
 }
 
-// 키워드로 채널 검색 (search.list) 후 채널 상세(channels.list)로 구독자수 등 보강
-// 채널당 추가 조회 없이 search.list(100 units) + channels.list(1 unit)만 사용해서
-// 쿼터를 최소로 씁니다.
+// 키워드로 채널 검색 (search.list) 후 채널 상세(channels.list)로 구독자수 등 보강,
+// 채널별 최신 영상 게시일까지 조회.
+// 주의: 채널마다 최근 업로드일 조회에 100 units씩 추가로 듭니다.
+// (search.list 100 + channels.list 1 + 채널당 100 units)
 export async function searchYoutubeChannels(
   query: string,
   maxResults = 15
@@ -49,13 +51,33 @@ export async function searchYoutubeChannels(
   }
   const channelsData = await channelsRes.json();
 
-  return (channelsData.items ?? []).map((ch: any) => ({
-    channelId: ch.id,
-    title: ch.snippet?.title ?? "",
-    description: ch.snippet?.description ?? "",
-    thumbnail: ch.snippet?.thumbnails?.default?.url ?? "",
-    subscriberCount: Number(ch.statistics?.subscriberCount ?? 0),
-    viewCount: Number(ch.statistics?.viewCount ?? 0),
-    videoCount: Number(ch.statistics?.videoCount ?? 0),
-  }));
+  // 3) 채널별 최신 영상 게시일 (채널당 100 units)
+  const results: YoutubeChannelResult[] = await Promise.all(
+    (channelsData.items ?? []).map(async (ch: any) => {
+      let lastUploadAt: string | null = null;
+      try {
+        const latestUrl = `${YT_BASE}/search?part=snippet&channelId=${ch.id}&order=date&maxResults=1&type=video&key=${apiKey}`;
+        const latestRes = await fetch(latestUrl);
+        if (latestRes.ok) {
+          const latestData = await latestRes.json();
+          lastUploadAt = latestData.items?.[0]?.snippet?.publishedAt ?? null;
+        }
+      } catch {
+        // 최근 업로드일 조회 실패는 무시 (핵심 정보 아님)
+      }
+
+      return {
+        channelId: ch.id,
+        title: ch.snippet?.title ?? "",
+        description: ch.snippet?.description ?? "",
+        thumbnail: ch.snippet?.thumbnails?.default?.url ?? "",
+        subscriberCount: Number(ch.statistics?.subscriberCount ?? 0),
+        viewCount: Number(ch.statistics?.viewCount ?? 0),
+        videoCount: Number(ch.statistics?.videoCount ?? 0),
+        lastUploadAt,
+      };
+    })
+  );
+
+  return results;
 }

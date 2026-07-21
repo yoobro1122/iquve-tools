@@ -22,7 +22,9 @@ function stripTags(s: string) {
   return s.replace(/<\/?b>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
 }
 
-// 키워드로 블로그 포스트 검색. sort=date로 최신순 정렬.
+// 키워드로 블로그 포스트 검색. sort=sim(정확도순) - 실제 네이버 검색 노출순위와
+// 완전히 동일하지는 않지만, date(최신순)보다 실제 검색결과 상단 노출과 더 가까운 편입니다.
+// 참고: 진짜 검색 노출순위(C-Rank 등)는 비공개 알고리즘이라 API로는 확인 불가합니다.
 export async function searchNaverBlogs(
   query: string,
   display = 30
@@ -32,7 +34,7 @@ export async function searchNaverBlogs(
 
   const url = `${NAVER_BASE}?query=${encodeURIComponent(
     query
-  )}&display=${display}&sort=date`;
+  )}&display=${display}&sort=sim`;
 
   const res = await fetch(url, {
     headers: {

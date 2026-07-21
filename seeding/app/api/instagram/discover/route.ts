@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { discoverBusinessAccounts } from "@/lib/instagram";
+import { getSupabaseServer } from "@/lib/supabase";
 
 // POST /api/instagram/discover
 // body: { usernames: string[], minFollowers?: number, activeWithinDays?: number }
@@ -18,7 +19,17 @@ export async function POST(req: NextRequest) {
       minFollowers,
       activeWithinDays,
     });
-    return NextResponse.json({ results });
+
+    // 이미 DB에 등록된 계정은 결과에서 제외
+    const supabase = getSupabaseServer();
+    const { data: existing } = await supabase
+      .from("influencers")
+      .select("handle")
+      .eq("platform", "instagram");
+    const existingHandles = new Set((existing ?? []).map((r: any) => r.handle));
+    const filtered = results.filter((r) => !existingHandles.has(r.username));
+
+    return NextResponse.json({ results: filtered });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

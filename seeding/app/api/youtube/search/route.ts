@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchYoutubeChannels } from "@/lib/youtube";
+import { getSupabaseServer } from "@/lib/supabase";
 
 // GET /api/youtube/search?q=육아&minSubscribers=10000&maxResults=30&sort=subscribers_desc
-// sort: subscribers_desc(기본) | subscribers_asc
+// sort: subscribers_desc(기본) | subscribers_asc | recent_upload
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q");
@@ -19,10 +20,26 @@ export async function GET(req: NextRequest) {
     const channels = await searchYoutubeChannels(q, maxResults);
     let filtered = channels.filter((c) => c.subscriberCount >= minSubscribers);
 
-    filtered =
-      sort === "subscribers_asc"
-        ? filtered.sort((a, b) => a.subscriberCount - b.subscriberCount)
-        : filtered.sort((a, b) => b.subscriberCount - a.subscriberCount);
+    // 이미 DB에 등록된 채널은 검색 결과에서 제외
+    const supabase = getSupabaseServer();
+    const { data: existing } = await supabase
+      .from("influencers")
+      .select("handle")
+      .eq("platform", "youtube");
+    const existingHandles = new Set((existing ?? []).map((r: any) => r.handle));
+    filtered = filtered.filter((c) => !existingHandles.has(c.channelId));
+
+    if (sort === "subscribers_asc") {
+      filtered = filtered.sort((a, b) => a.subscriberCount - b.subscriberCount);
+    } else if (sort === "recent_upload") {
+      filtered = filtered.sort((a, b) => {
+        if (!a.lastUploadAt) return 1;
+        if (!b.lastUploadAt) return -1;
+        return new Date(b.lastUploadAt).getTime() - new Date(a.lastUploadAt).getTime();
+      });
+    } else {
+      filtered = filtered.sort((a, b) => b.subscriberCount - a.subscriberCount);
+    }
 
     return NextResponse.json({
       results: filtered,

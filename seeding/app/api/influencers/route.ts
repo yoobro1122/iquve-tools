@@ -22,10 +22,28 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ results: data });
 }
 
+// 메모/소개글 텍스트에서 이메일 형식을 찾아 첫 번째 매치를 반환
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+
+function extractEmail(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const match = text.match(EMAIL_REGEX);
+  return match ? match[0] : null;
+}
+
 // POST /api/influencers  - 단건 또는 배열로 등록 가능
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const rows = Array.isArray(body) ? body : [body];
+  const rows = (Array.isArray(body) ? body : [body]).map((row: any) => {
+    // 컨택포인트가 비어있고, 메모(소개글)에 이메일이 보이면 자동으로 채워줌
+    if (!row.contact_dm) {
+      const foundEmail = extractEmail(row.memo);
+      if (foundEmail) {
+        return { ...row, contact_dm: foundEmail };
+      }
+    }
+    return row;
+  });
 
   const supabase = getSupabaseServer();
   const { data, error } = await supabase.from("influencers").insert(rows).select();
