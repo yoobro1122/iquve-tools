@@ -47,9 +47,19 @@ interface InfluencerRow {
 
 const STATUS_OPTIONS = ["연락전", "협의중", "완료", "보류"];
 
+// 네이버 블로그 URL(https://blog.naver.com/{네이버ID}/{게시물번호})에서
+// 네이버ID를 뽑아 {아이디}@naver.com 형태로 이메일을 유추합니다.
+// 네이버 계정은 기본적으로 아이디와 동일한 @naver.com 메일을 갖고 있어서
+// 실제 사용 여부와 별개로 유효한 컨택 채널일 가능성이 높습니다.
+function deriveNaverEmail(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(/blog\.naver\.com\/([a-zA-Z0-9_-]+)/);
+  return match ? `${match[1]}@naver.com` : null;
+}
+
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
 const APP_VERSION =
-  "v1.8.0 (2026-07-21) - 인스타 해시태그 검색 잠정 제거, 네이버 sim 정렬";
+  "v2.1.0 (2026-07-21) - Business Discovery 실패 원인 화면에 표시";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -413,6 +423,11 @@ function InstagramTab() {
   const [minFollowers, setMinFollowers] = useState(5000);
   const [activeWithinDays, setActiveWithinDays] = useState(7);
   const [discoverResults, setDiscoverResults] = useState<DiscoverResult[]>([]);
+  const [discoverErrors, setDiscoverErrors] = useState<
+    { username: string; reason: string }[]
+  >([]);
+  const [filteredByMinFollowers, setFilteredByMinFollowers] = useState<string[]>([]);
+  const [alreadyInDb, setAlreadyInDb] = useState<string[]>([]);
   const [loadingDiscover, setLoadingDiscover] = useState(false);
   const [savedUsernames, setSavedUsernames] = useState<Set<string>>(new Set());
 
@@ -435,6 +450,9 @@ function InstagramTab() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setDiscoverResults(data.results);
+      setDiscoverErrors(data.errors ?? []);
+      setFilteredByMinFollowers(data.filteredByMinFollowers ?? []);
+      setAlreadyInDb(data.alreadyInDb ?? []);
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -553,6 +571,33 @@ function InstagramTab() {
             </div>
           ))}
         </div>
+
+        {discoverErrors.length > 0 && (
+          <div className="border border-red-200 bg-red-50 rounded p-3">
+            <p className="text-xs font-medium text-red-700 mb-1">
+              조회 실패 {discoverErrors.length}건
+            </p>
+            <ul className="text-xs text-red-600 space-y-0.5">
+              {discoverErrors.map((e) => (
+                <li key={e.username}>
+                  @{e.username} — {e.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {filteredByMinFollowers.length > 0 && (
+          <p className="text-xs text-slate-400">
+            최소 팔로워수 미달로 제외됨: {filteredByMinFollowers.map((u) => `@${u}`).join(", ")}
+          </p>
+        )}
+
+        {alreadyInDb.length > 0 && (
+          <p className="text-xs text-slate-400">
+            이미 DB에 등록되어 있어 목록에서 제외됨: {alreadyInDb.map((u) => `@${u}`).join(", ")}
+          </p>
+        )}
       </section>
     </div>
   );
@@ -599,6 +644,7 @@ function NaverTab() {
           followers_count: followerRaw ? Number(followerRaw) : null,
           source_permalink: r.link,
           memo: r.description || null,
+          contact_dm: deriveNaverEmail(r.bloggerlink) ?? deriveNaverEmail(r.link),
         }),
       });
       const data = await res.json();
@@ -677,6 +723,11 @@ function NaverTab() {
                   {" · "}
                   {r.postdate.slice(0, 4)}-{r.postdate.slice(4, 6)}-{r.postdate.slice(6, 8)}
                 </div>
+                {deriveNaverEmail(r.bloggerlink) && (
+                  <div className="text-xs text-slate-400 mt-1">
+                    예상 컨택: {deriveNaverEmail(r.bloggerlink)} (등록 시 자동 입력)
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
@@ -722,6 +773,16 @@ function DbTab() {
     contact_dm: string;
     memo: string;
   }>({ partnership_status: "", contact_dm: "", memo: "" });
+  const [expandedMemoIds, setExpandedMemoIds] = useState<Set<string>>(new Set());
+
+  const toggleMemo = (id: string) => {
+    setExpandedMemoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -833,12 +894,12 @@ function DbTab() {
       <table className="w-full text-sm border border-slate-200 rounded overflow-hidden bg-white">
         <thead className="bg-slate-100 text-left text-xs text-slate-500">
           <tr>
-            <th className="p-2">플랫폼</th>
-            <th className="p-2">계정</th>
-            <th className="p-2">팔로워/구독자</th>
-            <th className="p-2">진행상태</th>
-            <th className="p-2">컨택포인트</th>
-            <th className="p-2">메모</th>
+            <th className="p-2 whitespace-nowrap">플랫폼</th>
+            <th className="p-2 whitespace-nowrap">계정</th>
+            <th className="p-2 whitespace-nowrap">팔로워/구독자</th>
+            <th className="p-2 whitespace-nowrap">진행상태</th>
+            <th className="p-2 whitespace-nowrap">컨택포인트</th>
+            <th className="p-2 whitespace-nowrap">메모</th>
             <th className="p-2"></th>
           </tr>
         </thead>
@@ -899,7 +960,7 @@ function DbTab() {
                   <span className="text-xs text-slate-600">{r.contact_dm ?? "-"}</span>
                 )}
               </td>
-              <td className="p-2">
+              <td className="p-2 max-w-[220px]">
                 {editingId === r.id ? (
                   <input
                     type="text"
@@ -908,8 +969,26 @@ function DbTab() {
                     className="w-40 border border-slate-300 rounded px-2 py-1 text-xs focus:border-slate-400"
                     onChange={(e) => setDraft((d) => ({ ...d, memo: e.target.value }))}
                   />
+                ) : r.memo ? (
+                  <div>
+                    <span
+                      className={`text-xs text-slate-500 ${
+                        expandedMemoIds.has(r.id) ? "" : "line-clamp-1"
+                      }`}
+                    >
+                      {r.memo}
+                    </span>
+                    {r.memo.length > 20 && (
+                      <button
+                        onClick={() => toggleMemo(r.id)}
+                        className="block text-xs text-slate-400 hover:underline mt-0.5"
+                      >
+                        {expandedMemoIds.has(r.id) ? "접기" : "더보기"}
+                      </button>
+                    )}
+                  </div>
                 ) : (
-                  <span className="text-xs text-slate-500">{r.memo ?? "-"}</span>
+                  <span className="text-xs text-slate-500">-</span>
                 )}
               </td>
               <td className="p-2 whitespace-nowrap">

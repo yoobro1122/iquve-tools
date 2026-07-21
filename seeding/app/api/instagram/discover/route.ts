@@ -15,10 +15,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const results = await discoverBusinessAccounts(usernames, {
-      minFollowers,
-      activeWithinDays,
-    });
+    const { results, errors, filteredByMinFollowers } = await discoverBusinessAccounts(
+      usernames,
+      { minFollowers, activeWithinDays }
+    );
 
     // 이미 DB에 등록된 계정은 결과에서 제외
     const supabase = getSupabaseServer();
@@ -27,9 +27,17 @@ export async function POST(req: NextRequest) {
       .select("handle")
       .eq("platform", "instagram");
     const existingHandles = new Set((existing ?? []).map((r: any) => r.handle));
+    const alreadyInDb = results
+      .filter((r) => existingHandles.has(r.username))
+      .map((r) => r.username);
     const filtered = results.filter((r) => !existingHandles.has(r.username));
 
-    return NextResponse.json({ results: filtered });
+    return NextResponse.json({
+      results: filtered,
+      errors,
+      filteredByMinFollowers,
+      alreadyInDb,
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

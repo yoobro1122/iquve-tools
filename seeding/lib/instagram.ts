@@ -60,22 +60,24 @@ export async function getHashtagRecentMedia(
   }));
 }
 
-export interface BusinessDiscoveryResult {
+export interface BusinessDiscoveryError {
   username: string;
-  name: string | null;
-  biography: string | null; // 프로필 소개글
-  followersCount: number;
-  mediaCount: number;
-  lastMediaTimestamp: string | null;
-  isRecentlyActive: boolean; // 최근 7일 이내 게시물 존재 여부
+  reason: string;
+}
+
+export interface DiscoverBusinessAccountsResult {
+  results: BusinessDiscoveryResult[];
+  errors: BusinessDiscoveryError[];
+  filteredByMinFollowers: string[]; // 조회는 됐지만 최소 팔로워수 미달로 제외된 username
 }
 
 // 2단계(자동): username을 알고 있는 계정들을 일괄 조회
 // -> 팔로워수 + 최근 활동일 기준으로 필터링 가능
+// 실패 원인을 삼키지 않고 errors 배열로 반환합니다 (원인 파악용).
 export async function discoverBusinessAccounts(
   usernames: string[],
   opts: { minFollowers?: number; activeWithinDays?: number } = {}
-): Promise<BusinessDiscoveryResult[]> {
+): Promise<DiscoverBusinessAccountsResult> {
   const token = await requireConfig("ig_access_token", "IG_ACCESS_TOKEN");
   const igUserId = await requireConfig("ig_business_account_id", "IG_BUSINESS_ACCOUNT_ID");
 
@@ -84,6 +86,8 @@ export async function discoverBusinessAccounts(
   const cutoff = Date.now() - activeWithinDays * 24 * 60 * 60 * 1000;
 
   const results: BusinessDiscoveryResult[] = [];
+  const errors: BusinessDiscoveryError[] = [];
+  const filteredByMinFollowers: string[] = [];
 
   // Business Discovery는 계정당 1개씩 순차 조회 (Meta 권장: 과도한 호출 시 딜레이 필요)
   for (const username of usernames) {
@@ -93,13 +97,29 @@ export async function discoverBusinessAccounts(
         fields
       )}&access_token=${token}`;
       const res = await fetch(url);
+
       if (!res.ok) {
-        console.error(`Business Discovery 실패 (${username}): ${res.status}`);
+        const errBody = await res.text();
+        let reason = `HTTP ${res.status}`;
+        try {
+          const parsed = JSON.parse(errBody);
+          reason = parsed.error?.message ?? reason;
+        } catch {
+          reason = errBody || reason;
+        }
+        errors.push({ username, reason });
         continue;
       }
+
       const data = await res.json();
       const bd = data.business_discovery;
-      if (!bd) continue;
+      if (!bd) {
+        errors.push({
+          username,
+          reason: "business_discovery 데이터 없음 (비즈니스/크리에이터 계정이 아니거나 존재하지 않는 계정일 수 있음)",
+        });
+        continue;
+      }
 
       const lastMediaTimestamp = bd.media?.data?.[0]?.timestamp ?? null;
       const isRecentlyActive = lastMediaTimestamp
@@ -107,7 +127,10 @@ export async function discoverBusinessAccounts(
         : false;
       const followersCount = Number(bd.followers_count ?? 0);
 
-      if (followersCount < minFollowers) continue;
+      if (followersCount < minFollowers) {
+        filteredByMinFollowers.push(username);
+        continue;
+      }
 
       results.push({
         username: bd.username,
@@ -121,10 +144,10 @@ export async function discoverBusinessAccounts(
 
       // 호출 간 약간의 딜레이 (레이트리밋 보호)
       await new Promise((r) => setTimeout(r, 300));
-    } catch (err) {
-      console.error(`Business Discovery 에러 (${username}):`, err);
+    } catch (err: any) {
+      errors.push({ username, reason: err?.message ?? "알 수 없는 에러" });
     }
   }
 
-  return results;
+  return { results, errors, filteredByMinFollowers };
 }
