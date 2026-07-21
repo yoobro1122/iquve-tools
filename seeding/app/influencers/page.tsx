@@ -19,8 +19,10 @@ interface DiscoverResult {
   name: string | null;
   biography: string | null;
   followersCount: number;
-  lastMediaTimestamp: string | null;
-  isRecentlyActive: boolean;
+  mediaCount: number;
+  isVerified: boolean;
+  publicEmail: string | null;
+  publicPhoneNumber: string | null;
 }
 
 interface NaverBlogResult {
@@ -59,7 +61,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
 const APP_VERSION =
-  "v2.1.0 (2026-07-21) - Business Discovery 실패 원인 화면에 표시";
+  "v3.0.0 (2026-07-21) - 인스타그램 HikerAPI로 전환 (App Review 불필요)";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -117,14 +119,19 @@ const SETTINGS_FIELDS: { key: string; label: string; helper: string }[] = [
     helper: "Google Cloud Console에서 발급한 API 키",
   },
   {
+    key: "hikerapi_access_key",
+    label: "인스타그램 - HikerAPI Access Key",
+    helper: "hikerapi.com에서 발급한 토큰. 지금 인스타 검색은 이 키로 동작해요.",
+  },
+  {
     key: "ig_access_token",
-    label: "인스타그램 Access Token",
-    helper: "Meta for Developers에서 발급한 장기 액세스 토큰",
+    label: "인스타그램 - Meta Access Token (App Review 승인 후용, 선택)",
+    helper: "Meta for Developers에서 발급한 장기 액세스 토큰 (현재 미사용)",
   },
   {
     key: "ig_business_account_id",
-    label: "인스타그램 Business Account ID",
-    helper: "본인 소유 비즈니스/크리에이터 계정의 instagram_business_account.id",
+    label: "인스타그램 - Meta Business Account ID (App Review 승인 후용, 선택)",
+    helper: "본인 소유 비즈니스/크리에이터 계정의 instagram_business_account.id (현재 미사용)",
   },
   {
     key: "naver_client_id",
@@ -421,7 +428,6 @@ function YoutubeTab() {
 function InstagramTab() {
   const [usernameInput, setUsernameInput] = useState("");
   const [minFollowers, setMinFollowers] = useState(5000);
-  const [activeWithinDays, setActiveWithinDays] = useState(7);
   const [discoverResults, setDiscoverResults] = useState<DiscoverResult[]>([]);
   const [discoverErrors, setDiscoverErrors] = useState<
     { username: string; reason: string }[]
@@ -445,7 +451,7 @@ function InstagramTab() {
       const res = await fetch("/api/instagram/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usernames, minFollowers, activeWithinDays }),
+        body: JSON.stringify({ usernames, minFollowers }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -472,6 +478,7 @@ function InstagramTab() {
           followers_count: r.followersCount,
           source_permalink: `https://www.instagram.com/${r.username}/`,
           memo: r.biography || null,
+          contact_dm: r.publicEmail || r.publicPhoneNumber || undefined,
         }),
       });
       const data = await res.json();
@@ -484,16 +491,14 @@ function InstagramTab() {
 
   return (
     <div className="space-y-8">
-      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2">
-        해시태그로 게시물을 찾는 기능은 Meta의 정식 승인(App Review)이 필요해서 잠시 뺐어요.
-        지금은 아래처럼 username을 직접 입력해서 Business Discovery만 테스트하는 상태예요.
-        이것도 같은 이유로 에러가 나면, 인스타그램 자동 조회 자체가 이 앱에서는 승인 전까지
-        어렵다는 뜻이에요.
+      <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded p-2">
+        HikerAPI(서드파티)로 공개 프로필을 조회해요. Meta 공식 App Review 없이 바로 작동해요.
+        해시태그로 계정을 자동 발견하는 기능은 아직 없어서, username을 알고 있는 계정 위주로
+        입력해주세요.
       </p>
 
-      {/* username 일괄 조회 */}
       <section className="space-y-3">
-        <h2 className="font-medium text-sm">username 일괄 조회 (Business Discovery)</h2>
+        <h2 className="font-medium text-sm">username 일괄 조회 (HikerAPI)</h2>
         <textarea
           className="w-full border border-slate-300 rounded px-3 py-2 text-sm h-24"
           placeholder="username을 한 줄에 하나씩 입력 (예: iquve_official)"
@@ -508,15 +513,6 @@ function InstagramTab() {
               className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
               value={minFollowers}
               onChange={(e) => setMinFollowers(Number(e.target.value))}
-            />
-          </div>
-          <div className="w-40">
-            <label className="block text-xs text-slate-500 mb-1">최근 활동 기준(일)</label>
-            <input
-              type="number"
-              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
-              value={activeWithinDays}
-              onChange={(e) => setActiveWithinDays(Number(e.target.value))}
             />
           </div>
           <button
@@ -541,17 +537,16 @@ function InstagramTab() {
                   rel="noopener noreferrer"
                   className="font-medium text-sm text-slate-900 hover:underline"
                 >
-                  @{r.username} {r.name && `(${r.name})`} ↗
+                  @{r.username} {r.name && `(${r.name})`} {r.isVerified && "✔️"} ↗
                 </a>
                 <div className="text-xs text-slate-500">
-                  팔로워 {r.followersCount.toLocaleString()}명 ·{" "}
-                  {r.isRecentlyActive ? (
-                    <span className="text-emerald-600">최근 활동 있음</span>
-                  ) : (
-                    <span className="text-slate-400">최근 활동 없음</span>
+                  팔로워 {r.followersCount.toLocaleString()}명 · 게시물 {r.mediaCount}개
+                  {(r.publicEmail || r.publicPhoneNumber) && (
+                    <span className="text-emerald-600">
+                      {" "}
+                      · 공개 컨택: {r.publicEmail ?? r.publicPhoneNumber}
+                    </span>
                   )}
-                  {r.lastMediaTimestamp &&
-                    ` · 마지막 게시 ${new Date(r.lastMediaTimestamp).toLocaleDateString("ko-KR")}`}
                 </div>
                 {r.biography && (
                   <div className="text-xs text-slate-400 mt-1 line-clamp-2">{r.biography}</div>

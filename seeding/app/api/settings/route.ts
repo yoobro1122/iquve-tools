@@ -6,6 +6,7 @@ const ALLOWED_KEYS = [
   "youtube_api_key",
   "ig_access_token",
   "ig_business_account_id",
+  "hikerapi_access_key",
   "naver_client_id",
   "naver_client_secret",
 ] as const;
