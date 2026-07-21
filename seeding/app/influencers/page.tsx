@@ -53,6 +53,9 @@ interface InfluencerRow {
 
 const STATUS_OPTIONS = ["연락전", "협의중", "완료", "보류"];
 
+// 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
+const APP_VERSION = "v1.1.0 (2026-07-21) - DB 관리 수정/저장 토글, seeding_api_config 분리";
+
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
 
@@ -61,6 +64,7 @@ export default function InfluencerToolPage() {
       <header className="border-b border-slate-200 bg-white px-6 py-4">
         <h1 className="text-lg font-semibold">인플루언서 발굴 &amp; 관리</h1>
         <p className="text-sm text-slate-500">아이큐브 제휴 후보 검색 · 등록 · 진행상태 관리</p>
+        <p className="text-xs text-slate-300 mt-1">{APP_VERSION}</p>
       </header>
 
       <nav className="flex gap-1 border-b border-slate-200 bg-white px-6">
