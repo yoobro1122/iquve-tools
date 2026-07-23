@@ -1029,6 +1029,9 @@ function buildSeaGraph(){
 const SEA_GRAPH = buildSeaGraph();
 
 /* 다익스트라 — 한 항구에서 다른 모든 항구까지의 최단 항로 거리(칸 수)를 계산한다. */
+const MIN_VOYAGE_DISTANCE = 4; // 지도 전체에서 가장 짧은 항로가 이 값이 되도록 모든 거리에 같은 오프셋을 더한다
+const VOYAGE_DISTANCE_OFFSET = MIN_VOYAGE_DISTANCE - 1; // 원래 그래프의 최단 거리(1칸)를 기준으로 계산한 보정값
+
 function computeDistancesFrom(originId){
   const dist = {};
   const visited = new Set();
@@ -1056,7 +1059,8 @@ function computeDistancesFrom(originId){
   const portDistances = {};
   PORTS.forEach(p => {
     if (p.id !== originId && dist[p.id] !== undefined && dist[p.id] !== Infinity){
-      portDistances[p.id] = dist[p.id];
+      // 최단 항로도 최소 4칸이 되도록 전체 거리에 동일한 오프셋을 더한다 (상대적인 거리차는 그대로 유지).
+      portDistances[p.id] = dist[p.id] + VOYAGE_DISTANCE_OFFSET;
     }
   });
   return portDistances;
@@ -1080,11 +1084,19 @@ class TradeGood {
     this.name = name;
     this.qtyLevel = qtyLevel;
     this.priceLevel = priceLevel;
+    this.pendingQtyDelta = 0;   // 이번 방문 중 거래로 누적된 변동분 — 다음 마을 도착 시 실제로 반영된다
+    this.pendingPriceDelta = 0;
   }
   get quantity(){ return this.qtyLevel; }
   get price(){ return PRICE_TABLE[this.priceLevel]; }
   adjustQty(delta){ this.qtyLevel = Math.min(5, Math.max(1, this.qtyLevel + delta)); }
   adjustPrice(delta){ this.priceLevel = Math.min(5, Math.max(1, this.priceLevel + delta)); }
+  commitPending(){
+    if (this.pendingQtyDelta !== 0) this.adjustQty(this.pendingQtyDelta);
+    if (this.pendingPriceDelta !== 0) this.adjustPrice(this.pendingPriceDelta);
+    this.pendingQtyDelta = 0;
+    this.pendingPriceDelta = 0;
+  }
 }
 
 class Market {
@@ -1115,8 +1127,9 @@ class Market {
 
   getMarket(portId){ return this.matrices[portId]; }
 
-  /* 구매: 지정한 수량만큼 한 번에 매수한다. 가격은 거래 전 시세로 총액을 계산하고,
-     재고/가격 단계는 수량과 무관하게 거래당 1단계만 변동한다. 화물은 1개당 1칸을 차지한다. */
+  /* 구매: 지정한 수량만큼 한 번에 매수한다. 가격은 거래 전 시세로 총액을 계산한다.
+     재고/가격 단계 변동은 즉시 적용되지 않고, 다음 마을 도착 시에 반영된다
+     (그래야 같은 방문 안에서 사자마자 오른 값에 되팔아 차익을 남기는 게 불가능해진다). */
   buy(portId, goodName, amount, player, ship){
     const good = this.matrices[portId][goodName];
     amount = Math.max(1, Math.floor(amount) || 1);
@@ -1135,15 +1148,15 @@ class Market {
     const cost = unitPrice * amount;
 
     player.gold -= cost;
-    good.adjustQty(-1);
-    good.adjustPrice(1);
+    good.pendingQtyDelta -= 1;
+    good.pendingPriceDelta += 1;
     ship.cargo[goodName] = (ship.cargo[goodName] || 0) + amount;
     ship.cargoUsed += amount;
     return { ok:true, cost, amount, unitPrice };
   }
 
-  /* 판매: 지정한 수량만큼 한 번에 매도한다. 가격은 거래 전 시세로 총액을 계산하고,
-     재고/가격 단계는 수량과 무관하게 거래당 1단계만 변동한다. */
+  /* 판매: 지정한 수량만큼 한 번에 매도한다. 가격은 거래 전 시세로 총액을 계산한다.
+     재고/가격 단계 변동은 다음 마을 도착 시에 반영된다. */
   sell(portId, goodName, amount, player, ship){
     const holding = ship.cargo[goodName] || 0;
     if (holding <= 0) return { ok:false, reason:"보유한 화물이 없다." };
@@ -1155,12 +1168,19 @@ class Market {
     const revenue = unitPrice * amount;
 
     player.gold += revenue;
-    good.adjustQty(1);
-    good.adjustPrice(-1);
+    good.pendingQtyDelta += 1;
+    good.pendingPriceDelta -= 1;
     ship.cargo[goodName] = holding - amount;
     if (ship.cargo[goodName] <= 0) delete ship.cargo[goodName];
     ship.cargoUsed -= amount;
     return { ok:true, revenue, amount, unitPrice };
+  }
+
+  /* 모든 항구의 대기 중인 시세 변동을 실제로 반영한다 — 마을에 새로 도착할 때 호출 */
+  commitAllPending(){
+    Object.values(this.matrices).forEach(table => {
+      Object.values(table).forEach(good => good.commitPending());
+    });
   }
 }
 
@@ -1583,7 +1603,7 @@ function renderBriefing(){
       <div style="margin-bottom:8px;">· 마을에 정박하면 <b>주요 행동을 4회</b> 쓸 수 있습니다. 4회를 다 쓰면 더 이상 마을에서 할 일이 없어 항해를 시작해야 합니다.</div>
       <div style="margin-bottom:8px;">· <b>해상 이벤트 덱</b>은 항해를 시작하면 무작위로 섞여, 한 칸 이동할 때마다 한 장씩 뽑힙니다. 덱의 현재 구성은 우측 "내 카드 / 손패 / 이벤트 덱"에서 언제든 미리 볼 수 있습니다.</div>
       <div style="margin-bottom:8px;">· 항해는 목적지를 고르면 그 거리만큼 한 칸씩 전진하며, 매 칸마다 연료·식량을 소모하고 이벤트 카드를 뽑습니다. 연료나 식량이 바닥나면 조난 상태가 됩니다.</div>
-      <div>· 무역은 시장에서 원하는 수량을 지정해 한 번에 매수/매도합니다. 가격은 거래가 끝난 뒤 한 번만 변동합니다.</div>
+      <div>· 무역은 시장에서 원하는 수량을 지정해 한 번에 매수/매도합니다. 시세 변동은 그 자리에서 바로 반영되지 않고, 다음 마을에 도착할 때 한꺼번에 적용됩니다.</div>
     </div>
   `;
 }
@@ -2634,7 +2654,7 @@ function renderMarketPanel(){
   }).join("");
 
   document.getElementById("panel-body").innerHTML = `
-    <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:8px;">+/− 로 수량을 정한 뒤 "담기"로 예약하고, 위 확정 버튼을 눌러야 실제로 거래됩니다. 가격은 확정 후 한 번만 변동합니다.</div>
+    <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:8px;">+/− 로 수량을 정한 뒤 "담기"로 예약하고, 위 확정 버튼을 눌러야 실제로 거래됩니다. 시세 변동은 이번 방문 중엔 반영되지 않고, 다음 마을 도착 시 한꺼번에 적용됩니다.</div>
     <table class="market-table">
       <thead><tr><th>상품</th><th>재고</th><th>가격</th><th>보유</th><th>수량</th><th>거래</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -2716,7 +2736,7 @@ function tradeBuy(goodName, amount){
   }
   bumpAchievementProgress(goodName, "trade", port.id);
   chargeActionOnce();
-  log("항해일지", `${goodName} ${result.amount}개를 개당 ${result.unitPrice}G(총 ${result.cost}G)에 매수했다.${note} 다음 거래부터 값이 오를 것이다.`);
+  log("항해일지", `${goodName} ${result.amount}개를 개당 ${result.unitPrice}G(총 ${result.cost}G)에 매수했다.${note} 다음 마을에 도착하면 시세가 오를 것이다.`);
   renderGauges(); renderShipStats(); renderMarketPanel();
 }
 
@@ -2748,7 +2768,7 @@ function tradeSell(goodName, amount){
   }
   bumpAchievementProgress(goodName, "trade", port.id);
   chargeActionOnce();
-  log("항해일지", `${goodName} ${result.amount}개를 개당 ${result.unitPrice}G(총 ${result.revenue}G)에 매도했다.${note} 이 항구의 시세가 살짝 내려갔다.`);
+  log("항해일지", `${goodName} ${result.amount}개를 개당 ${result.unitPrice}G(총 ${result.revenue}G)에 매도했다.${note} 다음 마을에 도착하면 이 항구의 시세가 내려갈 것이다.`);
   renderGauges(); renderShipStats(); renderMarketPanel();
 }
 
@@ -3941,6 +3961,7 @@ function shipwreck(){
   document.getElementById("voyage-box").innerHTML = "";
   player.location = "기어헤븐";
   turnActionsUsed = 0;
+  market.commitAllPending();
 
   renderPortInfo();
   renderGauges();
@@ -4032,6 +4053,7 @@ function arriveAtPort(){
 
   const voyageVP = Math.max(1, Math.round(traveledDistance / 3));
   player.vp += voyageVP;
+  market.commitAllPending();
 
   renderPortInfo();
   renderGauges();
@@ -4111,8 +4133,8 @@ const SAVE_KEY = "aqua_mechanica_save_v1";
 
 // 배포 전 아래 두 값을 Supabase 프로젝트 값으로 채워주세요 (Project Settings -> API).
 // ANON KEY는 공개되어도 안전한 값입니다 (RLS로 보호됨). SERVICE ROLE KEY는 여기 넣지 마세요.
-const SUPABASE_URL = "https://emgsqnzfdvvbtooouaap.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0";
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
 
 let supabaseClient = null;
 let supabaseSession = null;
