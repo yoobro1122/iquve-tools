@@ -957,7 +957,8 @@ const HAND = [
     desc:"항해 이벤트 덱의 순서를 슬쩍 조작해두는 술수. (카드 판매로만 소모 가능)" },
   { id:"h_spice_patent", name:"향신료 무역로 특허", type:"achievement",
     installCost:{ gold:50 },
-    desc:"개인 보드에 등록하면 향신료 거래 실적을 추적한다. 3회 거래 달성 시 완료로 표시된다.",
+    desc:"개인 보드에 등록하면 향신료 거래 실적을 추적한다. 3회 거래 달성 시 완료된다.",
+    rewardDesc:"완료 보상: 골드 1,000G · 자유 상인 연맹 평판 +15 · 명예 점수(VP) +10",
     goalGood:"향신료", goalCurrent:0, goalTarget:3, rewardFaction:"merchants", rewarded:false },
 ];
 const BOARD = [];
@@ -990,7 +991,7 @@ const COMPANIONS = [
     active:{ label:"시장 조작", cost:"50G", desc:"현재 항구 상품 하나의 가격 마커를 1단계 낮춘다." } },
   { id:"informant", icon:"&#128065;", name:"뒷골목 정보원", role:"정보 / 암시장",
     desc:"어느 항구에나 아는 얼굴이 있다. 위험한 소문과 뒷거래에 밝다.",
-    stat:"효과: 항구 도착 시 수요 변동 정보 사전 공개",
+    stat:"효과: 세계 시장 동향 정보 구매 시 도시 1곳을 추가로 선택 가능 (3곳→4곳)",
     active:{ label:"뒷거래 정보", cost:"20G", desc:"무작위 이벤트 카드 1장을 손패에 얻는다." } },
 ];
 
@@ -1868,6 +1869,7 @@ function renderHandModalContent(){
         <span class="card-type-tag">${cardTypeLabel(c.type)}</span>
       </div>
       <div class="card-desc">${c.desc}</div>
+      ${c.type === "achievement" && c.rewardDesc ? `<div class="card-progress">${c.rewardDesc}</div>` : ""}
       <div class="card-row-actions">
         <button class="mini-btn" data-act="grindfuel" data-idx="${i}">카드 판매 → 연료</button>
         <button class="mini-btn" data-act="grindfood" data-idx="${i}">카드 판매 → 식량</button>
@@ -1882,6 +1884,7 @@ function renderHandModalContent(){
     const progressLine = c.goalTarget != null
       ? `<div class="card-progress">진행도: ${c.goalCurrent} / ${c.goalTarget}${c.goalCurrent >= c.goalTarget ? " (달성 완료)" : ""}</div>`
       : `<div class="card-progress">연말 VP: ${c.vp || 0}</div>`;
+    const rewardLine = c.rewardDesc && !c.rewarded ? `<div class="card-progress" style="color:var(--teal-light);">${c.rewardDesc}</div>` : "";
     return `
       <div class="card-row">
         <div class="card-row-head">
@@ -1890,6 +1893,7 @@ function renderHandModalContent(){
         </div>
         <div class="card-desc">${c.desc}</div>
         ${progressLine}
+        ${rewardLine}
       </div>
     `;
   }).join("") : `<div style="font-size:12.5px;color:var(--parchment-dim);">등록된 카드가 없다.</div>`;
@@ -2215,6 +2219,7 @@ function renderTavernPanel(){
   const body = document.getElementById("panel-body");
   const isIntelChoice = tavernChoice === "intel";
   const isRecruitChoice = tavernChoice && typeof tavernChoice === "object" && tavernChoice.type === "recruit";
+  const maxIntelCities = getMaxIntelCities();
 
   let html = `<div class="section-label" style="text-align:left;">한 가지만 골라주세요</div>`;
 
@@ -2230,7 +2235,10 @@ function renderTavernPanel(){
       <input type="radio" name="tavern-choice" value="intel" ${isIntelChoice ? "checked" : ""} ${player.gold < 10 ? "disabled" : ""}>
       <div>
         <div class="choice-option-title">세계 시장 동향 정보 구매 (10G)</div>
-        <div class="choice-option-desc">원하는 항구 3곳을 골라 특산물/수요품 시세를 확인한다. (${tavernIntelCities.length} / 3 선택됨)</div>
+        <div class="choice-option-desc">
+          원하는 항구 ${maxIntelCities}곳을 골라 특산물/수요품 시세를 확인한다. (${tavernIntelCities.length} / ${maxIntelCities} 선택됨)
+          ${maxIntelCities > 3 ? `<br><span style="color:var(--teal-light);">뒷골목 정보원 덕분에 1곳 추가로 볼 수 있다.</span>` : ""}
+        </div>
       </div>
     </label>
   `;
@@ -2238,7 +2246,7 @@ function renderTavernPanel(){
   if (isIntelChoice){
     html += `<div class="choice-suboptions">` + PORTS.map(p => {
       const checked = tavernIntelCities.includes(p.id);
-      const disable = !checked && tavernIntelCities.length >= 3;
+      const disable = !checked && tavernIntelCities.length >= maxIntelCities;
       return `<label class="choice-subcheck">
         <input type="checkbox" data-intel-city="${p.id}" ${checked ? "checked" : ""} ${disable ? "disabled" : ""}>
         <span>${p.name} <span style="color:var(--parchment-dim);font-size:10px;">(${p.faction})</span></span>
@@ -2273,10 +2281,6 @@ function renderTavernPanel(){
 
   html += `<button class="mini-btn" id="tavern-confirm" style="margin-top:8px;" ${isTavernChoiceValid() ? "" : "disabled"}>확정</button>`;
 
-  if (tavernIntelCities.length === 3 && !isIntelChoice){
-    // 방문 중 마지막으로 구매한 시장 동향은 계속 볼 수 있게 유지
-  }
-
   body.innerHTML = html;
 
   body.querySelectorAll('input[name="tavern-choice"]').forEach(radio => {
@@ -2289,7 +2293,7 @@ function renderTavernPanel(){
     cb.addEventListener("change", () => {
       const id = cb.dataset.intelCity;
       if (cb.checked){
-        if (tavernIntelCities.length < 3) tavernIntelCities.push(id);
+        if (tavernIntelCities.length < getMaxIntelCities()) tavernIntelCities.push(id);
       } else {
         tavernIntelCities = tavernIntelCities.filter(x => x !== id);
       }
@@ -2307,9 +2311,13 @@ function renderTavernPanel(){
   if (confirmBtn) confirmBtn.addEventListener("click", confirmTavernAction);
 }
 
+function getMaxIntelCities(){
+  return ship.crew.some(c => c.id === "informant") ? 4 : 3;
+}
+
 function isTavernChoiceValid(){
   if (tavernChoice === "info") return player.gold >= 30;
-  if (tavernChoice === "intel") return player.gold >= 10 && tavernIntelCities.length === 3;
+  if (tavernChoice === "intel") return player.gold >= 10 && tavernIntelCities.length === getMaxIntelCities();
   if (tavernChoice && typeof tavernChoice === "object" && tavernChoice.type === "recruit") return !!tavernChoice.id;
   return false;
 }
@@ -3330,8 +3338,8 @@ const SAVE_KEY = "aqua_mechanica_save_v1";
 
 // 배포 전 아래 두 값을 Supabase 프로젝트 값으로 채워주세요 (Project Settings -> API).
 // ANON KEY는 공개되어도 안전한 값입니다 (RLS로 보호됨). SERVICE ROLE KEY는 여기 넣지 마세요.
-const SUPABASE_URL = "https://emgsqnzfdvvbtooouaap.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0";
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
 
 let supabaseClient = null;
 let supabaseSession = null;
@@ -3371,7 +3379,10 @@ async function requestLoginLink(){
   }
   const email = document.getElementById("cloud-email").value.trim();
   if (!email) return;
-  const { error } = await supabaseClient.auth.signInWithOtp({ email });
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin },
+  });
   if (statusEl){
     statusEl.textContent = error
       ? `오류: ${error.message}`
