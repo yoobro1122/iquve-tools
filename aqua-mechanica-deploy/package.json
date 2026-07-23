@@ -1,0 +1,9 @@
+{
+  "name": "aqua-mechanica",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aqua Mechanica - steampunk trading sim, static frontend + Vercel API functions + Supabase save/auth",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

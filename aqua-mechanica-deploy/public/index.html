@@ -1,0 +1,2850 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Aqua Mechanica</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Special+Elite&family=Share+Tech+Mono&display=swap');
+
+:root{
+  --bg-deep:#171310;
+  --panel:#241d17;
+  --panel-2:#2c231b;
+  --brass:#b8863b;
+  --brass-light:#d9a54f;
+  --brass-dim:#7a5c28;
+  --teal:#4f7a6e;
+  --teal-light:#7fb3a2;
+  --parchment:#e8dcc0;
+  --parchment-dim:#a89878;
+  --rust:#9c3b2e;
+  --rust-light:#c4574a;
+  --ink:#0d0a08;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  background:
+    radial-gradient(ellipse at 50% -10%, #2a2118 0%, var(--bg-deep) 55%);
+  color:var(--parchment);
+  font-family:'Special Elite', monospace;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+.rivet-frame{
+  position:relative;
+  border:2px solid var(--brass-dim);
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 24px rgba(0,0,0,0.55);
+  background:linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+}
+.rivet-frame::before{
+  content:"";
+  position:absolute; inset:6px;
+  border:1px solid rgba(184,134,59,0.35);
+  pointer-events:none;
+}
+.rivet{
+  position:absolute;
+  width:9px; height:9px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass-dim) 70%, #3a2b12 100%);
+  box-shadow:0 1px 1px rgba(0,0,0,0.6);
+}
+.rv-tl{top:5px;left:5px;} .rv-tr{top:5px;right:5px;}
+.rv-bl{bottom:5px;left:5px;} .rv-br{bottom:5px;right:5px;}
+
+#app{ width:min(1100px, 100%); }
+
+/* ===== 타이틀 스크린 ===== */
+#title-screen{
+  padding:48px 40px 40px;
+  text-align:center;
+}
+.gauge-divider{
+  display:flex; align-items:center; justify-content:center; gap:14px;
+  margin:0 0 18px;
+}
+.gauge-divider .line{ height:1px; width:70px; background:linear-gradient(90deg, transparent, var(--brass-dim)); }
+.gauge-divider .line.r{ background:linear-gradient(90deg, var(--brass-dim), transparent); }
+.gauge-divider .cog{ font-size:14px; color:var(--brass); }
+
+.game-title{
+  font-family:'Cinzel', serif;
+  font-weight:700;
+  font-size:44px;
+  letter-spacing:4px;
+  color:var(--brass-light);
+  text-shadow:0 0 18px rgba(217,165,79,0.25), 0 1px 0 #000;
+  margin:0;
+}
+.game-subtitle{
+  font-family:'Special Elite', monospace;
+  font-size:14px;
+  letter-spacing:6px;
+  color:var(--teal-light);
+  text-transform:uppercase;
+  margin:6px 0 30px;
+}
+.intro-log{
+  max-width:640px;
+  margin:0 auto 28px;
+  padding:18px 22px;
+  background:rgba(0,0,0,0.25);
+  border-left:3px solid var(--brass);
+  text-align:left;
+  font-size:14.5px;
+  line-height:1.9;
+  color:var(--parchment-dim);
+}
+.intro-log b{ color:var(--parchment); font-weight:normal; border-bottom:1px dotted var(--brass); }
+
+.btn-brass{
+  font-family:'Cinzel', serif;
+  font-size:15px;
+  letter-spacing:2px;
+  color:var(--ink);
+  background:linear-gradient(180deg, var(--brass-light), var(--brass) 60%, var(--brass-dim));
+  border:1px solid #4a3818;
+  padding:12px 34px;
+  cursor:pointer;
+  box-shadow:0 2px 0 #3a2b12, inset 0 1px 0 rgba(255,255,255,0.35);
+  transition:transform 0.1s ease, filter 0.15s ease;
+}
+.btn-brass:hover{ filter:brightness(1.08); }
+.btn-brass:active{ transform:translateY(2px); box-shadow:0 0 0 #3a2b12; }
+.btn-brass:disabled{ filter:grayscale(0.6) brightness(0.6); cursor:not-allowed; }
+
+/* ===== 동료 선택 ===== */
+#companion-select{ display:none; padding:36px 36px 40px; }
+.section-label{
+  font-family:'Cinzel', serif;
+  font-size:13px;
+  letter-spacing:3px;
+  color:var(--teal-light);
+  text-transform:uppercase;
+  text-align:center;
+  margin:0 0 22px;
+}
+.companion-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:18px;
+  margin-bottom:26px;
+}
+.companion-card{
+  position:relative;
+  background:rgba(0,0,0,0.28);
+  border:1px solid var(--brass-dim);
+  padding:18px 16px 20px;
+  cursor:pointer;
+  text-align:left;
+  transition:border-color 0.15s ease, background 0.15s ease;
+}
+.companion-card:hover{ border-color:var(--brass); background:rgba(184,134,59,0.08); }
+.companion-card.selected{ border-color:var(--teal-light); box-shadow:0 0 0 1px var(--teal-light) inset; background:rgba(79,122,110,0.14); }
+.companion-icon{ font-size:26px; color:var(--brass-light); margin-bottom:8px; }
+.companion-name{ font-family:'Cinzel', serif; font-size:16px; color:var(--parchment); margin:0 0 4px; letter-spacing:1px; }
+.companion-role{ font-size:11.5px; color:var(--teal-light); letter-spacing:1px; margin:0 0 10px; text-transform:uppercase; }
+.companion-desc{ font-size:12.5px; line-height:1.7; color:var(--parchment-dim); margin:0 0 10px; }
+.companion-stat{ font-family:'Share Tech Mono', monospace; font-size:11.5px; color:var(--brass-light); }
+
+.select-footer{ display:flex; justify-content:center; }
+
+/* ===== 캐릭터 생성 폼 ===== */
+.cc-field{ display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+.cc-label{
+  width:140px; flex:none; font-size:12.5px; letter-spacing:1px; color:var(--teal-light);
+  text-transform:uppercase;
+}
+.cc-input{
+  flex:1; font-family:'Special Elite', monospace; font-size:14px; color:var(--parchment);
+  background:rgba(0,0,0,0.28); border:1px solid var(--brass-dim); padding:8px 12px;
+}
+.cc-input:focus{ outline:none; border-color:var(--brass-light); }
+
+.profile-bar{
+  font-family:'Share Tech Mono', monospace; font-size:11.5px; letter-spacing:0.5px;
+  color:var(--teal-light); margin-bottom:8px;
+}
+
+/* ===== 게임 화면 ===== */
+#game-screen{ display:none; }
+.game-layout{
+  display:grid;
+  grid-template-columns:1fr 250px;
+  grid-template-rows:auto auto auto auto auto;
+  min-height:520px;
+}
+.stage{ grid-column:1; grid-row:1; padding:20px 22px 6px; }
+.location-banner{
+  font-family:'Cinzel', serif; font-size:20px; letter-spacing:2px;
+  color:var(--brass-light); margin:0 0 4px;
+}
+.location-sub{ font-size:12px; color:var(--parchment-dim); letter-spacing:1px; margin:0 0 10px; }
+.dock-line{ font-size:14px; color:var(--parchment); margin:0 0 6px; }
+.turn-counter{
+  display:inline-block;
+  font-family:'Share Tech Mono', monospace;
+  font-size:11.5px;
+  letter-spacing:1px;
+  color:var(--teal-light);
+  border:1px solid var(--brass-dim);
+  padding:3px 10px;
+  background:rgba(0,0,0,0.25);
+}
+.turn-counter b{ color:var(--brass-light); }
+
+.town-actions{ grid-column:1; grid-row:2; padding:10px 22px; display:flex; flex-direction:column; gap:9px; }
+.action-btn{
+  text-align:left;
+  font-family:'Special Elite', monospace;
+  font-size:14px;
+  color:var(--parchment);
+  background:rgba(0,0,0,0.22);
+  border:1px solid var(--brass-dim);
+  border-left:3px solid var(--teal);
+  padding:11px 16px;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.action-btn:hover{ background:rgba(184,134,59,0.1); border-left-color:var(--brass-light); }
+.action-btn:disabled{ opacity:0.35; cursor:not-allowed; border-left-color:var(--brass-dim); }
+.action-btn .tag{ font-size:11px; color:var(--parchment-dim); }
+.sail-btn{ border-left-color:var(--rust-light); }
+
+.minor-actions{ grid-column:1; grid-row:3; padding:2px 22px 10px; display:flex; flex-direction:column; gap:8px; }
+.minor-actions .action-btn{ padding:8px 14px; font-size:12.5px; border-left-color:var(--teal-light); }
+
+.panel-box{
+  grid-column:1; grid-row:4;
+  margin:6px 22px 4px;
+  padding:14px 16px;
+  background:rgba(0,0,0,0.28);
+  border:1px solid var(--brass-dim);
+  display:none;
+}
+.panel-box.open{ display:block; }
+.panel-title{
+  font-family:'Cinzel', serif; font-size:13px; letter-spacing:2px;
+  color:var(--teal-light); text-transform:uppercase; margin:0 0 10px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.panel-close{
+  font-family:'Special Elite', monospace; font-size:11px; color:var(--parchment-dim);
+  cursor:pointer; border:1px solid var(--brass-dim); padding:2px 8px; background:transparent;
+}
+.market-table{ width:100%; border-collapse:collapse; font-size:12px; }
+.market-table th{
+  text-align:left; color:var(--teal-light); font-weight:normal; font-size:11px;
+  letter-spacing:0.5px; text-transform:uppercase; padding:5px 6px; border-bottom:1px solid var(--brass-dim);
+}
+.market-table td{ padding:5px 6px; border-bottom:1px solid rgba(122,92,40,0.25); color:var(--parchment-dim); }
+.market-table td.name{ color:var(--parchment); }
+.market-table td.num{ font-family:'Share Tech Mono', monospace; color:var(--brass-light); text-align:center; }
+.mini-btn{
+  font-family:'Special Elite', monospace; font-size:11px; padding:3px 9px; cursor:pointer;
+  background:rgba(0,0,0,0.25); border:1px solid var(--brass-dim); color:var(--parchment);
+}
+.mini-btn:hover{ border-color:var(--brass-light); }
+.mini-btn:disabled{ opacity:0.3; cursor:not-allowed; }
+.mini-btn.sell{ border-color:var(--teal); }
+
+.supply-row{ display:flex; gap:10px; margin-bottom:8px; }
+
+.dest-btn{
+  width:100%; text-align:left;
+  font-family:'Special Elite', monospace; font-size:13.5px; color:var(--parchment);
+  background:rgba(0,0,0,0.22); border:1px solid var(--brass-dim); border-left:3px solid var(--brass);
+  padding:9px 14px; margin-bottom:8px; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.dest-btn:hover{ background:rgba(184,134,59,0.1); border-left-color:var(--brass-light); }
+.dest-btn .dist-tag{ font-family:'Share Tech Mono', monospace; font-size:11.5px; color:var(--teal-light); }
+
+.voyage-box{
+  grid-column:1; grid-row:2;
+  padding:12px 22px;
+  display:none;
+  flex-direction:column;
+  gap:12px;
+}
+.voyage-box.open{ display:flex; }
+.voyage-heading{ font-size:13px; color:var(--parchment-dim); }
+.voyage-heading b{ color:var(--brass-light); font-weight:normal; }
+.voyage-steps{ display:flex; gap:6px; flex-wrap:wrap; }
+.voyage-step{
+  width:22px; height:22px; border:1px solid var(--brass-dim);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Share Tech Mono', monospace; font-size:10px; color:var(--parchment-dim);
+  background:rgba(0,0,0,0.25);
+}
+.voyage-step.done{ background:var(--brass-dim); color:var(--ink); border-color:var(--brass); }
+.voyage-step.current{ border-color:var(--teal-light); color:var(--teal-light); }
+.voyage-controls{ display:flex; gap:10px; }
+.distress-banner{
+  border:1px solid var(--rust);
+  border-left:3px solid var(--rust-light);
+  background:rgba(156,59,46,0.15);
+  color:var(--rust-light);
+  padding:10px 14px;
+  font-size:13px;
+  letter-spacing:0.5px;
+}
+
+.dialogue-log{
+  grid-column:1; grid-row:5;
+  margin:6px 22px 20px;
+  padding:14px 18px;
+  background:rgba(0,0,0,0.35);
+  border-top:1px solid var(--brass-dim);
+  font-size:13.5px; line-height:1.85; color:var(--parchment-dim);
+  min-height:70px;
+}
+.dialogue-log .speaker{ color:var(--brass-light); font-weight:normal; }
+
+.stat-panel{
+  grid-column:2; grid-row:1 / span 5;
+  border-left:2px solid var(--brass-dim);
+  padding:20px 16px;
+  background:rgba(0,0,0,0.2);
+}
+.btn-status{
+  width:100%; margin-bottom:16px; padding:9px 0; font-size:12px;
+}
+.cloud-sync-box{
+  border:1px solid var(--brass-dim); background:rgba(0,0,0,0.2);
+  padding:8px 10px; margin-bottom:14px;
+}
+.stat-panel h3{
+  font-family:'Cinzel', serif; font-size:13px; letter-spacing:2px;
+  color:var(--teal-light); text-transform:uppercase; margin:0 0 14px; text-align:center;
+}
+.gauge-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.gauge-dial{ position:relative; width:44px; height:44px; flex:none; }
+.gauge-dial svg{ width:100%; height:100%; transform:rotate(-90deg); }
+.gauge-dial .val{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-family:'Share Tech Mono', monospace; font-size:11px; color:var(--parchment);
+}
+.gauge-label{ font-size:11px; letter-spacing:1px; color:var(--parchment-dim); text-transform:uppercase; }
+.gauge-num{ font-family:'Share Tech Mono', monospace; font-size:15px; color:var(--brass-light); }
+
+.stat-divider{ height:1px; background:var(--brass-dim); opacity:0.5; margin:14px 0; }
+
+.simple-stat{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:7px; color:var(--parchment-dim); }
+.simple-stat b{ color:var(--parchment); font-weight:normal; font-family:'Share Tech Mono', monospace; }
+
+.ship-line{ font-size:11.5px; color:var(--parchment-dim); margin-bottom:5px; }
+.ship-line b{ color:var(--teal-light); font-weight:normal; }
+
+.cargo-list{ font-size:11px; color:var(--parchment-dim); margin-top:4px; }
+.cargo-list div{ display:flex; justify-content:space-between; margin-bottom:3px; }
+.cargo-list b{ color:var(--brass-light); font-weight:normal; font-family:'Share Tech Mono', monospace; }
+
+/* ===== 상태/인벤토리 & 손패/보드 모달 ===== */
+#status-modal-overlay, #hand-modal-overlay{
+  position:fixed; inset:0; z-index:100;
+  background:rgba(6,4,2,0.72);
+  display:none; align-items:center; justify-content:center;
+  padding:20px;
+}
+#status-modal, #hand-modal{
+  max-width:520px; width:100%; max-height:82vh; overflow-y:auto;
+  padding:24px 26px;
+}
+.status-modal-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+.status-modal-header h2{
+  font-family:'Cinzel', serif; font-size:19px; letter-spacing:2px; color:var(--brass-light); margin:0;
+}
+.status-block{ margin-bottom:18px; }
+.status-block .section-label{ text-align:left; margin:0 0 8px; }
+.crew-entry{ margin-bottom:10px; }
+.crew-entry .crew-name{ font-size:12.5px; color:var(--parchment); }
+.crew-entry .crew-role{ font-size:11px; color:var(--teal-light); }
+.crew-entry .crew-skill{ font-size:11px; color:var(--parchment-dim); margin-top:2px; }
+.card-inline-list{ font-size:11px; color:var(--parchment-dim); margin:2px 0 10px; line-height:1.7; }
+
+.card-row{
+  border:1px solid var(--brass-dim);
+  background:rgba(0,0,0,0.2);
+  padding:10px 12px;
+  margin-bottom:8px;
+}
+.card-row-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.card-name{ font-size:12.5px; color:var(--parchment); }
+.card-type-tag{
+  font-family:'Share Tech Mono', monospace; font-size:10px; letter-spacing:0.5px;
+  color:var(--teal-light); border:1px solid var(--teal); padding:1px 7px;
+}
+.card-desc{ font-size:11.5px; color:var(--parchment-dim); line-height:1.6; margin-bottom:8px; }
+.card-row-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+.card-progress{ font-family:'Share Tech Mono', monospace; font-size:11px; color:var(--brass-light); }
+
+@media(max-width:760px){
+  .game-layout{ grid-template-columns:1fr; }
+  .stat-panel{ grid-column:1; grid-row:6; border-left:none; border-top:2px solid var(--brass-dim); }
+  .companion-grid{ grid-template-columns:1fr; }
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ 타이틀 스크린 ============ -->
+  <div id="title-screen" class="rivet-frame">
+    <span class="rivet rv-tl"></span><span class="rivet rv-tr"></span>
+    <span class="rivet rv-bl"></span><span class="rivet rv-br"></span>
+
+    <div class="gauge-divider"><span class="line"></span><span class="cog">&#9881;</span><span class="line r"></span></div>
+    <h1 class="game-title">AQUA MECHANICA</h1>
+    <p class="game-subtitle">증기와 파도의 무역상</p>
+
+    <div class="intro-log" id="intro-log-text"></div>
+
+    <button class="btn-brass" id="btn-to-companion">항해 준비</button>
+    <button class="btn-brass" id="btn-continue" style="display:none; margin-left:12px;">이어서 하기</button>
+  </div>
+
+  <!-- ============ 캐릭터 생성 화면 ============ -->
+  <div id="character-creation" class="rivet-frame" style="display:none; padding:36px 40px;">
+    <span class="rivet rv-tl"></span><span class="rivet rv-tr"></span>
+    <span class="rivet rv-bl"></span><span class="rivet rv-br"></span>
+
+    <p class="section-label">선장의 신상을 기록하라</p>
+
+    <div class="cc-field">
+      <label class="cc-label">이름</label>
+      <input type="text" id="cc-name" class="cc-input" value="알렉스" maxlength="12">
+    </div>
+    <div class="cc-field">
+      <label class="cc-label">성별</label>
+      <select id="cc-gender" class="cc-input">
+        <option value="남성">남성</option>
+        <option value="여성">여성</option>
+        <option value="기타">기타</option>
+      </select>
+    </div>
+    <div class="cc-field">
+      <label class="cc-label">생년월일</label>
+      <input type="date" id="cc-birthdate" class="cc-input" value="1995-06-15">
+    </div>
+    <div class="cc-field">
+      <label class="cc-label">태어난 시각 (시)</label>
+      <select id="cc-hour" class="cc-input"></select>
+    </div>
+    <p style="font-size:11px;color:var(--parchment-dim);margin:4px 0 20px;">
+      생년월일시는 배경 스토리와 사주(오행)·별자리 보너스를 결정하는 데 사용됩니다.
+    </p>
+
+    <div class="select-footer">
+      <button class="btn-brass" id="btn-cc-next">신상 확정</button>
+    </div>
+  </div>
+
+  <!-- ============ 동료 선택 화면 ============ -->
+  <div id="companion-select" class="rivet-frame">
+    <span class="rivet rv-tl"></span><span class="rivet rv-tr"></span>
+    <span class="rivet rv-bl"></span><span class="rivet rv-br"></span>
+
+    <p class="section-label">첫 동료를 선택하라 — 기어헤븐 선착장</p>
+    <div class="companion-grid" id="companion-grid"></div>
+
+    <div class="select-footer">
+      <button class="btn-brass" id="btn-start-game" disabled>출항한다</button>
+    </div>
+  </div>
+
+  <!-- ============ 게임 화면 ============ -->
+  <div id="game-screen" class="rivet-frame">
+    <span class="rivet rv-tl"></span><span class="rivet rv-tr"></span>
+    <span class="rivet rv-bl"></span><span class="rivet rv-br"></span>
+
+    <div class="game-layout">
+      <div class="stage">
+        <div class="profile-bar" id="profile-bar"></div>
+        <h2 class="location-banner" id="loc-name">기어헤븐</h2>
+        <p class="location-sub" id="loc-sub">증기 제국 · 조선소와 관료제의 도시</p>
+        <p class="dock-line" id="dock-line">현재 기어헤븐에 정박 중입니다.</p>
+        <span class="turn-counter" id="turn-counter">이번 턴 행동 <b>0</b> / 4</span>
+      </div>
+
+      <div class="town-actions" id="town-actions"></div>
+
+      <div class="minor-actions" id="minor-actions"></div>
+
+      <div class="voyage-box" id="voyage-box"></div>
+
+      <div class="panel-box" id="panel-box">
+        <div class="panel-title"><span id="panel-title-text">패널</span><button class="panel-close" id="panel-close">닫기</button></div>
+        <div id="panel-body"></div>
+      </div>
+
+      <div class="dialogue-log" id="dialogue-log">
+        <span class="speaker">항해일지 —</span> 항해가 시작된다.
+      </div>
+
+      <div class="stat-panel">
+        <h3>선단 현황</h3>
+        <div class="cloud-sync-box" id="cloud-sync-box">
+          <div id="cloud-sync-status" style="font-size:10.5px;color:var(--parchment-dim);margin-bottom:6px;">클라우드 저장: 확인 중...</div>
+          <input type="email" id="cloud-email" class="cc-input" placeholder="이메일" style="font-size:11px;padding:5px 8px;margin-bottom:6px;width:100%;box-sizing:border-box;">
+          <button class="mini-btn" id="cloud-login-btn" style="width:100%;">로그인 링크 받기</button>
+        </div>
+        <button class="btn-brass btn-status" id="btn-open-status">내 정보 / 인벤토리 보기</button>
+        <button class="btn-brass btn-status" id="btn-open-hand">내 카드 / 손패 보기</button>
+        <div id="gauges"></div>
+        <div class="stat-divider"></div>
+        <div class="simple-stat"><span>명성</span><b id="stat-fame">0</b></div>
+        <div class="simple-stat"><span>악명</span><b id="stat-notoriety">0</b></div>
+        <div class="stat-divider"></div>
+        <div class="section-label" style="text-align:left;font-size:10.5px;margin:0 0 8px;">세력 평판</div>
+        <div id="reputation-list"></div>
+        <div class="stat-divider"></div>
+        <div class="ship-line">화물칸 <b id="ship-cargo">0 / 3</b></div>
+        <div class="cargo-list" id="cargo-list"></div>
+        <div class="stat-divider"></div>
+        <div class="ship-line">동료 슬롯 <b id="ship-crew">0 / 2</b></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="status-modal-overlay">
+  <div id="status-modal" class="rivet-frame">
+    <span class="rivet rv-tl"></span><span class="rivet rv-tr"></span>
+    <span class="rivet rv-bl"></span><span class="rivet rv-br"></span>
+    <div class="status-modal-header">
+      <h2>선단 상세 정보</h2>
+      <button class="panel-close" id="status-modal-close">닫기</button>
+    </div>
+    <div id="status-modal-body"></div>
+  </div>
+</div>
+
+<div id="hand-modal-overlay">
+  <div id="hand-modal" class="rivet-frame">
+    <span class="rivet rv-tl"></span><span class="rivet rv-tr"></span>
+    <span class="rivet rv-bl"></span><span class="rivet rv-br"></span>
+    <div class="status-modal-header">
+      <h2>손패 / 개인 보드</h2>
+      <button class="panel-close" id="hand-modal-close">닫기</button>
+    </div>
+    <div id="hand-modal-body"></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   1. 세계관 데이터 — 18개 항구 도시 (5개 세력, 특산품/수요품)
+   ========================================================================= */
+const PORTS = [
+  // --- 증기 제국 ---
+  { id:"기어헤븐",     name:"기어헤븐",     faction:"증기 제국", desc:"조선소와 관료제의 도시",
+    produces:["석탄","증기기관부품"], demands:["향신료","마정석"] },
+  { id:"코크스 아일랜드", name:"코크스 아일랜드", faction:"증기 제국", desc:"검은 연기 피어오르는 채탄 섬",
+    produces:["석탄","스크랩 메탈"], demands:["약초","식수정제기"] },
+  { id:"폰테인",       name:"폰테인",       faction:"증기 제국", desc:"철갑 조선소가 늘어선 항만",
+    produces:["증기기관부품","스크랩 메탈"], demands:["진주","실크"] },
+  { id:"녹스",         name:"녹스",         faction:"증기 제국", desc:"발전소 굴뚝이 하늘을 가리는 공업 도시",
+    produces:["증기기관부품","석탄"], demands:["마정석","럼주"] },
+  { id:"아이언가드",   name:"아이언가드",   faction:"증기 제국", desc:"국경을 지키는 철갑 요새 도시",
+    produces:["스크랩 메탈","무기"], demands:["약초","마정석"] },
+  { id:"스팀게이트",   name:"스팀게이트",   faction:"증기 제국", desc:"제국과 자유상인을 잇는 관문 항구",
+    produces:["증기기관부품","석탄"], demands:["실크","향신료"] },
+
+  // --- 연금술사 연합 ---
+  { id:"포그 해븐",   name:"포그 해븐",   faction:"연금술사 연합", desc:"안개 속 실험탑들의 항구",
+    produces:["마정석","약초"], demands:["석탄","스크랩 메탈"] },
+  { id:"바이오스",     name:"바이오스",     faction:"연금술사 연합", desc:"약초원과 온실이 펼쳐진 저지대",
+    produces:["약초","마정석"], demands:["소금","무기"] },
+  { id:"머큐리아",     name:"머큐리아",     faction:"연금술사 연합", desc:"증류탑이 늘어선 연금술 항구",
+    produces:["마정석","럼주"], demands:["진주","산호"] },
+  { id:"에테르나",     name:"에테르나",     faction:"연금술사 연합", desc:"치유의 온천으로 유명한 요양 도시",
+    produces:["약초","식수정제기"], demands:["실크","향신료"] },
+  { id:"톡시카",       name:"톡시카",       faction:"연금술사 연합", desc:"금지된 조제법이 오가는 뒷골목 실험지",
+    produces:["마정석","약초"], demands:["무기","스크랩 메탈"] },
+
+  // --- 자유 상인 연맹 ---
+  { id:"골드 코스트", name:"골드 코스트", faction:"자유 상인 연맹", desc:"환전상과 중개인이 몰리는 자유항",
+    produces:["진주","산호"], demands:["증기기관부품","석탄"] },
+  { id:"스파이스 베이", name:"스파이스 베이", faction:"자유 상인 연맹", desc:"계절풍이 몰아치는 향신료 항구",
+    produces:["향신료","실크"], demands:["약초","무기"] },
+  { id:"실크 마리나", name:"실크 마리나", faction:"자유 상인 연맹", desc:"직조 공방이 늘어선 비단길 종착지",
+    produces:["실크","향신료"], demands:["마정석","스크랩 메탈"] },
+  { id:"펄 리프",     name:"펄 리프",     faction:"자유 상인 연맹", desc:"구릿빛 모래사장의 진주 채취장",
+    produces:["진주","산호"], demands:["럼주","소금"] },
+
+  // --- 무법자 & 심해 부족 ---
+  { id:"블랙 림",     name:"블랙 림",     faction:"무법자 & 심해 부족", desc:"법 밖의 상인들이 모이는 은신 항구",
+    produces:["무기","스크랩 메탈"], demands:["석탄","향신료"] },
+  { id:"헌터스 록",   name:"헌터스 록",   faction:"무법자 & 심해 부족", desc:"거친 사냥꾼들의 바위 정박지",
+    produces:["소금","무기"], demands:["증기기관부품","약초"] },
+  { id:"리바이어던의 턱", name:"리바이어던의 턱", faction:"무법자 & 심해 부족", desc:"심해 균열 위에 지어진 전초지",
+    produces:["산호","소금"], demands:["약초","식수정제기"] },
+];
+
+const ALL_GOODS = ["석탄","증기기관부품","마정석","약초","실크","향신료","진주","산호","스크랩 메탈","럼주","소금","무기","식수정제기"];
+
+/* =========================================================================
+   1-1. 항구 간 거리 그래프 — 항해 시 실제 이동 칸 수로 사용
+   ========================================================================= */
+const CITY_DISTANCES = {
+  "기어헤븐": { "코크스 아일랜드": 3, "폰테인": 3, "녹스": 4, "아이언가드": 4, "스팀게이트": 4, "포그 해븐": 5 },
+  "코크스 아일랜드": { "기어헤븐": 3, "녹스": 3 },
+  "폰테인": { "기어헤븐": 3 },
+  "녹스": { "기어헤븐": 4, "코크스 아일랜드": 3 },
+  "아이언가드": { "기어헤븐": 4, "블랙 림": 4 },
+  "스팀게이트": { "기어헤븐": 4, "골드 코스트": 4 },
+  "포그 해븐": { "기어헤븐": 5, "바이오스": 3, "머큐리아": 3, "에테르나": 4, "톡시카": 4 },
+  "바이오스": { "포그 해븐": 3 },
+  "머큐리아": { "포그 해븐": 3 },
+  "에테르나": { "포그 해븐": 4 },
+  "톡시카": { "포그 해븐": 4 },
+  "골드 코스트": { "스팀게이트": 4, "스파이스 베이": 3, "실크 마리나": 3, "펄 리프": 4 },
+  "스파이스 베이": { "골드 코스트": 3 },
+  "실크 마리나": { "골드 코스트": 3 },
+  "펄 리프": { "골드 코스트": 4 },
+  "블랙 림": { "아이언가드": 4, "헌터스 록": 3, "리바이어던의 턱": 4 },
+  "헌터스 록": { "블랙 림": 3 },
+  "리바이어던의 턱": { "블랙 림": 4 }
+};
+
+/* =========================================================================
+   2. 5x5 시장 매트릭스 — 수량 단계(1~5) x 가격 단계(1~5 -> 10/30/50/70/90G)
+   ========================================================================= */
+const PRICE_TABLE = { 1:10, 2:30, 3:50, 4:70, 5:90 };
+
+class TradeGood {
+  constructor(name, qtyLevel, priceLevel){
+    this.name = name;
+    this.qtyLevel = qtyLevel;
+    this.priceLevel = priceLevel;
+  }
+  get quantity(){ return this.qtyLevel; }
+  get price(){ return PRICE_TABLE[this.priceLevel]; }
+  adjustQty(delta){ this.qtyLevel = Math.min(5, Math.max(1, this.qtyLevel + delta)); }
+  adjustPrice(delta){ this.priceLevel = Math.min(5, Math.max(1, this.priceLevel + delta)); }
+}
+
+class Market {
+  constructor(ports){
+    this.ports = ports;
+    this.matrices = {};
+    ports.forEach(p => this._generatePortMarket(p));
+  }
+
+  _generatePortMarket(port){
+    const table = {};
+    ALL_GOODS.forEach(good => {
+      let qtyLevel, priceLevel;
+      if (port.produces.includes(good)) {
+        qtyLevel = 4 + Math.round(Math.random());
+        priceLevel = 1 + Math.round(Math.random());
+      } else if (port.demands.includes(good)) {
+        qtyLevel = 1 + Math.round(Math.random());
+        priceLevel = 4 + Math.round(Math.random());
+      } else {
+        qtyLevel = 2 + Math.floor(Math.random()*3);
+        priceLevel = 2 + Math.floor(Math.random()*3);
+      }
+      table[good] = new TradeGood(good, qtyLevel, priceLevel);
+    });
+    this.matrices[port.id] = table;
+  }
+
+  getMarket(portId){ return this.matrices[portId]; }
+
+  /* 구매: 시장 재고 1단계 감소 + 가격 1단계 상승 (계단식) */
+  buy(portId, goodName, player, ship){
+    const good = this.matrices[portId][goodName];
+    if (good.qtyLevel <= 1) return { ok:false, reason:"이 항구엔 더 이상 재고가 없다." };
+    const cost = good.price;
+    if (player.gold < cost) return { ok:false, reason:"골드가 부족하다." };
+    const holding = ship.cargo[goodName] || 0;
+    if (holding === 0 && ship.cargoUsed >= ship.cargoSlots) return { ok:false, reason:"화물칸이 가득 찼다." };
+
+    player.gold -= cost;
+    good.adjustQty(-1);
+    good.adjustPrice(1);
+    ship.cargo[goodName] = holding + 1;
+    if (holding === 0) ship.cargoUsed += 1;
+    return { ok:true, cost };
+  }
+
+  /* 판매: 시장 재고 1단계 증가 + 가격 1단계 하락 (계단식) */
+  sell(portId, goodName, player, ship){
+    const holding = ship.cargo[goodName] || 0;
+    if (holding <= 0) return { ok:false, reason:"보유한 화물이 없다." };
+    const good = this.matrices[portId][goodName];
+    const revenue = good.price;
+
+    player.gold += revenue;
+    good.adjustQty(1);
+    good.adjustPrice(-1);
+    ship.cargo[goodName] = holding - 1;
+    if (ship.cargo[goodName] === 0){ delete ship.cargo[goodName]; ship.cargoUsed -= 1; }
+    return { ok:true, revenue };
+  }
+}
+
+/* =========================================================================
+   3. 초기 상태 — 플레이어 / 선박 / 덱
+   ========================================================================= */
+const player = {
+  location: "기어헤븐",
+  gold: 500,
+  fuel: 8,
+  food: 8,
+  fame: 0,
+  notoriety: 0,
+  vp: 0, // 서사 이벤트로 즉시 획득하는 명예 점수 (개인 보드 업적 카드의 VP와 별도 합산)
+  reputation: { empire: 0, union: 0, merchants: 0, outlaws: 0 },
+  ignoreNextEntryDenial: false, // 퇴역 해군 제독 스킬로 다음 입항 거부 1회 무시
+  failureMitigation: false,     // 현상수배 붉은 남작 스킬로 다음 판정 실패 완화
+  month: 1,               // 1~12월, 12월 도착 시 연말 결산
+  investedCities: [],     // 마을 투자를 집행한 도시(=도시 지분 마커) 목록
+};
+
+const ship = {
+  cargoSlots: 3,
+  cargoUsed: 0,
+  crewSlots: 2,
+  crewUsed: 0,
+  cargo: {},   // { 상품명: 보유수량 }
+  crew: [],
+  tracks: { engine:1, cargo:1, hull:1, cannon:1, quarters:1 }, // 선박 개조 트랙
+  hullDamage: 0,
+};
+
+/* ===== 조선소 — 트랙별 레벨 한도 / 효과 / 업그레이드 비용 ===== */
+const TRACK_MAX = { engine:4, cargo:4, hull:4, cannon:3, quarters:4 };
+const TRACK_LABEL = { engine:"엔진", cargo:"화물", hull:"선체", cannon:"함포", quarters:"거주구" };
+function cargoSlotsForLevel(lv){ return { 1:3, 2:5, 3:7, 4:9 }[lv]; }
+function crewSlotsForLevel(lv){ return { 1:2, 2:3, 3:4, 4:5 }[lv]; }
+function cannonBonusForLevel(lv){ return { 1:1, 2:2, 3:3 }[lv] || 0; }
+function hullMaxForLevel(lv){ return 80 + lv * 20; } // LV1=100 ~ LV4=160
+function trackUpgradeCost(trackKey, currentLevel){
+  const base = trackKey === "cannon" ? 150 : 100;
+  return base * currentLevel;
+}
+function trackEffectPreview(trackKey, nextLevel){
+  if (trackKey === "cargo") return `화물칸 ${cargoSlotsForLevel(nextLevel)}칸`;
+  if (trackKey === "quarters") return `동료 슬롯 ${crewSlotsForLevel(nextLevel)}칸`;
+  if (trackKey === "cannon") return `전투 보정 +${cannonBonusForLevel(nextLevel)}`;
+  if (trackKey === "hull") return `최대 내구도 ${hullMaxForLevel(nextLevel)}`;
+  if (trackKey === "engine") return `항해 중 연료 소모 절감 확률 +15%`;
+  return "";
+}
+function isHullBelowHalf(){
+  const max = hullMaxForLevel(ship.tracks.hull);
+  return (max - ship.hullDamage) <= max * 0.5;
+}
+function getCombatBonus(){ return cannonBonusForLevel(ship.tracks.cannon); }
+
+/* 손패(Hand) — 자원 갈기 / 카드 등록에 쓰이는 카드. 개인 보드(Board)는 설치된 달성/업적 카드 목록 */
+const HAND = [
+  { id:"h_journal", name:"낡은 항해 일지", type:"direct",
+    desc:"바로 사용하면 즉시 골드 10G를 얻는다.", reward:{ gold:10 } },
+  { id:"h_compass", name:"녹슨 나침반", type:"discount",
+    desc:"다음 매수 1회의 가격을 10% 할인해 주는 부적. (자원 갈기로만 소모 가능)" },
+  { id:"h_chart", name:"해도 조작술", type:"deckmod",
+    desc:"항해 이벤트 덱의 순서를 슬쩍 조작해두는 술수. (자원 갈기로만 소모 가능)" },
+  { id:"h_spice_patent", name:"향신료 무역로 특허", type:"achievement",
+    installCost:{ gold:50 },
+    desc:"개인 보드에 등록하면 향신료 거래 실적을 추적한다. 3회 거래 달성 시 완료로 표시된다.",
+    goalGood:"향신료", goalCurrent:0, goalTarget:3, rewardFaction:"merchants", rewarded:false },
+];
+const BOARD = [];
+
+const DECK = [
+  { id:"calm_sea_1", name:"잔잔한 바다", type:"calm", desc:"평온한 항해. 아무 일도 일어나지 않는다." },
+  { id:"calm_sea_2", name:"잔잔한 바다", type:"calm", desc:"평온한 항해. 아무 일도 일어나지 않는다." },
+  { id:"tailwind",   name:"순풍",       type:"buff", desc:"연료 소모 없이 다음 항구로 이동한다." },
+  { id:"reef",       name:"소형 암초",   type:"hazard", desc:"선체가 살짝 긁힌다. 화물 손상 위험." },
+  { id:"driftcargo", name:"떠내려온 화물", type:"bonus", desc:"바다 위에서 정체불명의 화물을 건진다." },
+];
+
+const INFO_EVENT_POOL = [
+  { id:"fog_bank",    name:"짙은 안개",     type:"hazard", desc:"시야가 가려 항로를 잃기 쉽다." },
+  { id:"pirate_sight",name:"해적선 조우",   type:"hazard", desc:"수평선 너머 해적기가 보인다." },
+  { id:"lighthouse",  name:"등대지기의 조언", type:"buff",  desc:"노련한 등대지기가 안전한 항로를 알려준다." },
+  { id:"trade_wind",  name:"무역풍",       type:"buff",  desc:"규칙적인 바람이 항해를 돕는다." },
+  { id:"sea_monster", name:"괴물의 그림자", type:"hazard", desc:"거대한 그림자가 선체 아래를 스친다." },
+  { id:"lucky_shoal", name:"물고기 떼",     type:"bonus", desc:"거대한 물고기 떼가 그물에 걸려든다." },
+];
+
+const COMPANIONS = [
+  { id:"helmsman", icon:"&#9875;", name:"초보 조타수", role:"항해 / 이동",
+    desc:"바람과 해류를 읽는 눈썰미가 있다. 항해 중 연료 소모를 종종 줄여준다.",
+    stat:"효과: 이동 시 연료 소모 20% 확률로 절감",
+    active:{ label:"해류 예측", cost:"10G", desc:"연료 1을 즉시 회복한다." } },
+  { id:"accountant", icon:"&#9878;", name:"수습 회계사", role:"무역 / 경제",
+    desc:"장부에 밝아 흥정에 능하다. 매매 시 소폭의 가격 우대를 받는다.",
+    stat:"효과: 매매가 ±10% 유리하게 적용",
+    active:{ label:"시장 조작", cost:"50G", desc:"현재 항구 상품 하나의 가격 마커를 1단계 낮춘다." } },
+  { id:"informant", icon:"&#128065;", name:"뒷골목 정보원", role:"정보 / 암시장",
+    desc:"어느 항구에나 아는 얼굴이 있다. 위험한 소문과 뒷거래에 밝다.",
+    stat:"효과: 항구 도착 시 수요 변동 정보 사전 공개",
+    active:{ label:"뒷거래 정보", cost:"20G", desc:"무작위 이벤트 카드 1장을 손패에 얻는다." } },
+];
+
+/* 술집에서 명성/악명 조건으로 등장하는 영입 후보 */
+const RECRUIT_POOL = [
+  { id:"admiral", icon:"&#9813;", name:"퇴역 해군 제독", role:"전투 / 방어",
+    condition: p => p.fame >= 40, conditionLabel:"명성 40 이상", recruitCost:150,
+    stat:"패시브: 전투 주사위 +2",
+    active:{ label:"강행 돌파", cost:"무료 (1회성)", desc:"다음 입항 거부 1회를 무시한다." } },
+  { id:"alchemist_dean", icon:"&#9879;", name:"수석 연금술 학회장", role:"연금 / 생산",
+    condition: p => p.fame >= 30, conditionLabel:"명성 30 이상", recruitCost:120,
+    stat:"패시브: 특산물 매입 시 20% 확률로 1개 추가 획득",
+    active:{ label:"자원 정제", cost:"식량 1", desc:"식량 1을 연료 1로 변환한다." } },
+  { id:"red_baron", icon:"&#9760;", name:"현상수배 붉은 남작", role:"전투 / 약탈",
+    condition: p => p.notoriety >= 30, conditionLabel:"악명 30 이상", recruitCost:100,
+    stat:"패시브: 전투 승리 시 상대 화물 1개 탈취",
+    active:{ label:"배짱 승부", cost:"무료 (1회성)", desc:"다음 판정 실패를 완화한다." } },
+  { id:"fence", icon:"&#128176;", name:"암시장 장물아비", role:"밀거래 / 정보",
+    condition: p => p.notoriety >= 50, conditionLabel:"악명 50 이상", recruitCost:130,
+    stat:"패시브: 무법자 도시에서 매도가 +20%",
+    active:{ label:"시세 조작", cost:"40G", desc:"현재 항구 상품 하나의 가격 마커를 1단계 낮춘다." } },
+];
+
+/* =========================================================================
+   캐릭터 생성 — 배경 스토리(20종) / 오행(五行) / 별자리 데이터
+   ========================================================================= */
+const ORIGIN_STORIES = [
+  { title:"몰락한 귀족의 후예", text:"한때 제국을 호령하던 공작가의 마지막 혈육인 [이름] 선장. 가문의 재기를 위해 남은 저택과 가구까지 모두 처분하여 이 작고 낡은 배 한 척을 마련했습니다. 1월, 기어헤븐 항구에서 가문의 영광을 되찾기 위한 첫 닻을 올립니다." },
+  { title:"심해 부족의 전사", text:"거친 바다를 호령하던 심해 부족의 마지막 후예인 [이름] 선장. 선조들이 전설 속 거대 괴수에게 빼앗긴 잃어버린 신성한 보물을 찾고 부족의 명예를 재건하기 위해 끝없는 항해를 시작합니다." },
+  { title:"추방당한 연금술사", text:"금기된 원소 합성 실험 실패로 연금술사 학회에서 영구 추방당한 [이름] 선장. 학회의 야비한 중상모략에 맞서, 전 세계의 희귀 약재와 원소를 수집해 자신의 이론이 옳았음을 증명하려 합니다." },
+  { title:"동방에서 온 이방인", text:"거대한 폭풍우에 밀려 멀리 동방 대륙에서 서방 해역으로 흘러들어온 이방인 [이름] 선장. 고향으로 돌아갈 거대한 기함과 막대한 자금을 마련하기 위해 이 낯선 바다의 무역전에 뛰어듭니다." },
+  { title:"탈영한 제국 장교", text:"상부의 부패한 민간인 약탈 명령에 불복종하고 군함을 탈영한 전직 제국 장교 [이름] 선장. 제국 경비대의 집요한 추격을 피해, 무역과 용병업으로 자신만의 세력을 구축하고자 합니다." },
+  { title:"자수성가한 흙수저", text:"하층민 구역 부두가에서 짐꾼으로 시작해 뼈를 깎는 노력과 절약으로 작은 배를 마련한 의지의 상인 [이름] 선장. 자신을 무시하던 세계의 거상들을 넘어서기 위해 첫 무역을 시작합니다." },
+  { title:"비밀 유산의 계승자", text:"어릴 적 돌아가신 할아버지가 남긴 오래된 톱니바퀴 열쇠와 비밀 지도 한 장. [이름] 선장은 지도 끝에 숨겨진 고대 스팀펑크 기술 유산을 찾아내기 위해 바다로 나섭니다." },
+  { title:"해적선 출신의 고아", text:"악명 높은 기계 해적단 배 위에서 고아로 자란 [이름] 선장. 잔혹한 해적두목의 그늘에서 벗어나 자신만의 정당한 선단을 이끌고 바다의 진정한 지배자가 되기 위해 키를 잡습니다." },
+  { title:"천재 기계 발명가", text:"기계 협회의 케케묵은 규율과 도서관에 환멸을 느끼고 바다로 나온 천재 발명가 [이름] 선장. 전 세계의 희귀 광물과 에테르를 모아 전설의 영구 기관 엔진을 완성하는 것이 목표입니다." },
+  { title:"운명의 별빛 점술가", text:"별의 목소리와 타로 카드가 가리킨 바다의 묵시록을 따라 떠도는 점술가 [이름] 선장. 항구마다 기다리는 운명의 실타래를 풀고 세계에 다가오는 대재앙을 막기 위해 항해합니다." },
+  { title:"배신당한 도적단 두목", text:"부두목의 배신으로 조직과 금고를 모두 잃고 홀로 살아남은 은빛 도적단 출신 [이름] 선장. 바다에서 다시 자금을 모아 자신을 배신한 놈들에게 피의 복수를 완수하려 합니다." },
+  { title:"파산한 학술 탐험가", text:"희귀 생물 탐험 보고서를 쓰다 빚더미에 앉아 배마저 압류당할 위기에 처했던 기인의 학자 [이름] 선장. 신대륙의 희귀물품을 거래해 빚을 청산하고 명성을 되찾고자 합니다." },
+  { title:"황실 비밀 공작원", text:"제국 황실의 비밀 명령을 받고 무역상으로 위장 침투한 공작원 [이름] 선장. 4대 세력의 동향을 감시하고 자금을 확보하여 제국 비선 조직의 임무를 완수해야 합니다." },
+  { title:"전설의 사냥꾼", text:"육지의 심심한 삶에 질려 바다의 거대 심해 괴수들과 해적들을 사냥하기 위해 나선 베테랑 사냥꾼 [이름] 선장. 거대한 함포와 단단한 배를 갖추고 전설의 크라켄을 찾아 나섭니다." },
+  { title:"잃어버린 왕국의 왕자", text:"제국에 의해 멸망한 옛 해상 왕국의 마지막 왕족 [이름] 선장. 신분을 숨긴 채 무역으로 자본과 영향력을 끌어모아, 빼앗긴 왕국을 복원할 거대한 군대를 마련하려 합니다." },
+  { title:"자유를 찾는 도망 노예", text:"연금술사 연합의 잔혹한 광산 노동에서 극적으로 탈출한 도망자 [이름] 선장. 억압받는 자들에게 자유를 주고, 4대 해역 어디에도 구속되지 않는 자유의 선단이 되고자 합니다." },
+  { title:"비밀 교단의 사제", text:"심해의 고대 신을 섬기는 비밀 교단의 선택받은 사제 [이름] 선장. 18개 항구에 교단의 지분을 넓히고 고대 신의 유물을 수집해 은밀한 구원 의식을 준비합니다." },
+  { title:"은퇴한 최고 암살자", text:"어둠의 세계에서 피 칠갑의 삶을 살다 은퇴한 전설의 암살자 [이름] 선장. 과거의 손씻고 바다 위에서 평화로운 무역상으로 살아가려 하지만, 바다는 여전히 칼날을 요구합니다." },
+  { title:"저주받은 불사의 선장", text:"심해의 희귀 유물을 건드렸다가 늙지도 죽지도 않는 저주에 걸린 [이름] 선장. 저주를 풀 수 있는 연금술사 연합의 비밀 약재와 희귀 보물을 찾아 끝없는 항해를 지속합니다." },
+  { title:"대대로 내려온 무역 가문", text:"3대째 바다를 누비는 정통 무역상 가문의 후계자 [이름] 선장. 가문의 전통을 이어받아 18개 모든 항구에 나만의 지분 마커를 박고 세계 최고의 무역 제국을 건설하려 합니다." },
+];
+
+const ELEMENT_LABEL = { wood:"목(木)", fire:"화(火)", earth:"토(土)", metal:"금(金)", water:"수(水)" };
+
+function getElementByYear(year){
+  const d = ((year % 10) + 10) % 10;
+  if (d === 4 || d === 5) return "wood";
+  if (d === 6 || d === 7) return "fire";
+  if (d === 8 || d === 9) return "earth";
+  if (d === 0 || d === 1) return "metal";
+  return "water"; // 2, 3
+}
+
+const ZODIAC_TABLE = [
+  { name:"양자리",   group:"fire",  from:[3,21],  to:[4,19] },
+  { name:"황소자리", group:"earth", from:[4,20],  to:[5,20] },
+  { name:"쌍둥이자리", group:"air", from:[5,21],  to:[6,21] },
+  { name:"게자리",   group:"water", from:[6,22],  to:[7,22] },
+  { name:"사자자리", group:"fire",  from:[7,23],  to:[8,22] },
+  { name:"처녀자리", group:"earth", from:[8,23],  to:[9,22] },
+  { name:"천칭자리", group:"air",   from:[9,23],  to:[10,23] },
+  { name:"전갈자리", group:"water", from:[10,24], to:[11,22] },
+  { name:"사수자리", group:"fire",  from:[11,23], to:[12,21] },
+  { name:"염소자리", group:"earth", from:[12,22], to:[1,19] },
+  { name:"물병자리", group:"air",   from:[1,20],  to:[2,18] },
+  { name:"물고기자리", group:"water", from:[2,19], to:[3,20] },
+];
+const ZODIAC_GROUP_LABEL = { fire:"불", earth:"흙", air:"바람", water:"물" };
+
+function getZodiac(month, day){
+  for (const z of ZODIAC_TABLE){
+    const [fm, fd] = z.from, [tm, td] = z.to;
+    if (fm <= tm){
+      if ((month > fm || (month === fm && day >= fd)) && (month < tm || (month === tm && day <= td))) return z;
+    } else {
+      if ((month === fm && day >= fd) || (month === tm && day <= td)) return z;
+    }
+  }
+  return ZODIAC_TABLE[0];
+}
+
+function getAddressTitle(){
+  if (player.gender === "여성") return "마담 선장";
+  if (player.gender === "기타") return "선장";
+  return "선장님";
+}
+
+/* 오행/별자리 시작 보너스 — 캐릭터 생성 완료 시 1회 적용 */
+function applyCharacterBonuses(elementKey, zodiacGroup){
+  if (elementKey === "wood"){
+    player.food += 5;
+    player.woodDiscount = true; // 무역품 구매가 10% 할인
+  } else if (elementKey === "fire"){
+    player.combatDiceBonus = (player.combatDiceBonus || 0) + 1;
+    player.fuel += 3;
+  } else if (elementKey === "earth"){
+    player.gold += 200;
+    Object.keys(player.reputation).forEach(k => { player.reputation[k] += 5; });
+  } else if (elementKey === "metal"){
+    ship.tracks.cargo = 2;
+    ship.cargoSlots = cargoSlotsForLevel(2);
+  } else if (elementKey === "water"){
+    player.waterFuelSaveChance = 0.3;
+    DECK.push({ id:"rare_ether_current", name:"에테르 해류", type:"buff",
+      desc:"강력한 에테르 해류를 타고 순식간에 나아간다. 연료와 식량 소모가 모두 없다." });
+  }
+
+  if (zodiacGroup === "fire"){
+    player.notoriety += 10;
+    player.combatGreatSuccessThreshold = 10;
+  } else if (zodiacGroup === "earth"){
+    ship.cargoSlots += 1;
+    player.shipyardDiscount = 0.2;
+  } else if (zodiacGroup === "air"){
+    player.fame += 10;
+    player.infoChoiceMode = true;
+  } else if (zodiacGroup === "water"){
+    player.firstDistressFree = true;
+    player.recruitDiscount = 0.2;
+  }
+}
+
+function renderProfileBar(){
+  const bar = document.getElementById("profile-bar");
+  if (!bar || !player.element) return;
+  bar.textContent = `${player.name} · ${ELEMENT_LABEL[player.element]} · ${player.zodiac.name} · 배경: ${player.originTitle}`;
+}
+
+function finalizeCharacterCreation(){
+  const name = document.getElementById("cc-name").value.trim() || "알렉스";
+  const gender = document.getElementById("cc-gender").value;
+  const dateVal = document.getElementById("cc-birthdate").value || "1995-06-15";
+  const hour = parseInt(document.getElementById("cc-hour").value, 10) || 0;
+  const [yearStr, monthStr, dayStr] = dateVal.split("-");
+  const year = parseInt(yearStr, 10), month = parseInt(monthStr, 10), day = parseInt(dayStr, 10);
+
+  player.name = name;
+  player.gender = gender;
+  player.birth = { year, month, day, hour };
+
+  const originIndex = (month + day + hour) % 20;
+  player.originIndex = originIndex;
+  player.originTitle = ORIGIN_STORIES[originIndex].title;
+  player.originText = ORIGIN_STORIES[originIndex].text.replace(/\[이름\]/g, name);
+
+  player.element = getElementByYear(year);
+  player.zodiac = getZodiac(month, day);
+
+  applyCharacterBonuses(player.element, player.zodiac.group);
+}
+
+
+
+let selectedCompanionId = null;
+const market = new Market(PORTS);
+
+/* 상태/인벤토리 모달 상태 */
+let statusModalOpen = false;
+let handModalOpen = false;
+
+
+/* 마을 단계(Town Phase) 상태 */
+const MAX_TOWN_ACTIONS = 4;
+let turnActionsUsed = 0;
+let activePanel = null; // "market" | "supply" | "destinations" | null
+
+/* 항해 단계(Voyage Phase) 상태 */
+let voyage = null; // { destination, total, remaining, distressed }
+
+/* =========================================================================
+   4. 렌더링 & 화면 전환
+   ========================================================================= */
+function renderIntroLog(){
+  document.getElementById("intro-log-text").innerHTML =
+    "증기와 마법이 뒤섞인 바다, 다섯 세력이 <b>18개 항구</b>를 두고 저마다의 교역로를 지킨다.<br><br>" +
+    "당신은 낡은 증기선 한 척과 금화 <b>500G</b>를 쥐고 <b>기어헤븐</b> 선착장에 섰다. " +
+    "화물칸은 <b>3칸</b>, 함께할 동료는 <b>2자리</b> 뿐이다.<br><br>" +
+    "연료 <b>8</b>, 식량 <b>8</b>이 바닥나기 전에 항로를 정해야 한다.";
+}
+
+function renderCompanionGrid(){
+  const grid = document.getElementById("companion-grid");
+  grid.innerHTML = "";
+  COMPANIONS.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "companion-card";
+    card.dataset.id = c.id;
+    card.innerHTML = `
+      <div class="companion-icon">${c.icon}</div>
+      <p class="companion-name">${c.name}</p>
+      <p class="companion-role">${c.role}</p>
+      <p class="companion-desc">${c.desc}</p>
+      <p class="companion-stat">${c.stat}</p>
+    `;
+    card.addEventListener("click", () => selectCompanion(c.id));
+    grid.appendChild(card);
+  });
+}
+
+function selectCompanion(id){
+  selectedCompanionId = id;
+  document.querySelectorAll(".companion-card").forEach(el => {
+    el.classList.toggle("selected", el.dataset.id === id);
+  });
+  document.getElementById("btn-start-game").disabled = false;
+}
+
+function gaugeSVG(pct, color){
+  const r = 18, c = 2*Math.PI*r;
+  const offset = c * (1 - Math.max(0, Math.min(1, pct)));
+  return `<svg viewBox="0 0 44 44">
+    <circle cx="22" cy="22" r="${r}" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="4"></circle>
+    <circle cx="22" cy="22" r="${r}" fill="none" stroke="${color}" stroke-width="4"
+      stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round"></circle>
+  </svg>`;
+}
+
+function repStatusLabel(v){
+  if (v <= -50) return "적대";
+  if (v >= 50) return "동맹";
+  return "중립";
+}
+function repColor(v){
+  if (v <= -50) return "var(--rust-light)";
+  if (v >= 50) return "var(--teal-light)";
+  return "var(--parchment-dim)";
+}
+const FACTION_ROWS = [
+  { key:"empire", label:"증기 제국" },
+  { key:"union", label:"연금술사 연합" },
+  { key:"merchants", label:"자유 상인 연맹" },
+  { key:"outlaws", label:"무법자 & 심해 부족" },
+];
+function renderReputationList(){
+  const wrap = document.getElementById("reputation-list");
+  if (!wrap) return;
+  wrap.innerHTML = FACTION_ROWS.map(r => {
+    const v = player.reputation[r.key];
+    return `<div class="simple-stat"><span>${r.label}</span><b style="color:${repColor(v)};">${v} (${repStatusLabel(v)})</b></div>`;
+  }).join("");
+}
+
+function renderGauges(){
+  const wrap = document.getElementById("gauges");
+  const rows = [
+    { label:"골드",  value:player.gold, max:Math.max(500, player.gold), color:"#d9a54f" },
+    { label:"연료",  value:player.fuel, max:8,   color:"#7fb3a2" },
+    { label:"식량",  value:player.food, max:8,   color:"#c4574a" },
+  ];
+  wrap.innerHTML = rows.map(r => `
+    <div class="gauge-row">
+      <div class="gauge-dial">
+        ${gaugeSVG(r.value / r.max, r.color)}
+        <div class="val">${r.value}</div>
+      </div>
+      <div>
+        <div class="gauge-label">${r.label}</div>
+        <div class="gauge-num">${r.value}${r.label==="골드" ? "G" : ""}</div>
+      </div>
+    </div>
+  `).join("");
+  renderReputationList();
+  refreshStatusModal();
+  refreshHandModal();
+}
+
+function renderShipStats(){
+  document.getElementById("stat-fame").textContent = player.fame;
+  document.getElementById("stat-notoriety").textContent = player.notoriety;
+  document.getElementById("ship-cargo").textContent = `${ship.cargoUsed} / ${ship.cargoSlots}`;
+  document.getElementById("ship-crew").textContent = `${ship.crewUsed} / ${ship.crewSlots}`;
+
+  const cargoList = document.getElementById("cargo-list");
+  const entries = Object.entries(ship.cargo);
+  cargoList.innerHTML = entries.length === 0
+    ? `<div style="opacity:0.6;">— 화물 없음 —</div>`
+    : entries.map(([name, qty]) => `<div><span>${name}</span><b>${qty}</b></div>`).join("");
+  refreshStatusModal();
+  refreshHandModal();
+}
+
+function renderPortInfo(){
+  const port = PORTS.find(p => p.id === player.location);
+  document.getElementById("loc-name").textContent = port.name;
+  document.getElementById("loc-sub").textContent = `${port.faction} · ${port.desc}`;
+  document.getElementById("dock-line").textContent = `현재 ${port.name}에 정박 중입니다.`;
+}
+
+function renderTurnCounter(){
+  document.getElementById("turn-counter").innerHTML =
+    `${player.month}월 · 이번 턴 행동 <b>${turnActionsUsed}</b> / ${MAX_TOWN_ACTIONS}`;
+}
+
+function log(speaker, text){
+  const el = document.getElementById("dialogue-log");
+  el.innerHTML = `<span class="speaker">${speaker} —</span> ${text}`;
+}
+
+/* ===== 마을 단계 행동 버튼 ===== */
+function renderTownActions(){
+  const wrap = document.getElementById("town-actions");
+  const capped = turnActionsUsed >= MAX_TOWN_ACTIONS;
+  wrap.innerHTML = "";
+
+  const actions = [
+    { key:"market",   label:"시장 거래",     tag:"시장 매트릭스 열람 · 매수/매도", handler: () => doOpenMarket() },
+    { key:"supply",   label:"물자 보급",     tag:"10G = 연료/식량 1", handler: () => doOpenSupply() },
+    { key:"info",     label:"정보 알아보기", tag:"30G · 랜덤 이벤트 카드 획득", handler: () => doGatherInfo() },
+    { key:"shipyard", label:"조선소 정비",   tag:"선박 개조", handler: () => doShipyard() },
+    { key:"invest",   label:"마을 투자",     tag:"현 도시 세력 평판 +10", handler: () => doTownInvest() },
+    { key:"recruit",  label:"동료 영입",     tag:"선술집 방문 · 명성/악명 조건부 등장", handler: () => doOpenRecruit() },
+    { key:"fame",     label:"명성 홍보 / 기부", tag:"기부금 납부 또는 화물 기부", handler: () => doOpenFame() },
+  ];
+
+  actions.forEach(a => {
+    const btn = document.createElement("button");
+    btn.className = "action-btn";
+    btn.disabled = capped;
+    btn.innerHTML = `<span>${a.label}</span><span class="tag">${a.tag}</span>`;
+    btn.addEventListener("click", a.handler);
+    wrap.appendChild(btn);
+  });
+
+  const sailBtn = document.createElement("button");
+  sailBtn.className = "action-btn sail-btn";
+  sailBtn.innerHTML = capped
+    ? `<span>항해 시작 (행동 소진)</span><span class="tag">이번 턴 행동을 모두 사용했다</span>`
+    : `<span>항해 시작</span><span class="tag">남은 행동을 아껴 바로 출항</span>`;
+  sailBtn.addEventListener("click", doOpenDestinations);
+  wrap.appendChild(sailBtn);
+}
+
+function useAction(){
+  turnActionsUsed += 1;
+  renderTurnCounter();
+  renderTownActions();
+  if (turnActionsUsed >= MAX_TOWN_ACTIONS){
+    log("항해일지", "이번 턴의 행동을 모두 소진했다. 더 이상 마을에서 할 수 있는 일이 없다 — 항해를 시작해야 한다.");
+  }
+}
+
+/* ===== 보조 행동 (Minor Actions) — 주요 행동 횟수를 소모하지 않는다 ===== */
+function renderMinorActions(){
+  const wrap = document.getElementById("minor-actions");
+  wrap.innerHTML = `<div class="section-label" style="text-align:left;margin:4px 0 4px;">보조 행동 — 주요 행동 횟수를 소모하지 않는다</div>`;
+
+  const actions = [
+    { label:"자원 갈기",     tag:"손패 카드 1장 → 연료 또는 식량 1", handler: openGrindPanel },
+    { label:"엔진 과부하",   tag:"자원 2개 → 다른 자원 1개 (2:1)", handler: openOverloadPanel },
+    { label:"카드 등록/설치", tag:"달성 카드를 개인 보드에 등록", handler: openInstallPanel },
+    { label:"동료 스킬 사용", tag:"보유 동료의 액티브 스킬 발동", handler: openCompanionSkillPanel },
+  ];
+
+  actions.forEach(a => {
+    const btn = document.createElement("button");
+    btn.className = "action-btn";
+    btn.innerHTML = `<span>${a.label}</span><span class="tag">${a.tag}</span>`;
+    btn.addEventListener("click", a.handler);
+    wrap.appendChild(btn);
+  });
+}
+
+function resLabel(k){ return k === "gold" ? "골드" : k === "fuel" ? "연료" : "식량"; }
+
+/* --- 자원 갈기 --- */
+function openGrindPanel(){
+  activePanel = "grind";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "자원 갈기 — 손패 카드 1장 소모";
+  renderGrindPanel();
+}
+function renderGrindPanel(){
+  const body = document.getElementById("panel-body");
+  if (HAND.length === 0){
+    body.innerHTML = `<div style="font-size:13px;color:var(--parchment-dim);">손패에 갈아 쓸 카드가 없다.</div>`;
+    return;
+  }
+  body.innerHTML = HAND.map((c, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(122,92,40,0.25);">
+      <span style="font-size:12.5px;">${c.name}</span>
+      <span>
+        <button class="mini-btn" data-idx="${i}" data-res="fuel">연료 +1</button>
+        <button class="mini-btn sell" data-idx="${i}" data-res="food">식량 +1</button>
+      </span>
+    </div>
+  `).join("");
+  body.querySelectorAll(".mini-btn").forEach(btn => {
+    btn.addEventListener("click", () => grindCard(parseInt(btn.dataset.idx, 10), btn.dataset.res));
+  });
+}
+function grindCard(idx, res){
+  const card = HAND.splice(idx, 1)[0];
+  if (!card) return;
+  if (res === "fuel") player.fuel += 1; else player.food += 1;
+  log("항해일지", `[${card.name}]을(를) 갈아 ${res === "fuel" ? "연료" : "식량"} 1을 얻었다.`);
+  renderGauges(); renderShipStats(); renderGrindPanel();
+}
+
+/* --- 엔진 과부하 --- */
+function openOverloadPanel(){
+  activePanel = "overload";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "엔진 과부하 — 2:1 자원 교환";
+  renderOverloadPanel();
+}
+function renderOverloadPanel(){
+  document.getElementById("panel-body").innerHTML = `
+    <div style="font-size:12.5px;margin-bottom:10px;color:var(--parchment-dim);">
+      자원 2개를 소모해 원하는 자원 1개로 바꾼다.
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+      <span style="font-size:12px;">소모(2)</span>
+      <select id="overload-from">
+        <option value="gold">골드</option>
+        <option value="fuel">연료</option>
+        <option value="food">식량</option>
+      </select>
+      <span style="font-size:12px;">→ 획득(1)</span>
+      <select id="overload-to">
+        <option value="gold">골드</option>
+        <option value="fuel">연료</option>
+        <option value="food">식량</option>
+      </select>
+      <button class="mini-btn" id="overload-confirm">과부하 실행</button>
+    </div>
+  `;
+  document.getElementById("overload-confirm").addEventListener("click", doOverload);
+}
+function doOverload(){
+  const from = document.getElementById("overload-from").value;
+  const to = document.getElementById("overload-to").value;
+  if (from === to){ log("기관사", "\"같은 자원끼리는 바꿀 수 없소.\""); return; }
+  if (player[from] < 2){ log("기관사", `"${resLabel(from)}이(가) 2는 있어야 과부하를 걸지."`); return; }
+  player[from] -= 2;
+  player[to] += 1;
+  log("항해일지", `엔진을 과부하시켜 ${resLabel(from)} 2를 ${resLabel(to)} 1로 바꿨다.`);
+  renderGauges(); renderShipStats();
+}
+
+/* --- 카드 등록/설치 --- */
+function openInstallPanel(){
+  activePanel = "install";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "카드 등록/설치";
+  renderInstallPanel();
+}
+function renderInstallPanel(){
+  const body = document.getElementById("panel-body");
+  const achievements = HAND.map((c, i) => ({ c, i })).filter(x => x.c.type === "achievement");
+  if (achievements.length === 0){
+    body.innerHTML = `<div style="font-size:13px;color:var(--parchment-dim);">설치할 수 있는 달성/업적 카드가 손패에 없다.</div>`;
+    return;
+  }
+  body.innerHTML = achievements.map(({ c, i }) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(122,92,40,0.25);">
+      <div style="max-width:70%;">
+        <div style="font-size:12.5px;color:var(--parchment);">${c.name}</div>
+        <div style="font-size:11px;color:var(--parchment-dim);">${c.desc}</div>
+      </div>
+      <button class="mini-btn" data-idx="${i}">설치 (${c.installCost.gold}G)</button>
+    </div>
+  `).join("");
+  body.querySelectorAll(".mini-btn").forEach(btn => {
+    btn.addEventListener("click", () => installCard(parseInt(btn.dataset.idx, 10)));
+  });
+}
+function installCard(idx){
+  const card = HAND[idx];
+  if (!card) return;
+  if (player.gold < card.installCost.gold){
+    log("항해일지", "설치 비용이 부족하다.");
+    return;
+  }
+  player.gold -= card.installCost.gold;
+  HAND.splice(idx, 1);
+  BOARD.push(card);
+  log("항해일지", `[${card.name}]을(를) 개인 보드에 등록했다.`);
+  renderGauges(); renderInstallPanel();
+}
+
+/* --- 동료 스킬 사용 --- */
+function openCompanionSkillPanel(){
+  activePanel = "companion";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "동료 스킬 사용";
+  renderCompanionSkillPanel();
+}
+function renderCompanionSkillPanel(){
+  const body = document.getElementById("panel-body");
+  if (ship.crew.length === 0){
+    body.innerHTML = `<div style="font-size:13px;color:var(--parchment-dim);">함께하는 동료가 없다.</div>`;
+    return;
+  }
+  body.innerHTML = ship.crew.map((c, i) => `
+    <div style="padding:8px 0;border-bottom:1px solid rgba(122,92,40,0.25);">
+      <div style="font-size:12.5px;color:var(--parchment);">${c.name} — ${c.active.label}</div>
+      <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:6px;">${c.active.desc} (비용: ${c.active.cost})</div>
+      <button class="mini-btn" data-idx="${i}">스킬 사용</button>
+    </div>
+  `).join("");
+  body.querySelectorAll(".mini-btn").forEach(btn => {
+    btn.addEventListener("click", () => useCompanionSkill(parseInt(btn.dataset.idx, 10)));
+  });
+}
+function useCompanionSkill(idx){
+  const companion = ship.crew[idx];
+  if (!companion) return;
+
+  if (companion.id === "accountant"){
+    if (player.gold < 50){ log(companion.name, "\"50G가 있어야 시세를 손볼 수 있소.\""); return; }
+    const table = market.getMarket(player.location);
+    const candidates = Object.values(table).filter(g => g.priceLevel > 1);
+    if (candidates.length === 0){ log(companion.name, "\"이미 바닥 시세라 손댈 게 없소.\""); return; }
+    player.gold -= 50;
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    target.adjustPrice(-1);
+    log(companion.name, `시장 마커를 슬쩍 조작해 [${target.name}]의 가격 단계를 낮췄다.`);
+  } else if (companion.id === "helmsman"){
+    if (player.gold < 10){ log(companion.name, "\"10G만 있으면 물길을 읽어드리지.\""); return; }
+    player.gold -= 10;
+    player.fuel += 1;
+    log(companion.name, "해류를 읽어 연료 1을 아껴 회수했다.");
+  } else if (companion.id === "informant"){
+    if (player.gold < 20){ log(companion.name, "\"20G 없인 입을 안 여네.\""); return; }
+    player.gold -= 20;
+    const card = INFO_EVENT_POOL[Math.floor(Math.random() * INFO_EVENT_POOL.length)];
+    HAND.push({ ...card });
+    log(companion.name, `뒷골목 소문을 전해줬다 — [${card.name}] 카드가 손패에 들어왔다.`);
+  } else if (companion.id === "admiral"){
+    player.ignoreNextEntryDenial = true;
+    log(companion.name, "\"다음번 입항 거부는 내가 대신 막아주지.\"");
+  } else if (companion.id === "alchemist_dean"){
+    if (player.food < 1){ log(companion.name, "\"정제할 식량이 남지 않았소.\""); return; }
+    player.food -= 1;
+    player.fuel += 1;
+    log(companion.name, "식량 1을 정제해 연료 1로 바꿨다.");
+  } else if (companion.id === "red_baron"){
+    player.failureMitigation = true;
+    log(companion.name, "\"다음 위기에서는 내가 뒤를 봐주지.\"");
+  } else if (companion.id === "fence"){
+    if (player.gold < 40){ log(companion.name, "\"40G는 있어야 손을 쓰지.\""); return; }
+    const table = market.getMarket(player.location);
+    const candidates = Object.values(table).filter(g => g.priceLevel > 1);
+    if (candidates.length === 0){ log(companion.name, "\"손댈 시세가 없구먼.\""); return; }
+    player.gold -= 40;
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    target.adjustPrice(-1);
+    log(companion.name, `시세 마커를 조작해 [${target.name}]의 가격을 낮췄다.`);
+  }
+
+  renderGauges(); renderShipStats(); renderCompanionSkillPanel();
+}
+
+/* ===== 상태/인벤토리 모달 ===== */
+function toggleStatusModal(force){
+  statusModalOpen = typeof force === "boolean" ? force : !statusModalOpen;
+  document.getElementById("status-modal-overlay").style.display = statusModalOpen ? "flex" : "none";
+  if (statusModalOpen) renderStatusModalContent();
+}
+function refreshStatusModal(){
+  if (statusModalOpen) renderStatusModalContent();
+}
+function renderStatusModalContent(){
+  const cargoEntries = Object.entries(ship.cargo);
+  const cargoText = cargoEntries.length
+    ? cargoEntries.map(([n, q]) => `${n} ${q}개`).join(", ")
+    : "없음";
+  const hullMax = hullMaxForLevel(ship.tracks.hull);
+  const hullCurrent = hullMax - ship.hullDamage;
+
+  document.getElementById("status-modal-body").innerHTML = `
+    <div class="status-block">
+      <div class="section-label">항해력</div>
+      <div class="simple-stat"><span>현재 월</span><b>${player.month} / 12</b></div>
+    </div>
+    <div class="status-block">
+      <div class="section-label">자원 현황</div>
+      <div class="simple-stat"><span>금화</span><b>${player.gold}G</b></div>
+      <div class="simple-stat"><span>연료 (에테르 석탄)</span><b>${player.fuel}</b></div>
+      <div class="simple-stat"><span>식량</span><b>${player.food}</b></div>
+      <div class="simple-stat"><span>명성</span><b>${player.fame}</b></div>
+      <div class="simple-stat"><span>악명</span><b>${player.notoriety}</b></div>
+    </div>
+    <div class="status-block">
+      <div class="section-label">세력 평판</div>
+      ${FACTION_ROWS.map(r => {
+        const v = player.reputation[r.key];
+        return `<div class="simple-stat"><span>${r.label}</span><b style="color:${repColor(v)};">${v} (${repStatusLabel(v)})</b></div>`;
+      }).join("")}
+    </div>
+    <div class="status-block">
+      <div class="section-label">화물 창고 (${ship.cargoUsed} / ${ship.cargoSlots}칸)</div>
+      <div style="font-size:12.5px;color:var(--parchment-dim);">${cargoText}</div>
+    </div>
+    <div class="status-block">
+      <div class="section-label">선박 개조 상태</div>
+      <div class="simple-stat"><span>엔진</span><b>LV${ship.tracks.engine}</b></div>
+      <div class="simple-stat"><span>화물 (${ship.cargoSlots}칸)</span><b>LV${ship.tracks.cargo}</b></div>
+      <div class="simple-stat"><span>선체 (내구도 ${hullCurrent}/${hullMax})</span><b>LV${ship.tracks.hull}</b></div>
+      <div class="simple-stat"><span>함포 (전투 보정 +${getCombatBonus()})</span><b>LV${ship.tracks.cannon}</b></div>
+      <div class="simple-stat"><span>거주구 (${ship.crewSlots}칸)</span><b>LV${ship.tracks.quarters}</b></div>
+      ${isHullBelowHalf() ? `<div style="font-size:11px;color:var(--rust-light);margin-top:4px;">내구도 50% 이하 — 항해 주사위 -1 페널티 적용 중</div>` : ""}
+    </div>
+    <div class="status-block">
+      <div class="section-label">동료 목록</div>
+      ${ship.crew.length ? ship.crew.map(c => `
+        <div class="crew-entry">
+          <div class="crew-name">${c.name} <span class="crew-role">(${c.role})</span></div>
+          <div class="crew-skill">패시브: ${c.stat}</div>
+          <div class="crew-skill">액티브: ${c.active.label} — ${c.active.desc} (비용 ${c.active.cost})</div>
+        </div>
+      `).join("") : `<div style="font-size:12.5px;color:var(--parchment-dim);">동료 없음</div>`}
+    </div>
+    <div class="status-block" style="margin-bottom:0;">
+      <div class="section-label">카드 보유 현황</div>
+      <div class="simple-stat"><span>손패 (Hand)</span><b>${HAND.length}장</b></div>
+      <div class="card-inline-list">${HAND.length ? HAND.map(c => c.name).join(", ") : "없음"}</div>
+      <div class="simple-stat"><span>개인 보드 등록</span><b>${BOARD.length}장</b></div>
+      <div class="card-inline-list">${BOARD.length ? BOARD.map(c => c.name).join(", ") : "없음"}</div>
+      <div class="simple-stat"><span>덱에 남은 카드</span><b>${DECK.length}장</b></div>
+      <div class="simple-stat"><span>총 명예 점수 (VP)</span><b>${player.vp + BOARD.reduce((s, c) => s + (c.vp || 0), 0)}</b></div>
+    </div>
+  `;
+}
+
+/* ===== 손패 / 개인 보드 인스펙터 모달 ===== */
+function cardTypeLabel(type){
+  switch (type){
+    case "direct": return "직접보상";
+    case "discount": return "할인";
+    case "deckmod": return "덱조작";
+    case "achievement": return "달성/업적";
+    default: return "기타";
+  }
+}
+
+function toggleHandModal(force){
+  handModalOpen = typeof force === "boolean" ? force : !handModalOpen;
+  document.getElementById("hand-modal-overlay").style.display = handModalOpen ? "flex" : "none";
+  if (handModalOpen) renderHandModalContent();
+}
+function refreshHandModal(){
+  if (handModalOpen) renderHandModalContent();
+}
+
+function renderHandModalContent(){
+  const handHtml = HAND.length ? HAND.map((c, i) => `
+    <div class="card-row">
+      <div class="card-row-head">
+        <span class="card-name">${c.name}</span>
+        <span class="card-type-tag">${cardTypeLabel(c.type)}</span>
+      </div>
+      <div class="card-desc">${c.desc}</div>
+      <div class="card-row-actions">
+        <button class="mini-btn" data-act="grindfuel" data-idx="${i}">자원 갈기 → 연료</button>
+        <button class="mini-btn" data-act="grindfood" data-idx="${i}">자원 갈기 → 식량</button>
+        <button class="mini-btn sell" data-act="install" data-idx="${i}" ${c.type === "achievement" ? "" : "disabled"}>
+          개인 보드 등록${c.type === "achievement" ? ` (${c.installCost.gold}G)` : ""}
+        </button>
+      </div>
+    </div>
+  `).join("") : `<div style="font-size:12.5px;color:var(--parchment-dim);">손패가 비어 있다.</div>`;
+
+  const boardHtml = BOARD.length ? BOARD.map(c => {
+    const progressLine = c.goalTarget != null
+      ? `<div class="card-progress">진행도: ${c.goalCurrent} / ${c.goalTarget}${c.goalCurrent >= c.goalTarget ? " (달성 완료)" : ""}</div>`
+      : `<div class="card-progress">연말 VP: ${c.vp || 0}</div>`;
+    return `
+      <div class="card-row">
+        <div class="card-row-head">
+          <span class="card-name">${c.name}</span>
+          <span class="card-type-tag">${c.goalTarget != null ? "달성 보상" : "업적"}</span>
+        </div>
+        <div class="card-desc">${c.desc}</div>
+        ${progressLine}
+      </div>
+    `;
+  }).join("") : `<div style="font-size:12.5px;color:var(--parchment-dim);">등록된 카드가 없다.</div>`;
+
+  document.getElementById("hand-modal-body").innerHTML = `
+    <div class="status-block">
+      <div class="section-label">손패 (Hand)</div>
+      ${handHtml}
+    </div>
+    <div class="status-block" style="margin-bottom:0;">
+      <div class="section-label">개인 보드 (Board)</div>
+      ${boardHtml}
+      <div class="simple-stat" style="margin-top:10px;"><span>보드 총 VP</span><b>${BOARD.reduce((s, c) => s + (c.vp || 0), 0)}</b></div>
+    </div>
+  `;
+
+  document.getElementById("hand-modal-body").querySelectorAll("[data-act]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      const act = btn.dataset.act;
+      if (act === "grindfuel") grindCard(idx, "fuel");
+      else if (act === "grindfood") grindCard(idx, "food");
+      else if (act === "install") installCard(idx);
+      renderHandModalContent();
+    });
+  });
+}
+
+function closePanel(){
+  activePanel = null;
+  document.getElementById("panel-box").classList.remove("open");
+  document.getElementById("panel-body").innerHTML = "";
+}
+document.addEventListener("DOMContentLoaded", () => {});
+
+/* ===== A. 시장 거래 ===== */
+function doOpenMarket(){
+  const firstOpen = activePanel !== "market";
+  activePanel = "market";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "시장 매트릭스";
+  renderMarketPanel();
+  if (firstOpen){
+    useAction();
+    const port = PORTS.find(p => p.id === player.location);
+    log("시장 상인", `어서 오시오. ${port.name}에서는 ${port.produces.join(", ")}이(가) 싸고, ${port.demands.join(", ")}은(는) 비싸게 쳐드리오.`);
+  }
+}
+
+function renderMarketPanel(){
+  const port = PORTS.find(p => p.id === player.location);
+  const table = market.getMarket(port.id);
+  const rows = ALL_GOODS.map(name => {
+    const good = table[name];
+    const holding = ship.cargo[name] || 0;
+    const canBuy = good.qtyLevel > 1 && player.gold >= good.price && (holding > 0 || ship.cargoUsed < ship.cargoSlots);
+    const canSell = holding > 0;
+    return `<tr>
+      <td class="name">${name}</td>
+      <td class="num">Lv.${good.qtyLevel}</td>
+      <td class="num">${good.price}G</td>
+      <td class="num">${holding}</td>
+      <td>
+        <button class="mini-btn" data-good="${name}" data-act="buy" ${canBuy?"":"disabled"}>매수</button>
+        <button class="mini-btn sell" data-good="${name}" data-act="sell" ${canSell?"":"disabled"}>매도</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("panel-body").innerHTML = `
+    <table class="market-table">
+      <thead><tr><th>상품</th><th>재고단계</th><th>가격</th><th>보유</th><th>거래</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  document.getElementById("panel-body").querySelectorAll(".mini-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const good = btn.dataset.good;
+      if (btn.dataset.act === "buy") tradeBuy(good);
+      else tradeSell(good);
+    });
+  });
+}
+
+function tradeBuy(goodName){
+  const port = PORTS.find(p => p.id === player.location);
+  const result = market.buy(port.id, goodName, player, ship);
+  if (!result.ok){
+    log("시장 상인", `"${result.reason}"`);
+    return;
+  }
+  let note = "";
+  if (player.reputation[factionKey(port.faction)] >= 50){
+    const refund = Math.round(result.cost * 0.1);
+    player.gold += refund;
+    note += ` (${port.faction} 동맹 혜택으로 ${refund}G 환급)`;
+  }
+  if (player.woodDiscount){
+    const woodRefund = Math.round(result.cost * 0.1);
+    player.gold += woodRefund;
+    note += ` (목(木) 기운으로 ${woodRefund}G 환급)`;
+  }
+  if (ship.crew.some(c => c.id === "alchemist_dean") && port.produces.includes(goodName) && Math.random() < 0.2){
+    const holding = ship.cargo[goodName] || 0;
+    if (holding > 0 || ship.cargoUsed < ship.cargoSlots){
+      ship.cargo[goodName] = holding + 1;
+      if (holding === 0) ship.cargoUsed += 1;
+      note += ` (연금술 학회장의 손길로 ${goodName} 1개를 추가로 얻었다)`;
+    }
+  }
+  bumpAchievementProgress(goodName);
+  log("항해일지", `${goodName} 1개를 ${result.cost}G에 매수했다.${note} 다음 물량은 값이 더 오를 것이다.`);
+  renderGauges(); renderShipStats(); renderMarketPanel();
+}
+
+function tradeSell(goodName){
+  const port = PORTS.find(p => p.id === player.location);
+  const result = market.sell(port.id, goodName, player, ship);
+  if (!result.ok){
+    log("시장 상인", `"${result.reason}"`);
+    return;
+  }
+  let note = "";
+  if (player.reputation[factionKey(port.faction)] >= 50){
+    const bonus = Math.round(result.revenue * 0.1);
+    player.gold += bonus;
+    note += ` (${port.faction} 동맹 혜택 +${bonus}G)`;
+  }
+  if (ship.crew.some(c => c.id === "fence") && factionKey(port.faction) === "outlaws"){
+    const bonus = Math.round(result.revenue * 0.2);
+    player.gold += bonus;
+    note += ` (장물아비의 인맥으로 +${bonus}G)`;
+  }
+  bumpAchievementProgress(goodName);
+  log("항해일지", `${goodName} 1개를 ${result.revenue}G에 매도했다.${note} 이 항구의 시세가 살짝 내려갔다.`);
+  renderGauges(); renderShipStats(); renderMarketPanel();
+}
+
+function bumpAchievementProgress(goodName){
+  BOARD.forEach(c => {
+    if (c.goalGood === goodName && !c.rewarded && c.goalCurrent < c.goalTarget){
+      c.goalCurrent += 1;
+      if (c.goalCurrent >= c.goalTarget){
+        triggerAchievementReward(c);
+      }
+    }
+  });
+}
+
+/* ===== 달성 카드 완료 보상 ===== */
+function triggerAchievementReward(card){
+  card.rewarded = true;
+  const key = card.rewardFaction || "merchants";
+  player.gold += 1000;
+  player.reputation[key] += 15;
+  player.vp += 10;
+  openAchievementPopup(card, key);
+}
+
+function openAchievementPopup(card, key){
+  const prevPanel = activePanel;
+  activePanel = "achievement-complete";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-close").style.display = "none";
+  document.getElementById("panel-title-text").textContent = "달성 완료!";
+  const factionLabel = (FACTION_ROWS.find(f => f.key === key) || {}).label || "세력";
+  document.getElementById("panel-body").innerHTML = `
+    <div style="font-size:13px;color:var(--parchment-dim);margin-bottom:14px;line-height:1.8;">
+      [${card.name}] 목표를 달성했다!<br>
+      보상: 골드 1,000G · ${factionLabel} 평판 +15 · 명예 점수(VP) +10
+    </div>
+    <button class="mini-btn" id="ach-confirm">확인</button>
+  `;
+  document.getElementById("ach-confirm").addEventListener("click", () => {
+    document.getElementById("panel-close").style.display = "";
+    if (prevPanel === "market"){ activePanel = "market"; renderMarketPanel(); }
+    else if (prevPanel === "install"){ activePanel = "install"; renderInstallPanel(); }
+    else { closePanel(); }
+    renderGauges(); renderShipStats();
+  });
+  renderGauges(); renderShipStats();
+}
+
+/* ===== B. 물자 보급 ===== */
+function doOpenSupply(){
+  const firstOpen = activePanel !== "supply";
+  activePanel = "supply";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "물자 보급 — 10G당 1개";
+  renderSupplyPanel();
+  if (firstOpen){
+    useAction();
+    log("보급 담당관", "연료와 식량을 채워드리지요. 10G에 한 단위씩 보급합니다.");
+  }
+}
+
+function renderSupplyPanel(){
+  document.getElementById("panel-body").innerHTML = `
+    <div class="supply-row">
+      <button class="mini-btn" id="supply-fuel" ${player.gold<10?"disabled":""}>연료 +1 (10G)</button>
+      <span style="align-self:center;">현재 연료 <b style="color:var(--brass-light)">${player.fuel}</b></span>
+    </div>
+    <div class="supply-row">
+      <button class="mini-btn" id="supply-food" ${player.gold<10?"disabled":""}>식량 +1 (10G)</button>
+      <span style="align-self:center;">현재 식량 <b style="color:var(--brass-light)">${player.food}</b></span>
+    </div>
+  `;
+  document.getElementById("supply-fuel").addEventListener("click", () => buySupply("fuel"));
+  document.getElementById("supply-food").addEventListener("click", () => buySupply("food"));
+}
+
+function buySupply(kind){
+  if (player.gold < 10){
+    log("보급 담당관", "\"10G가 부족합니다.\"");
+    return;
+  }
+  player.gold -= 10;
+  if (kind === "fuel"){ player.fuel += 1; log("항해일지", "연료 탱크에 1단위를 채워 넣었다."); }
+  else { player.food += 1; log("항해일지", "식량 창고에 1단위를 채워 넣었다."); }
+  renderGauges(); renderSupplyPanel();
+}
+
+/* ===== C. 정보 알아보기 ===== */
+function doGatherInfo(){
+  if (player.gold < 30){
+    log("뒷골목 정보상", "\"30G는 있어야 입을 열지.\"");
+    return;
+  }
+  player.gold -= 30;
+  useAction();
+
+  if (player.infoChoiceMode){
+    const shuffled = [...INFO_EVENT_POOL].sort(() => Math.random() - 0.5);
+    openInfoChoicePanel([shuffled[0], shuffled[1]]);
+    log("뒷골목 정보상", "\"바람의 기운을 타고났군. 두 가지 소문 중 하나만 골라 보시오.\"");
+    renderGauges();
+    return;
+  }
+
+  const card = INFO_EVENT_POOL[Math.floor(Math.random() * INFO_EVENT_POOL.length)];
+  DECK.push({ ...card });
+  log("뒷골목 정보상", `"${card.name}에 대한 이야기를 들었소." — 항해 카드 [${card.name}]이(가) 덱에 추가되었다.`);
+  renderGauges();
+}
+
+function openInfoChoicePanel(options){
+  activePanel = "info-choice";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "바람의 기운 — 소문 하나를 고르시오";
+  const body = document.getElementById("panel-body");
+  body.innerHTML = options.map((c, i) => `
+    <div style="padding:8px 0;border-bottom:1px solid rgba(122,92,40,0.25);">
+      <div style="font-size:12.5px;color:var(--parchment);">${c.name}</div>
+      <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:6px;">${c.desc}</div>
+      <button class="mini-btn" data-idx="${i}">이 소문을 선택한다</button>
+    </div>
+  `).join("");
+  body.querySelectorAll(".mini-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const chosen = options[parseInt(btn.dataset.idx, 10)];
+      DECK.push({ ...chosen });
+      log("뒷골목 정보상", `[${chosen.name}] 카드를 덱에 추가했다.`);
+      closePanel();
+    });
+  });
+}
+
+/* ===== D. 조선소 정비 — 실제 트랙 업그레이드 및 선체 수리 ===== */
+function doShipyard(){
+  const firstOpen = activePanel !== "shipyard";
+  activePanel = "shipyard";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "조선소 — 선박 개조 / 선체 수리";
+  renderShipyardPanel();
+  if (firstOpen){
+    useAction();
+    log("조선공", "\"어디 손볼 곳이 있는지 봅시다.\"");
+  }
+}
+
+function renderShipyardPanel(){
+  const body = document.getElementById("panel-body");
+  const hullMax = hullMaxForLevel(ship.tracks.hull);
+  const hullCurrent = hullMax - ship.hullDamage;
+
+  const tracksHtml = Object.keys(TRACK_LABEL).map(key => {
+    const lv = ship.tracks[key];
+    const max = TRACK_MAX[key];
+    const atMax = lv >= max;
+    const cost = atMax ? null : getTrackUpgradeCost(key, lv);
+    const preview = atMax ? "최대 레벨" : `LV${lv + 1}: ${trackEffectPreview(key, lv + 1)}`;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(122,92,40,0.25);">
+        <div>
+          <div style="font-size:12.5px;color:var(--parchment);">${TRACK_LABEL[key]} — 현재 LV${lv}</div>
+          <div style="font-size:11px;color:var(--parchment-dim);">${preview}</div>
+        </div>
+        <button class="mini-btn" data-track="${key}" ${atMax || player.gold < cost ? "disabled" : ""}>
+          ${atMax ? "완료" : `업그레이드 (${cost}G)`}
+        </button>
+      </div>
+    `;
+  }).join("");
+
+  body.innerHTML = `
+    ${player.shipyardDiscount ? `<div style="font-size:11px;color:var(--teal-light);margin-bottom:8px;">흙(土) 별자리 기운으로 개조비 20% 할인 적용 중</div>` : ""}
+    <div style="margin-bottom:14px;">${tracksHtml}</div>
+    <div class="section-label" style="text-align:left;">선체 수리</div>
+    <div style="font-size:12px;color:var(--parchment-dim);margin-bottom:8px;">
+      내구도 ${hullCurrent} / ${hullMax}${isHullBelowHalf() ? " — 50% 이하: 항해 주사위 -1 페널티 적용 중" : ""}
+    </div>
+    <button class="mini-btn" id="hull-repair" ${ship.hullDamage <= 0 || player.gold < 20 ? "disabled" : ""}>
+      내구도 10pt 수리 (20G)
+    </button>
+  `;
+
+  body.querySelectorAll("[data-track]").forEach(btn => {
+    btn.addEventListener("click", () => upgradeTrack(btn.dataset.track));
+  });
+  const repairBtn = document.getElementById("hull-repair");
+  if (repairBtn) repairBtn.addEventListener("click", repairHull);
+}
+
+function getTrackUpgradeCost(key, lv){
+  const raw = trackUpgradeCost(key, lv);
+  return player.shipyardDiscount ? Math.round(raw * (1 - player.shipyardDiscount)) : raw;
+}
+
+function upgradeTrack(key){
+  const lv = ship.tracks[key];
+  const max = TRACK_MAX[key];
+  if (lv >= max) return;
+  const cost = getTrackUpgradeCost(key, lv);
+  if (player.gold < cost){ log("조선공", "\"돈이 모자라는구려.\""); return; }
+
+  player.gold -= cost;
+  ship.tracks[key] = lv + 1;
+
+  if (key === "cargo"){
+    ship.cargoSlots = cargoSlotsForLevel(ship.tracks.cargo);
+    log("조선공", `화물칸을 개조했다. 이제 화물칸이 ${ship.cargoSlots}칸이다.`);
+  } else if (key === "quarters"){
+    ship.crewSlots = crewSlotsForLevel(ship.tracks.quarters);
+    log("조선공", `거주구를 넓혔다. 이제 동료 슬롯이 ${ship.crewSlots}칸이다.`);
+  } else if (key === "cannon"){
+    log("조선공", `함포를 개량했다. 전투 보정이 +${cannonBonusForLevel(ship.tracks.cannon)}이 됐다.`);
+  } else if (key === "hull"){
+    log("조선공", `선체를 보강했다. 최대 내구도가 ${hullMaxForLevel(ship.tracks.hull)}이 됐다.`);
+  } else if (key === "engine"){
+    log("조선공", "엔진을 개량했다. 항해 중 연료가 덜 소모될 확률이 올랐다.");
+  }
+
+  renderGauges(); renderShipStats(); renderShipyardPanel();
+}
+
+function repairHull(){
+  if (ship.hullDamage <= 0){ log("조선공", "\"이미 흠 잡을 데 없이 멀쩡하오.\""); return; }
+  if (player.gold < 20){ log("조선공", "\"20G는 있어야 손을 대지.\""); return; }
+  player.gold -= 20;
+  ship.hullDamage = Math.max(0, ship.hullDamage - 10);
+  log("조선공", `선체 내구도 10pt를 수리했다. (남은 손상 ${ship.hullDamage})`);
+  renderGauges(); renderShipyardPanel();
+}
+
+/* ===== E. 마을 투자 ===== */
+function doTownInvest(){
+  const port = PORTS.find(p => p.id === player.location);
+  const key = factionKey(port.faction);
+  player.reputation[key] += 10;
+  if (!player.investedCities.includes(port.id)){
+    player.investedCities.push(port.id);
+  }
+  useAction();
+  log("항구 관리소", `${port.faction}에 자금을 투자했다. ${port.faction} 평판이 10 올랐다 (현재 ${player.reputation[key]}). 이 도시의 지분 마커를 획득했다.`);
+  renderGauges();
+}
+
+/* ===== F. 동료 영입 ===== */
+function doOpenRecruit(){
+  const firstOpen = activePanel !== "recruit";
+  activePanel = "recruit";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "선술집 — 동료 영입";
+  renderRecruitPanel();
+  if (firstOpen){
+    useAction();
+    log("선술집 주인", "\"오늘은 누가 앉아 있을지 모르지. 한번 둘러보시오.\"");
+  }
+}
+
+function renderRecruitPanel(){
+  const body = document.getElementById("panel-body");
+  const alreadyIds = ship.crew.map(c => c.id);
+  const candidates = RECRUIT_POOL.filter(r => r.condition(player) && !alreadyIds.includes(r.id));
+
+  if (candidates.length === 0){
+    body.innerHTML = `<div style="font-size:13px;color:var(--parchment-dim);">지금은 선술집에 영입할 만한 인물이 없다.</div>`;
+    return;
+  }
+
+  const full = ship.crewUsed >= ship.crewSlots;
+  body.innerHTML = candidates.map(r => {
+    const cost = getRecruitCost(r);
+    return `
+    <div style="padding:8px 0;border-bottom:1px solid rgba(122,92,40,0.25);">
+      <div style="font-size:12.5px;color:var(--parchment);">${r.name} <span style="color:var(--teal-light);font-size:11px;">(${r.role})</span></div>
+      <div style="font-size:11px;color:var(--parchment-dim);">등장 조건: ${r.conditionLabel} · 영입비: ${cost}G</div>
+      <div style="font-size:11px;color:var(--parchment-dim);">${r.stat}</div>
+      <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:6px;">액티브: ${r.active.label} — ${r.active.desc} (${r.active.cost})</div>
+      <button class="mini-btn" data-id="${r.id}" ${full || player.gold < cost ? "disabled" : ""}>${full ? "동료 슬롯 없음" : `영입한다 (${cost}G)`}</button>
+    </div>
+  `;
+  }).join("");
+
+  body.querySelectorAll(".mini-btn").forEach(btn => {
+    btn.addEventListener("click", () => recruitCompanion(btn.dataset.id));
+  });
+}
+
+function getRecruitCost(template){
+  const base = template.recruitCost || 0;
+  return player.recruitDiscount ? Math.round(base * (1 - player.recruitDiscount)) : base;
+}
+
+function recruitCompanion(id){
+  const template = RECRUIT_POOL.find(r => r.id === id);
+  if (!template) return;
+  if (ship.crewUsed >= ship.crewSlots){ log("선술집 주인", "\"자리가 없어 보이는데.\""); return; }
+  const cost = getRecruitCost(template);
+  if (player.gold < cost){ log("선술집 주인", `"${getAddressTitle()}, ${cost}G는 있어야 이 사람을 소개해드리지."`); return; }
+
+  player.gold -= cost;
+  ship.crew.push({
+    id: template.id, name: template.name, role: template.role,
+    desc: template.stat, stat: template.stat, active: template.active,
+  });
+  ship.crewUsed = ship.crew.length;
+  log(template.name, `"함께 하지, ${getAddressTitle()}." ${template.name}이(가) 선단에 합류했다.`);
+  renderGauges(); renderShipStats(); renderRecruitPanel();
+}
+
+/* ===== G. 명성 홍보 / 기부 ===== */
+function doOpenFame(){
+  const firstOpen = activePanel !== "fame";
+  activePanel = "fame";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "명성 홍보 / 기부";
+  renderFamePanel();
+  if (firstOpen){
+    useAction();
+    log("항구 서기", "\"명성을 쌓고 싶다면 기부를 하시지요.\"");
+  }
+}
+
+function renderFamePanel(){
+  const body = document.getElementById("panel-body");
+  const cargoEntries = Object.entries(ship.cargo);
+  const port = PORTS.find(p => p.id === player.location);
+  const table = market.getMarket(port.id);
+
+  let html = `
+    <div style="margin-bottom:14px;">
+      <div class="section-label" style="text-align:left;">기부금 납부</div>
+      <div style="font-size:11.5px;color:var(--parchment-dim);margin-bottom:6px;">100G를 기부하면 명성 +5, 증기 제국·연금술사 연합·자유 상인 연맹 평판이 각 +5 오른다.</div>
+      <button class="mini-btn" id="fame-pledge" ${player.gold < 100 ? "disabled" : ""}>기부금 납부 (100G)</button>
+    </div>
+    <div>
+      <div class="section-label" style="text-align:left;">화물 기부</div>
+      <div style="font-size:11.5px;color:var(--parchment-dim);margin-bottom:6px;">보유한 무역품을 기부하면 시세 가격의 10%만큼 명성을 얻는다.</div>
+  `;
+
+  if (cargoEntries.length === 0){
+    html += `<div style="font-size:11.5px;color:var(--parchment-dim);">기부할 화물이 없다.</div>`;
+  } else {
+    html += cargoEntries.map(([name, qty]) => {
+      const price = table[name] ? table[name].price : 0;
+      const fameGain = Math.max(1, Math.round(price * 0.1));
+      return `<button class="mini-btn sell" data-good="${name}" style="margin:2px 6px 6px 0;">${name} 1개 기부 (명성 +${fameGain})</button>`;
+    }).join("");
+  }
+  html += `</div>`;
+
+  body.innerHTML = html;
+
+  const pledgeBtn = document.getElementById("fame-pledge");
+  if (pledgeBtn) pledgeBtn.addEventListener("click", pledgeFame);
+  body.querySelectorAll("[data-good]").forEach(btn => {
+    btn.addEventListener("click", () => donateCargo(btn.dataset.good));
+  });
+}
+
+function pledgeFame(){
+  if (player.gold < 100){ log("항구 서기", "\"100G가 있어야 기부할 수 있소.\""); return; }
+  player.gold -= 100;
+  player.fame += 5;
+  player.reputation.empire += 5;
+  player.reputation.union += 5;
+  player.reputation.merchants += 5;
+  log("항구 서기", "기부금 100G를 납부했다. 명성이 5 오르고 세 세력의 평판이 각각 5씩 올랐다.");
+  renderGauges(); renderShipStats(); renderFamePanel();
+}
+
+function donateCargo(goodName){
+  const holding = ship.cargo[goodName] || 0;
+  if (holding <= 0) return;
+  const port = PORTS.find(p => p.id === player.location);
+  const table = market.getMarket(port.id);
+  const price = table[goodName] ? table[goodName].price : 0;
+  const fameGain = Math.max(1, Math.round(price * 0.1));
+
+  ship.cargo[goodName] = holding - 1;
+  if (ship.cargo[goodName] === 0){ delete ship.cargo[goodName]; ship.cargoUsed -= 1; }
+  player.fame += fameGain;
+
+  log("항구 서기", `${goodName} 1개를 기부했다. 명성이 ${fameGain} 올랐다.`);
+  renderGauges(); renderShipStats(); renderFamePanel();
+}
+
+/* ===== 항해 시작 — 목적지 선택 ===== */
+function doOpenDestinations(){
+  activePanel = "destinations";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "목적지를 선택하라";
+  renderDestinationPanel();
+}
+
+function renderDestinationPanel(){
+  const neighbors = CITY_DISTANCES[player.location] || {};
+  const entries = Object.entries(neighbors);
+  const body = document.getElementById("panel-body");
+  if (entries.length === 0){
+    body.innerHTML = `<div style="font-size:13px;color:var(--parchment-dim);">이 항구에서 이어지는 항로가 없다.</div>`;
+    return;
+  }
+  body.innerHTML = entries.map(([dest, dist]) =>
+    `<button class="dest-btn" data-dest="${dest}" data-dist="${dist}">
+       <span>${dest}</span><span class="dist-tag">${dist}칸</span>
+     </button>`
+  ).join("");
+  body.querySelectorAll(".dest-btn").forEach(btn => {
+    btn.addEventListener("click", () => beginVoyage(btn.dataset.dest, parseInt(btn.dataset.dist, 10)));
+  });
+}
+
+/* ===== 항해 단계 — 거리만큼 한 칸씩 이동 ===== */
+function beginVoyage(destination, distance){
+  closePanel();
+  voyage = { destination, total: distance, remaining: distance, distressed: false };
+  document.getElementById("town-actions").innerHTML = "";
+  document.getElementById("minor-actions").innerHTML = "";
+  document.getElementById("voyage-box").classList.add("open");
+  log("항해일지", `닻을 올리고 ${destination}을(를) 향해 항해를 시작한다. 총 ${distance}칸의 항로다.`);
+  renderVoyagePanel();
+}
+
+function renderVoyageSteps(){
+  const traveled = voyage.total - voyage.remaining;
+  let html = "";
+  for (let i = 0; i < voyage.total; i++){
+    let cls = "voyage-step";
+    if (i < traveled) cls += " done";
+    else if (i === traveled) cls += " current";
+    html += `<div class="${cls}">${i+1}</div>`;
+  }
+  return html;
+}
+
+function renderVoyagePanel(){
+  const box = document.getElementById("voyage-box");
+
+  if (voyage.distressed){
+    box.innerHTML = `
+      <div class="voyage-heading">목적지 <b>${voyage.destination}</b>까지 남은 거리: <b>${voyage.remaining}칸</b></div>
+      <div class="voyage-steps">${renderVoyageSteps()}</div>
+      <div class="distress-banner">조난 상태 — 연료와 식량이 모두 바닥났다. 무언가를 희생해야 한 칸을 나아갈 수 있다.</div>
+      <div class="voyage-controls">
+        <button class="action-btn" id="btn-distress-step" style="border-left-color:var(--rust-light);">
+          <span>대가를 치르고 전진한다</span><span class="tag">손패 카드 또는 동료 희생</span>
+        </button>
+      </div>
+    `;
+    document.getElementById("btn-distress-step").addEventListener("click", attemptDistressStep);
+    return;
+  }
+
+  if (voyage.remaining <= 0){
+    renderArrivalGate();
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="voyage-heading">목적지 <b>${voyage.destination}</b>까지 남은 거리: <b>${voyage.remaining}칸</b></div>
+    <div class="voyage-steps">${renderVoyageSteps()}</div>
+    <div class="voyage-controls">
+      <button class="action-btn" id="btn-step"><span>다음 칸으로 이동</span><span class="tag">연료·식량 소모 및 이벤트 발생</span></button>
+    </div>
+  `;
+  document.getElementById("btn-step").addEventListener("click", stepVoyage);
+}
+
+function stepVoyage(){
+  if (!voyage || voyage.distressed || voyage.remaining <= 0) return;
+
+  const specialKey = rollSpecialEvent();
+  if (specialKey){
+    applyStepMovementCost();
+    openSpecialEventPanel(specialKey);
+    return;
+  }
+
+  const card = DECK[Math.floor(Math.random() * DECK.length)];
+  let fuelCost = 1;
+  let foodCost = 1;
+  let extraNote = "";
+
+  if (card.id === "tailwind"){
+    fuelCost = 0;
+    extraNote = " 순풍 덕에 연료 소모가 없었다.";
+  } else if (card.id === "reef"){
+    foodCost += 1;
+    extraNote = " 암초에 긁혀 식량 일부가 유실됐다.";
+  } else if (card.id === "driftcargo"){
+    player.gold += 30;
+    extraNote = " 떠내려온 화물에서 30G 상당을 건졌다.";
+  } else if (card.id === "rare_ether_current"){
+    fuelCost = 0;
+    foodCost = 0;
+    extraNote = " 에테르 해류를 타고 연료와 식량 소모 없이 나아갔다.";
+  }
+
+  if (fuelCost > 0 && player.waterFuelSaveChance && Math.random() < player.waterFuelSaveChance){
+    fuelCost = 0;
+    extraNote += " 수(水) 기운이 연료 소모를 막아줬다.";
+  }
+
+  player.fuel = Math.max(0, player.fuel - fuelCost);
+  player.food = Math.max(0, player.food - foodCost);
+  voyage.remaining -= 1;
+
+  log("항해 사건", `[${card.name}] ${card.desc}${extraNote}`);
+  renderGauges();
+
+  if ((player.fuel <= 0 || player.food <= 0) && voyage.remaining > 0){
+    voyage.distressed = true;
+    log("항해일지", `연료 또는 식량이 완전히 바닥났다. 목적지까지 아직 ${voyage.remaining}칸이 남은 채로 배가 표류하기 시작한다 — 조난 상태.`);
+  }
+
+  renderVoyagePanel();
+}
+
+/* ===== 확장 해상 이벤트 — 명성/악명 조건부 특수 이벤트 ===== */
+function rollSpecialEvent(){
+  if (voyage.total >= 4 && !voyage._ghostSeen && Math.random() < 0.3){
+    voyage._ghostSeen = true;
+    return "ghost";
+  }
+  if (player.notoriety >= 20 && Math.random() < 0.2) return "auction";
+  if (Math.random() < 0.15) return "wreck";
+  if (Math.random() < 0.15) return "storm";
+  if (Math.random() < 0.18) return "combat";
+  return null;
+}
+
+function applyStepMovementCost(){
+  player.fuel = Math.max(0, player.fuel - 1);
+  player.food = Math.max(0, player.food - 1);
+  voyage.remaining -= 1;
+  renderGauges();
+  if ((player.fuel <= 0 || player.food <= 0) && voyage.remaining > 0){
+    voyage.distressed = true;
+  }
+}
+
+function openSpecialEventPanel(key){
+  activePanel = "special-" + key;
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-close").style.display = "none";
+  const body = document.getElementById("panel-body");
+
+  if (key === "auction"){
+    document.getElementById("panel-title-text").textContent = "해상 비밀 경매장";
+    body.innerHTML = `
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
+        안개 속에서 신원을 숨긴 상인들이 은밀한 경매를 연다. 참가하려면 100G가 필요하다.
+      </div>
+      <button class="mini-btn" id="auction-join" ${player.gold < 100 ? "disabled" : ""}>참가한다 (100G)</button>
+      <button class="mini-btn sell" id="auction-skip">지나친다</button>
+    `;
+    document.getElementById("auction-join").addEventListener("click", () => resolveAuction(true));
+    document.getElementById("auction-skip").addEventListener("click", () => resolveAuction(false));
+
+  } else if (key === "wreck"){
+    document.getElementById("panel-title-text").textContent = "난파된 제국 수송선";
+    let html = `<div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
+      파도에 떠밀려온 제국 수송선의 잔해가 보인다. 생존자들이 손을 흔든다.</div>`;
+    if (player.fame >= 30) html += `<button class="mini-btn" id="wreck-share" style="margin:0 6px 8px 0;">식량을 나눠준다 (명성 조건 충족)</button>`;
+    if (player.notoriety >= 30) html += `<button class="mini-btn sell" id="wreck-loot" style="margin:0 6px 8px 0;">약탈한다 (악명 조건 충족)</button>`;
+    html += `<div><button class="mini-btn" id="wreck-skip">그냥 지나친다</button></div>`;
+    body.innerHTML = html;
+    if (player.fame >= 30) document.getElementById("wreck-share").addEventListener("click", () => resolveWreck("share"));
+    if (player.notoriety >= 30) document.getElementById("wreck-loot").addEventListener("click", () => resolveWreck("loot"));
+    document.getElementById("wreck-skip").addEventListener("click", () => resolveWreck("skip"));
+
+  } else if (key === "storm"){
+    document.getElementById("panel-title-text").textContent = "에테르 폭풍우";
+    body.innerHTML = `
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
+        보랏빛 에테르 폭풍우가 뱃길을 가로막는다. 주사위 9 이상이 나와야 무사히 통과한다.
+      </div>
+      <button class="mini-btn" id="storm-roll">돌파를 시도한다</button>
+    `;
+    document.getElementById("storm-roll").addEventListener("click", resolveStorm);
+
+  } else if (key === "ghost"){
+    document.getElementById("panel-title-text").textContent = "유령선 오디세이";
+    body.innerHTML = `
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
+        안개 속에서 낡은 범선 한 척이 소리 없이 나타난다 — 유령선이다.
+      </div>
+      <button class="mini-btn" id="ghost-fight">도전한다 (전투 주사위 10 이상 대성공)</button>
+      <button class="mini-btn sell" id="ghost-avoid">피한다</button>
+    `;
+    document.getElementById("ghost-fight").addEventListener("click", () => resolveGhost("fight"));
+    document.getElementById("ghost-avoid").addEventListener("click", () => resolveGhost("avoid"));
+
+  } else if (key === "combat"){
+    document.getElementById("panel-title-text").textContent = "해적선의 습격";
+    body.innerHTML = `
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
+        해적선 한 척이 뱃머리를 돌려 접근해온다. 2D6 + 함포 보정 + 동료 보정으로 판정한다. (8 이상 승리 / 11 이상 대성공 / 7 이하 패배)
+      </div>
+      <button class="mini-btn" id="combat-fight">교전한다</button>
+      <button class="mini-btn sell" id="combat-flee">도주한다 (연료 1 추가 소모)</button>
+    `;
+    document.getElementById("combat-fight").addEventListener("click", () => resolveCombat("fight"));
+    document.getElementById("combat-flee").addEventListener("click", () => resolveCombat("flee"));
+  }
+}
+
+function resolveAuction(participate){
+  if (participate){
+    if (player.gold < 100){
+      log("경매 진행자", "\"100G는 있어야 입찰할 수 있소.\"");
+    } else {
+      player.gold -= 100;
+      const rareGoods = ["마정석", "진주", "증기기관부품", "무기"];
+      const reward = rareGoods[Math.floor(Math.random() * rareGoods.length)];
+      const holding = ship.cargo[reward] || 0;
+      if (holding > 0 || ship.cargoUsed < ship.cargoSlots){
+        ship.cargo[reward] = holding + 1;
+        if (holding === 0) ship.cargoUsed += 1;
+        log("경매 진행자", `낙찰 성공! 고급 무역품 [${reward}] 1개를 손에 넣었다.`);
+      } else {
+        player.gold += 60;
+        log("경매 진행자", "낙찰은 성공했지만 화물칸이 없어 대신 60G로 환전받았다.");
+      }
+    }
+  } else {
+    log("항해일지", "은밀한 경매를 그냥 지나쳤다.");
+  }
+  renderGauges(); renderShipStats();
+  afterSpecialEvent();
+}
+
+function resolveWreck(choice){
+  if (choice === "share"){
+    player.food += 2;
+    player.reputation.empire += 10;
+    player.vp += 5;
+    log("항해일지", "표류자들에게 식량을 나눠줬다. 제국 평판이 오르고 명예 점수(VP) 5를 얻었다.");
+  } else if (choice === "loot"){
+    player.gold += 500;
+    player.reputation.empire -= 15;
+    log("항해일지", "가차 없이 수송선을 약탈했다. 500G를 챙겼지만 제국의 평판이 크게 떨어졌다.");
+  } else {
+    log("항해일지", "난파선을 그대로 지나쳤다.");
+  }
+  renderGauges(); renderShipStats();
+  afterSpecialEvent();
+}
+
+function resolveStorm(){
+  const penalty = isHullBelowHalf() ? -1 : 0;
+  const roll = Math.floor(Math.random() * 10) + 1 + penalty;
+  let mitigated = false;
+  if (roll < 9 && player.failureMitigation){
+    mitigated = true;
+    player.failureMitigation = false;
+  }
+  if (roll >= 9 || mitigated){
+    log("항해일지", `에테르 폭풍우 속에서 주사위 ${roll}${penalty ? " (내구도 저하 페널티 적용)" : ""}이 나왔다. ${mitigated ? "동료의 도움으로 위기를 넘겼다." : "능숙하게 폭풍을 뚫고 나갔다."}`);
+  } else {
+    player.fuel = Math.max(0, player.fuel - 2);
+    ship.hullDamage += 10;
+    log("항해일지", `에테르 폭풍우 속에서 주사위 ${roll}${penalty ? " (내구도 저하 페널티 적용)" : ""}이 나와 실패했다. 연료 2를 잃고 선체 내구도가 손상됐다.`);
+  }
+  renderGauges(); renderShipStats();
+  afterSpecialEvent();
+}
+
+function resolveCombat(action){
+  if (action === "flee"){
+    player.fuel = Math.max(0, player.fuel - 1);
+    log("항해일지", "전투를 피해 황급히 달아났다. 연료 1을 추가로 소모했다.");
+    renderGauges();
+    afterSpecialEvent();
+    return;
+  }
+
+  const d1 = Math.floor(Math.random() * 6) + 1;
+  const d2 = Math.floor(Math.random() * 6) + 1;
+  const combatBonus = getCombatBonus();
+  const admiralBonus = ship.crew.some(c => c.id === "admiral") ? 2 : 0;
+  const elementBonus = player.combatDiceBonus || 0;
+  const penalty = isHullBelowHalf() ? -1 : 0;
+  const total = d1 + d2 + combatBonus + admiralBonus + elementBonus + penalty;
+  const greatThreshold = player.combatGreatSuccessThreshold || 11;
+  const rollNote = `주사위 ${d1}+${d2} + 함포 보정 ${combatBonus} + 동료 보정 ${admiralBonus} + 화(火) 보정 ${elementBonus}${penalty ? " - 내구도 페널티 1" : ""} = ${total}`;
+
+  const stealLoot = () => {
+    if (!ship.crew.some(c => c.id === "red_baron")) return "";
+    const loot = ["석탄", "약초", "실크", "진주"][Math.floor(Math.random() * 4)];
+    const holding = ship.cargo[loot] || 0;
+    if (holding > 0 || ship.cargoUsed < ship.cargoSlots){
+      ship.cargo[loot] = holding + 1;
+      if (holding === 0) ship.cargoUsed += 1;
+      return ` 붉은 남작이 상대 화물 [${loot}] 1개를 탈취했다.`;
+    }
+    return "";
+  };
+
+  if (total >= greatThreshold){
+    player.gold += 80;
+    player.fame += 5;
+    let purgeNote = "";
+    const hazardIdx = DECK.findIndex(c => c.type === "hazard");
+    if (hazardIdx !== -1){
+      const purged = DECK.splice(hazardIdx, 1)[0];
+      purgeNote = ` 위협적인 항로 카드 [${purged.name}]을(를) 덱에서 영구히 파기했다.`;
+    }
+    log("전투", `대성공! (${rollNote}, 기준 ${greatThreshold}+) 적을 완파하고 전리품 80G를 얻었다. 명성 +5.${purgeNote}${stealLoot()}`);
+  } else if (total >= 8){
+    player.gold += 80;
+    log("전투", `승리! (${rollNote}) 적을 물리치고 전리품 80G를 얻었다.${stealLoot()}`);
+  } else {
+    ship.hullDamage += 20;
+    const lost = Math.min(100, player.gold);
+    player.gold -= lost;
+    log("전투", `패배... (${rollNote}) 선체 내구도 20을 잃고 금화 ${lost}G를 약탈당했다.`);
+  }
+
+  renderGauges(); renderShipStats();
+  afterSpecialEvent();
+}
+
+function resolveGhost(choice){
+  if (choice === "avoid"){
+    log("항해일지", "안개 속으로 사라지는 유령선을 애써 피해 갔다.");
+  } else {
+    const roll = Math.floor(Math.random() * 10) + 1;
+    if (roll >= 10){
+      BOARD.push({
+        id: "ghost_treasure_" + Date.now(), name: "유령선의 보물", type: "achievement",
+        desc: "유령선 오디세이에서 얻은 전설적인 보물. 연말 집계 시 VP로 환산된다.", vp: 20,
+      });
+      log("항해일지", `전투 주사위 ${roll} — 대성공! 유령선을 정복하고 [업적 카드: 유령선의 보물](20VP)을 손에 넣었다.`);
+    } else {
+      log("항해일지", `전투 주사위 ${roll} — 유령선과의 조우에서 아무 소득 없이 물러났다.`);
+    }
+  }
+  renderShipStats();
+  afterSpecialEvent();
+}
+
+function afterSpecialEvent(){
+  document.getElementById("panel-close").style.display = "";
+  closePanel();
+  if (voyage && voyage.distressed){
+    log("항해일지", "연료 또는 식량이 완전히 바닥났다. 배가 표류하기 시작한다 — 조난 상태.");
+  }
+  renderVoyagePanel();
+}
+
+/* ===== 조난 상태 — 손패 카드 또는 동료를 희생해야 전진 가능 ===== */
+function attemptDistressStep(){
+  if (!voyage || !voyage.distressed) return;
+
+  if (player.firstDistressFree){
+    player.firstDistressFree = false;
+    voyage.remaining -= 1;
+    if (voyage.remaining <= 0) voyage.distressed = false;
+    log("항해일지", "물(水)의 기운이 도와 첫 위기를 대가 없이 넘겼다. 배가 한 칸 더 나아간다.");
+    renderVoyagePanel();
+    return;
+  }
+
+  if (HAND.length === 0 && ship.crew.length === 0){
+    shipwreck();
+    return;
+  }
+  openDistressChoicePanel();
+}
+
+function openDistressChoicePanel(){
+  activePanel = "distress";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-title-text").textContent = "조난 — 희생을 선택하라";
+  renderDistressChoicePanel();
+}
+
+function renderDistressChoicePanel(){
+  const body = document.getElementById("panel-body");
+  let html = `<div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
+    연료와 식량이 모두 바닥났다. 배를 가볍게 하거나 인원을 줄여야 앞으로 나아갈 수 있다.</div>`;
+
+  html += `<div style="margin-bottom:12px;">
+    <div class="section-label" style="text-align:left;">손패 카드 1장 버리기</div>`;
+  html += HAND.length
+    ? HAND.map((c, i) => `<button class="mini-btn" data-type="card" data-idx="${i}" style="margin:2px 6px 2px 0;">${c.name}</button>`).join("")
+    : `<div style="font-size:11.5px;color:var(--parchment-dim);">버릴 카드가 없다.</div>`;
+  html += `</div>`;
+
+  html += `<div>
+    <div class="section-label" style="text-align:left;">동료 1명 해고하기</div>`;
+  html += ship.crew.length
+    ? ship.crew.map((c, i) => `<button class="mini-btn sell" data-type="crew" data-idx="${i}" style="margin:2px 6px 2px 0;">${c.name}</button>`).join("")
+    : `<div style="font-size:11.5px;color:var(--parchment-dim);">해고할 동료가 없다.</div>`;
+  html += `</div>`;
+
+  body.innerHTML = html;
+  body.querySelectorAll(".mini-btn").forEach(btn => {
+    btn.addEventListener("click", () => resolveDistressChoice(btn.dataset.type, parseInt(btn.dataset.idx, 10)));
+  });
+}
+
+function resolveDistressChoice(type, idx){
+  if (type === "card"){
+    const card = HAND.splice(idx, 1)[0];
+    if (!card) return;
+    log("항해일지", `[${card.name}]을(를) 바다에 던져 배를 가볍게 했다. 겨우 한 칸을 더 나아간다.`);
+  } else {
+    const companion = ship.crew.splice(idx, 1)[0];
+    if (!companion) return;
+    ship.crewUsed = ship.crew.length;
+    log("항해일지", `${companion.name}이(가) 구명정을 타고 선단을 떠났다. 배가 한 칸을 더 나아간다.`);
+  }
+
+  closePanel();
+  voyage.remaining -= 1;
+  if (voyage.remaining <= 0) voyage.distressed = false; // 도착하면 조난 상태를 해제한다
+  renderGauges();
+  renderShipStats();
+  renderVoyagePanel();
+}
+
+function shipwreck(){
+  const lost = Math.round(player.gold * 0.5);
+  player.gold -= lost;
+  log("항해일지", `버릴 카드도, 떠날 동료도 남지 않았다 — 배가 난파되었다! 금화 ${lost}G를 잃고 표류 끝에 기어헤븐으로 떠밀려간다.`);
+
+  voyage = null;
+  document.getElementById("voyage-box").classList.remove("open");
+  document.getElementById("voyage-box").innerHTML = "";
+  player.location = "기어헤븐";
+  turnActionsUsed = 0;
+
+  renderPortInfo();
+  renderGauges();
+  renderShipStats();
+  renderTurnCounter();
+  renderTownActions();
+  renderMinorActions();
+  advanceMonth();
+  saveGame();
+}
+
+/* ===== 목적지 입항 게이트 — 세력 평판 / 악명 ===== */
+function factionKey(faction){
+  switch (faction){
+    case "증기 제국": return "empire";
+    case "연금술사 연합": return "union";
+    case "자유 상인 연맹": return "merchants";
+    case "무법자 & 심해 부족": return "outlaws";
+    default: return "empire";
+  }
+}
+
+function renderArrivalGate(){
+  const box = document.getElementById("voyage-box");
+  const port = PORTS.find(p => p.id === voyage.destination);
+  const key = factionKey(port.faction);
+  const rep = player.reputation[key];
+  let hostile = rep <= -50;
+  const allied = rep >= 50;
+  const infamyHigh = player.notoriety >= 50;
+  const isOutlawCity = key === "outlaws";
+
+  const notes = [];
+  if (hostile && player.ignoreNextEntryDenial){
+    player.ignoreNextEntryDenial = false;
+    hostile = false;
+    notes.push(`${port.faction}이(가) 적대시하지만, 퇴역 해군 제독의 위신 덕에 거부를 무시하고 입항한다.`);
+  } else if (hostile){
+    notes.push(`${port.faction}은(는) 당신을 적대시한다 (평판 ${rep}). 뇌물 100G 없이는 입항할 수 없다.`);
+  }
+  if (allied) notes.push(`${port.faction}은(는) 당신을 동맹으로 여긴다 (평판 ${rep}). 이 항구의 매매에서 10% 추가 이득을 얻는다.`);
+  if (infamyHigh && isOutlawCity) notes.push(`악명이 높아 입항료가 면제되고 이 항구의 암시장을 이용할 수 있다.`);
+  if (infamyHigh && !isOutlawCity && (key === "empire" || key === "merchants")) notes.push(`악명이 높다는 이유로 이 항구에서 50G의 벌금이 부과될 것이다.`);
+
+  box.innerHTML = `
+    <div class="voyage-heading"><b>${voyage.destination}</b> 앞바다에 도착했다.</div>
+    <div class="voyage-steps">${renderVoyageSteps()}</div>
+    ${notes.length ? `<div class="distress-banner" style="border-color:var(--brass-dim);border-left-color:var(--teal-light);color:var(--parchment-dim);">${notes.join("<br>")}</div>` : ""}
+    <div class="voyage-controls">
+      ${hostile
+        ? `<button class="action-btn" id="btn-bribe" ${player.gold < 100 ? "disabled" : ""}><span>뇌물을 지불하고 입항한다</span><span class="tag">100G</span></button>`
+        : `<button class="action-btn sail-btn" id="btn-arrive"><span>정박한다</span><span class="tag">마을 단계로 진입</span></button>`
+      }
+    </div>
+  `;
+
+  if (hostile){
+    document.getElementById("btn-bribe").addEventListener("click", () => {
+      if (player.gold < 100) return;
+      player.gold -= 100;
+      log("항구 경비대", "\"뇌물을 받았으니 눈감아 주지.\" 100G를 지불하고 입항했다.");
+      finalizeArrival();
+    });
+  } else {
+    document.getElementById("btn-arrive").addEventListener("click", finalizeArrival);
+  }
+}
+
+function finalizeArrival(){
+  const port = PORTS.find(p => p.id === voyage.destination);
+  const key = factionKey(port.faction);
+  if (player.notoriety >= 50 && (key === "empire" || key === "merchants")){
+    const fine = Math.min(50, player.gold);
+    player.gold -= fine;
+    log("항구 세관", `악명이 높다는 이유로 ${fine}G의 벌금을 물었다.`);
+  }
+  arriveAtPort();
+}
+
+function arriveAtPort(){
+  player.location = voyage.destination;
+  voyage = null;
+  document.getElementById("voyage-box").classList.remove("open");
+  document.getElementById("voyage-box").innerHTML = "";
+  turnActionsUsed = 0;
+  renderPortInfo();
+  renderGauges();
+  renderShipStats();
+  renderTurnCounter();
+  renderTownActions();
+  renderMinorActions();
+  log("항해일지", `${player.location}에 무사히 정박했다. 새로운 턴이 시작된다.`);
+  advanceMonth();
+  saveGame();
+}
+
+/* ===== 연말(12월) VP 결산 ===== */
+function advanceMonth(){
+  player.month += 1;
+  if (player.month > 12){
+    openYearEndPopup();
+  }
+}
+
+function calculateVP(){
+  const goldVP = Math.floor(player.gold / 100);
+  const cityShareVP = player.investedCities.length * 10;
+  const cardVP = player.vp + BOARD.reduce((s, c) => s + (c.vp || 0), 0);
+  const alliedCount = FACTION_ROWS.filter(r => player.reputation[r.key] >= 50).length;
+  const allianceVP = alliedCount * 15;
+  return { goldVP, cityShareVP, cardVP, allianceVP, alliedCount, total: goldVP + cityShareVP + cardVP + allianceVP };
+}
+
+function rankForVP(total){
+  if (total >= 150) return { rank:"S", text:"전설이 된 무역상 — 당신의 이름이 다섯 세력 모두의 장부에 금빛으로 새겨졌다." };
+  if (total >= 110) return { rank:"A", text:"존경받는 대상인 — 어느 항구를 가도 당신의 깃발을 반긴다." };
+  if (total >= 70)  return { rank:"B", text:"이름 있는 선장 — 그럭저럭 자리를 잡은 한 해였다." };
+  return { rank:"C", text:"근근이 버틴 한 해 — 다음 항해엔 더 나은 결과를 기대해본다." };
+}
+
+function openYearEndPopup(){
+  const v = calculateVP();
+  const { rank, text } = rankForVP(v.total);
+  activePanel = "yearend";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-close").style.display = "none";
+  document.getElementById("panel-title-text").textContent = "1년 결산 — 12월";
+  document.getElementById("panel-body").innerHTML = `
+    <div style="margin-bottom:14px;">
+      <div class="simple-stat"><span>금화 환산 (금화 ÷ 100)</span><b>${v.goldVP}</b></div>
+      <div class="simple-stat"><span>도시 지분 마커 (${player.investedCities.length}개 × 10)</span><b>${v.cityShareVP}</b></div>
+      <div class="simple-stat"><span>카드 VP</span><b>${v.cardVP}</b></div>
+      <div class="simple-stat"><span>동맹 세력 (${v.alliedCount}개 × 15)</span><b>${v.allianceVP}</b></div>
+      <div class="stat-divider"></div>
+      <div class="simple-stat"><span>총 VP</span><b style="color:var(--brass-light);font-size:16px;">${v.total}</b></div>
+    </div>
+    <div style="font-family:'Cinzel', serif; font-size:24px; color:var(--brass-light); text-align:center; margin:10px 0;">${rank} 랭크</div>
+    <div style="font-size:12.5px; color:var(--parchment-dim); text-align:center; margin-bottom:16px;">${text}</div>
+    <button class="mini-btn" id="yearend-confirm">새로운 해를 시작한다</button>
+  `;
+  document.getElementById("yearend-confirm").addEventListener("click", () => {
+    player.month = 1;
+    document.getElementById("panel-close").style.display = "";
+    closePanel();
+    renderGauges(); renderShipStats();
+    saveGame();
+  });
+}
+
+/* =========================================================================
+   저장 / 불러오기 — localStorage(오프라인) + Supabase(클라우드) 이중 저장
+   ========================================================================= */
+const SAVE_KEY = "aqua_mechanica_save_v1";
+
+// 배포 전 아래 두 값을 Supabase 프로젝트 값으로 채워주세요 (Project Settings -> API).
+// ANON KEY는 공개되어도 안전한 값입니다 (RLS로 보호됨). SERVICE ROLE KEY는 여기 넣지 마세요.
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+
+let supabaseClient = null;
+let supabaseSession = null;
+
+function initSupabase(){
+  const statusEl = document.getElementById("cloud-sync-status");
+  if (!window.supabase || SUPABASE_URL.includes("YOUR-PROJECT")){
+    if (statusEl) statusEl.textContent = "클라우드 저장: 설정 안 됨 (로컬 저장만 사용)";
+    return;
+  }
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  supabaseClient.auth.getSession().then(({ data }) => {
+    supabaseSession = data.session;
+    updateCloudSyncStatus();
+  });
+
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    supabaseSession = session;
+    updateCloudSyncStatus();
+  });
+}
+
+function updateCloudSyncStatus(){
+  const el = document.getElementById("cloud-sync-status");
+  if (!el) return;
+  el.textContent = supabaseSession
+    ? `클라우드 저장: ${supabaseSession.user.email} 로그인됨`
+    : "클라우드 저장: 로그인 안 됨 (로컬 저장만 사용 중)";
+}
+
+async function requestLoginLink(){
+  const statusEl = document.getElementById("cloud-sync-status");
+  if (!supabaseClient){
+    if (statusEl) statusEl.textContent = "클라우드 저장: 설정 안 됨 (index.html 상단 SUPABASE_URL/ANON_KEY 확인)";
+    return;
+  }
+  const email = document.getElementById("cloud-email").value.trim();
+  if (!email) return;
+  const { error } = await supabaseClient.auth.signInWithOtp({ email });
+  if (statusEl){
+    statusEl.textContent = error
+      ? `오류: ${error.message}`
+      : `${email}로 로그인 링크를 보냈습니다. 메일함을 확인하세요.`;
+  }
+}
+
+async function cloudSave(){
+  if (!supabaseSession) return;
+  try {
+    await fetch("/api/save", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseSession.access_token}`,
+      },
+      body: serializeState(),
+    });
+  } catch (e){
+    console.warn("클라우드 저장 실패 (로컬 저장은 정상 동작):", e);
+  }
+}
+
+async function cloudLoad(){
+  if (!supabaseSession) return null;
+  try {
+    const res = await fetch("/api/load", {
+      headers: { "Authorization": `Bearer ${supabaseSession.access_token}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.state || null;
+  } catch (e){
+    console.warn("클라우드 불러오기 실패 (로컬 저장으로 대체):", e);
+    return null;
+  }
+}
+
+function serializeState(){
+  return JSON.stringify({
+    player, ship, HAND, BOARD, DECK, selectedCompanionId, turnActionsUsed,
+    marketMatrices: market.matrices,
+  });
+}
+
+function saveGame(){
+  try {
+    localStorage.setItem(SAVE_KEY, serializeState());
+  } catch (e){
+    console.warn("저장 실패 (브라우저 저장소에 접근할 수 없음):", e);
+  }
+  cloudSave(); // 로그인 상태라면 함께 백업. 실패해도 로컬 저장은 이미 완료된 상태.
+}
+
+function loadGame(){
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e){
+    return null;
+  }
+}
+
+function hasSaveGame(){
+  try { return !!localStorage.getItem(SAVE_KEY); } catch (e){ return false; }
+}
+
+function applyLoadedState(data){
+  Object.assign(player, data.player);
+  ship.cargoSlots = data.ship.cargoSlots;
+  ship.cargoUsed = data.ship.cargoUsed;
+  ship.crewSlots = data.ship.crewSlots;
+  ship.crewUsed = data.ship.crewUsed;
+  ship.cargo = data.ship.cargo || {};
+  ship.crew = data.ship.crew || [];
+  ship.tracks = data.ship.tracks || ship.tracks;
+  ship.hullDamage = data.ship.hullDamage || 0;
+
+  HAND.length = 0; (data.HAND || []).forEach(c => HAND.push(c));
+  BOARD.length = 0; (data.BOARD || []).forEach(c => BOARD.push(c));
+  DECK.length = 0; (data.DECK || []).forEach(c => DECK.push(c));
+
+  selectedCompanionId = data.selectedCompanionId;
+  turnActionsUsed = data.turnActionsUsed || 0;
+
+  if (data.marketMatrices){
+    Object.keys(data.marketMatrices).forEach(portId => {
+      if (!market.matrices[portId]) return;
+      const table = data.marketMatrices[portId];
+      Object.keys(table).forEach(goodName => {
+        const g = table[goodName];
+        market.matrices[portId][goodName] = new TradeGood(goodName, g.qtyLevel, g.priceLevel);
+      });
+    });
+  }
+}
+
+async function continueGame(){
+  // 로그인 상태라면 클라우드 저장분을 우선 시도하고, 없으면 로컬 저장으로 대체한다.
+  let data = supabaseSession ? await cloudLoad() : null;
+  if (!data) data = loadGame();
+  if (!data) return;
+  applyLoadedState(data);
+
+  document.getElementById("title-screen").style.display = "none";
+  document.getElementById("companion-select").style.display = "none";
+  document.getElementById("game-screen").style.display = "block";
+
+  renderPortInfo();
+  renderGauges();
+  renderShipStats();
+  renderTurnCounter();
+  renderTownActions();
+  renderMinorActions();
+  renderProfileBar();
+  log("항해일지", "이전 항해 기록을 불러왔다. 항해를 계속한다.");
+}
+
+document.getElementById("panel-close").addEventListener("click", closePanel);
+document.getElementById("status-modal-close").addEventListener("click", () => toggleStatusModal(false));
+document.getElementById("btn-open-status").addEventListener("click", () => toggleStatusModal());
+document.getElementById("status-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "status-modal-overlay") toggleStatusModal(false);
+});
+document.getElementById("hand-modal-close").addEventListener("click", () => toggleHandModal(false));
+document.getElementById("btn-open-hand").addEventListener("click", () => toggleHandModal());
+document.getElementById("hand-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "hand-modal-overlay") toggleHandModal(false);
+});
+
+/* =========================================================================
+   5. 게임 시작
+   ========================================================================= */
+function startGame(){
+  const companion = COMPANIONS.find(c => c.id === selectedCompanionId);
+  ship.crew.push(companion);
+  ship.crewUsed = ship.crew.length;
+
+  document.getElementById("companion-select").style.display = "none";
+  document.getElementById("game-screen").style.display = "block";
+
+  renderPortInfo();
+  renderGauges();
+  renderShipStats();
+  renderTurnCounter();
+  renderTownActions();
+  renderMinorActions();
+  renderProfileBar();
+
+  const title = getAddressTitle();
+  const opening = player.originText
+    ? `${player.originText}<br><br>${player.name} ${title}, ${ELEMENT_LABEL[player.element]} 사주와 ${player.zodiac.name}(${ZODIAC_GROUP_LABEL[player.zodiac.group]}의 기운)의 도움을 받아 항해를 시작합니다.`
+    : `${companion.name}이(가) 선단에 합류했다. 기어헤븐 선착장에 첫 발을 디딘다.`;
+  log("항해일지", opening);
+  saveGame();
+}
+
+renderIntroLog();
+renderCompanionGrid();
+populateHourSelect();
+initSupabase();
+
+if (hasSaveGame()){
+  document.getElementById("btn-continue").style.display = "inline-block";
+}
+
+document.getElementById("cloud-login-btn").addEventListener("click", requestLoginLink);
+
+// 클라우드 세션이 뒤늦게 확인되면(매직 링크로 돌아온 경우 등) 이어서 하기 버튼을 노출한다.
+let _continueBtnWatchTries = 0;
+const _continueBtnWatcher = setInterval(() => {
+  _continueBtnWatchTries += 1;
+  if (supabaseSession){
+    document.getElementById("btn-continue").style.display = "inline-block";
+    clearInterval(_continueBtnWatcher);
+  } else if (_continueBtnWatchTries > 60){
+    clearInterval(_continueBtnWatcher); // 30초 후 포기 (로그인 안 한 경우)
+  }
+}, 500);
+
+document.getElementById("btn-to-companion").addEventListener("click", () => {
+  document.getElementById("title-screen").style.display = "none";
+  document.getElementById("character-creation").style.display = "block";
+});
+document.getElementById("btn-continue").addEventListener("click", continueGame);
+
+document.getElementById("btn-cc-next").addEventListener("click", () => {
+  finalizeCharacterCreation();
+  document.getElementById("character-creation").style.display = "none";
+  document.getElementById("companion-select").style.display = "block";
+});
+
+function populateHourSelect(){
+  const sel = document.getElementById("cc-hour");
+  for (let h = 0; h < 24; h++){
+    const opt = document.createElement("option");
+    opt.value = h;
+    opt.textContent = `${h}시`;
+    if (h === 12) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+document.getElementById("btn-start-game").addEventListener("click", startGame);
+</script>
+</body>
+</html>
