@@ -23,15 +23,16 @@
 }
 
 *{box-sizing:border-box;}
-html,body{margin:0;padding:0;height:100%;}
+html,body{margin:0;padding:0;}
 body{
   background:
     radial-gradient(ellipse at 50% -10%, #2a2118 0%, var(--bg-deep) 55%);
+  background-attachment:fixed;
   color:var(--parchment);
   font-family:'Special Elite', monospace;
   min-height:100vh;
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   justify-content:center;
   padding:24px;
 }
