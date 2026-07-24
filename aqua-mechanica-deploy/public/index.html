@@ -1152,6 +1152,7 @@ class Market {
     good.pendingPriceDelta += 1;
     ship.cargo[goodName] = (ship.cargo[goodName] || 0) + amount;
     ship.cargoUsed += amount;
+    ship.cargoCost[goodName] = (ship.cargoCost[goodName] || 0) + cost;
     return { ok:true, cost, amount, unitPrice };
   }
 
@@ -1170,8 +1171,10 @@ class Market {
     player.gold += revenue;
     good.pendingQtyDelta += 1;
     good.pendingPriceDelta -= 1;
+    const prevCost = ship.cargoCost[goodName] || 0;
+    ship.cargoCost[goodName] = Math.max(0, Math.round(prevCost * (1 - amount / holding)));
     ship.cargo[goodName] = holding - amount;
-    if (ship.cargo[goodName] <= 0) delete ship.cargo[goodName];
+    if (ship.cargo[goodName] <= 0){ delete ship.cargo[goodName]; delete ship.cargoCost[goodName]; }
     ship.cargoUsed -= amount;
     return { ok:true, revenue, amount, unitPrice };
   }
@@ -1208,7 +1211,8 @@ const ship = {
   cargoUsed: 0,
   crewSlots: 2,
   crewUsed: 0,
-  cargo: {},   // { 상품명: 보유수량 }
+  cargo: {},     // { 상품명: 보유수량 }
+  cargoCost: {}, // { 상품명: 누적 매입 비용 (무료 획득분은 0으로 취급) } — 평균 매입가 표시에 사용
   crew: [],
   tracks: { engine:1, cargo:1, hull:1, cannon:1, quarters:1 }, // 선박 개조 트랙
   hullDamage: 0,
@@ -1283,12 +1287,16 @@ const DECK = [
 ];
 
 const INFO_EVENT_POOL = [
-  { id:"fog_bank",    name:"짙은 안개",     type:"hazard", desc:"시야가 가려 항로를 잃기 쉽다." },
-  { id:"pirate_sight",name:"해적선 조우",   type:"hazard", desc:"수평선 너머 해적기가 보인다." },
-  { id:"lighthouse",  name:"등대지기의 조언", type:"buff",  desc:"노련한 등대지기가 안전한 항로를 알려준다." },
-  { id:"trade_wind",  name:"무역풍",       type:"buff",  desc:"규칙적인 바람이 항해를 돕는다." },
-  { id:"sea_monster", name:"괴물의 그림자", type:"hazard", desc:"거대한 그림자가 선체 아래를 스친다." },
-  { id:"lucky_shoal", name:"물고기 떼",     type:"bonus", desc:"거대한 물고기 떼가 그물에 걸려든다." },
+  { id:"fog_bank",     name:"짙은 안개",         type:"hazard",  desc:"시야가 가려 식량을 더 축내며 길을 헤맸다." },
+  { id:"pirate_sight", name:"해적선의 습격",     type:"combat",  desc:"해적선 한 척이 뱃머리를 돌려 접근해온다." },
+  { id:"lighthouse",   name:"등대지기의 조언",   type:"buff",    desc:"노련한 등대지기가 안전한 항로를 알려줘 연료를 아꼈다." },
+  { id:"trade_wind",   name:"무역풍",           type:"buff",    desc:"규칙적인 바람이 항해를 도와 소소한 부수입을 얻었다." },
+  { id:"sea_monster",  name:"괴물의 그림자",     type:"ghost",   desc:"거대한 그림자가 선체 아래를 스치며 정체불명의 존재가 나타난다." },
+  { id:"lucky_shoal",  name:"물고기 떼",         type:"bonus",   desc:"거대한 물고기 떼가 그물에 걸려들어 팔아치웠다." },
+  { id:"empire_wreck", name:"난파된 제국 수송선", type:"wreck",  desc:"파도에 떠밀려온 제국 수송선의 잔해가 보인다. 생존자들이 손을 흔든다." },
+  { id:"black_auction",name:"해상 비밀 경매장",   type:"auction",desc:"안개 속에서 신원을 숨긴 상인들이 은밀한 경매를 연다." },
+  { id:"ether_storm",  name:"에테르 폭풍우",     type:"storm",   desc:"보랏빛 에테르 폭풍우가 뱃길을 가로막는다." },
+  { id:"treasure_chest",name:"표류하는 보물상자", type:"treasure",desc:"파도에 떠밀려온 낡은 상자 하나가 눈에 띈다." },
 ];
 
 /* 일반 카드 풀 — 술집 "정보 알아보기"로 손패에 들어온다.
@@ -1315,6 +1323,82 @@ const GENERAL_CARD_POOL = [
     rewardGold:900, rewardVP:9, rewardRep:15, rewardFaction:"union",
     goalGood:"마정석", goalCurrent:0, goalTarget:3, rewarded:false },
 ];
+
+/* =========================================================================
+   레어 아이템 도감 — 20종, 3등급. 보물상자 카드에서 5% 확률로만 등장하며,
+   그 5% 안에서도 등급별로 다시 가중치가 걸려 있다 (유물 60% / 보석 30% / 무구 10%).
+   ========================================================================= */
+const RARE_ITEM_BASE_VALUE = 60; // 일반 화물 평균가 기준 — 판매가 = 이 값 × 배율
+
+const RARE_ITEMS = [
+  // --- 유물 (하급, 10종) — 판매 3~4배 / 기부: 명성+10·VP+5·영향력+1 ---
+  { id:"r1",  name:"녹슨 나침반 파편",     tier:"유물", sellMultiplier:3, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r2",  name:"이름 모를 선장의 반지", tier:"유물", sellMultiplier:4, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r3",  name:"낡은 항해도 조각",     tier:"유물", sellMultiplier:3, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r4",  name:"부서진 나침의",       tier:"유물", sellMultiplier:4, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r5",  name:"좀먹은 항해일지",     tier:"유물", sellMultiplier:3, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r6",  name:"녹슨 놋쇠 나침",      tier:"유물", sellMultiplier:4, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r7",  name:"유목에 새겨진 문양",   tier:"유물", sellMultiplier:3, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r8",  name:"반쯤 녹은 봉랍 인장",  tier:"유물", sellMultiplier:4, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r9",  name:"색바랜 해도 조각",     tier:"유물", sellMultiplier:3, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+  { id:"r10", name:"이가 빠진 닻고리",     tier:"유물", sellMultiplier:4, donateFame:10, donateVP:5, donateInfluence:1, useDesc:"사용하면 골드 30G를 얻는다.", useEffect:{ gold:30 } },
+
+  // --- 보석 (중급, 7종) — 판매 5~7배 / 기부: 명성+20·VP+12·영향력+2 ---
+  { id:"r11", name:"심해 흑진주",       tier:"보석", sellMultiplier:5, donateFame:20, donateVP:12, donateInfluence:2, useDesc:"사용하면 골드 100G를 얻는다.", useEffect:{ gold:100 } },
+  { id:"r12", name:"얼어붙은 에테르 결정", tier:"보석", sellMultiplier:6, donateFame:20, donateVP:12, donateInfluence:2, useDesc:"사용하면 골드 100G를 얻는다.", useEffect:{ gold:100 } },
+  { id:"r13", name:"산호 여왕의 눈물",   tier:"보석", sellMultiplier:7, donateFame:20, donateVP:12, donateInfluence:2, useDesc:"사용하면 골드 100G를 얻는다.", useEffect:{ gold:100 } },
+  { id:"r14", name:"뇌우석 파편",       tier:"보석", sellMultiplier:5, donateFame:20, donateVP:12, donateInfluence:2, useDesc:"사용하면 골드 100G를 얻는다.", useEffect:{ gold:100 } },
+  { id:"r15", name:"심연의 남빛 보석",   tier:"보석", sellMultiplier:6, donateFame:20, donateVP:12, donateInfluence:2, useDesc:"사용하면 골드 100G를 얻는다.", useEffect:{ gold:100 } },
+  { id:"r16", name:"세이렌의 비늘",     tier:"보석", sellMultiplier:7, donateFame:20, donateVP:12, donateInfluence:2, useDesc:"사용하면 골드 100G를 얻는다.", useEffect:{ gold:100 } },
+  { id:"r17", name:"빙해의 사파이어",   tier:"보석", sellMultiplier:5, donateFame:20, donateVP:12, donateInfluence:2, useDesc:"사용하면 골드 100G를 얻는다.", useEffect:{ gold:100 } },
+
+  // --- 무구 (전설, 3종) — 판매 8~10배 / 기부: 명성+40·VP+25·영향력+3 ---
+  { id:"r18", name:"리바이어던의 이빨",       tier:"무구", sellMultiplier:8,  donateFame:40, donateVP:25, donateInfluence:3, useDesc:"사용하면 명예 점수(VP) 15를 즉시 얻는다.", useEffect:{ vp:15 } },
+  { id:"r19", name:"잃어버린 왕국의 인장검", tier:"무구", sellMultiplier:9,  donateFame:40, donateVP:25, donateInfluence:3, useDesc:"사용하면 명예 점수(VP) 15를 즉시 얻는다.", useEffect:{ vp:15 } },
+  { id:"r20", name:"태초의 나침반",         tier:"무구", sellMultiplier:10, donateFame:40, donateVP:25, donateInfluence:3, useDesc:"사용하면 명예 점수(VP) 15를 즉시 얻는다.", useEffect:{ vp:15 } },
+];
+
+let RARE_ITEM_INVENTORY = []; // 개인 보관함 — 화물칸과 무관하게 카드 형태로 보관
+let DISCOVERED_ITEMS = [];    // 도감에 기록된(한 번이라도 발견한) 아이템 id 목록
+
+function rollRareItem(){
+  const r = Math.random();
+  let pool;
+  if (r < 0.60) pool = RARE_ITEMS.filter(i => i.tier === "유물");       // 5% 중 60% = 3.0%
+  else if (r < 0.90) pool = RARE_ITEMS.filter(i => i.tier === "보석");  // 5% 중 30% = 1.5%
+  else pool = RARE_ITEMS.filter(i => i.tier === "무구");                // 5% 중 10% = 0.5%
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function markItemDiscovered(id){
+  if (!DISCOVERED_ITEMS.includes(id)) DISCOVERED_ITEMS.push(id);
+}
+
+/* 보물상자 카드 개봉 — 50% 자원 / 45% 무역품 / 5% 레어 아이템 */
+function rollTreasureChestLoot(){
+  const roll = Math.random();
+  if (roll < 0.5){
+    const options = ["gold", "fuel", "food"];
+    const pick = options[Math.floor(Math.random() * options.length)];
+    if (pick === "gold"){ const amt = 20 + Math.floor(Math.random() * 30); player.gold += amt; return `골드 ${amt}G`; }
+    if (pick === "fuel"){ const amt = 1 + Math.floor(Math.random() * 2); player.fuel += amt; return `연료 ${amt}`; }
+    const amt = 1 + Math.floor(Math.random() * 2); player.food += amt; return `식량 ${amt}`;
+  } else if (roll < 0.95){
+    const good = ALL_GOODS[Math.floor(Math.random() * ALL_GOODS.length)];
+    if (ship.cargoUsed < ship.cargoSlots){
+      ship.cargo[good] = (ship.cargo[good] || 0) + 1;
+      ship.cargoUsed += 1;
+      return `무역품 [${good}] 1개`;
+    }
+    player.gold += 30;
+    return `화물칸이 가득 차 대신 30G`;
+  } else {
+    const item = rollRareItem();
+    RARE_ITEM_INVENTORY.push({ ...item, uid: Date.now() + Math.random() });
+    markItemDiscovered(item.id);
+    return `레어 아이템 [${item.name}] (${item.tier})`;
+  }
+}
 
 const COMPANIONS = [
   { id:"helmsman", icon:"&#9875;", name:"초보 조타수", role:"항해 / 이동",
@@ -2531,6 +2615,30 @@ function renderHandModalContent(){
     `;
   }).join("") : `<div style="font-size:12.5px;color:var(--parchment-dim);">덱이 비어 있다.</div>`;
 
+  const itemsHtml = RARE_ITEM_INVENTORY.length ? RARE_ITEM_INVENTORY.map((item, i) => `
+    <div class="card-row">
+      <div class="card-row-head">
+        <span class="card-name">${item.name}</span>
+        <span class="card-type-tag">${item.tier}</span>
+      </div>
+      <div class="card-desc">${item.useDesc}</div>
+      <div class="card-progress">판매가 참고: 약 ${RARE_ITEM_BASE_VALUE * item.sellMultiplier}G (마켓에서 판매) · 기부 시 명성+${item.donateFame}·VP+${item.donateVP}·영향력+${item.donateInfluence} (시청에서 기부)</div>
+      <div class="card-row-actions">
+        <button class="mini-btn sell" data-item-act="use" data-item-idx="${i}">아이템 사용</button>
+      </div>
+    </div>
+  `).join("") : `<div style="font-size:12.5px;color:var(--parchment-dim);">보관함이 비어 있다. 해상 이벤트의 보물상자에서 5% 확률로 얻을 수 있다.</div>`;
+
+  const dexHtml = RARE_ITEMS.map(item => {
+    const found = DISCOVERED_ITEMS.includes(item.id);
+    return `
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(122,92,40,0.2);">
+        <span style="color:${found ? "var(--parchment)" : "var(--parchment-dim)"};">${found ? item.name : "???"}</span>
+        <span style="color:var(--parchment-dim);">${found ? item.tier : "미발견"}</span>
+      </div>
+    `;
+  }).join("");
+
   document.getElementById("hand-modal-body").innerHTML = `
     <div class="status-block">
       <div class="section-label">손패 (Hand)</div>
@@ -2541,6 +2649,15 @@ function renderHandModalContent(){
       ${boardHtml}
       <div class="simple-stat" style="margin-top:10px;"><span>보드 총 VP</span><b>${BOARD.reduce((s, c) => s + (c.vp || 0), 0)}</b></div>
     </div>
+    <div class="status-block">
+      <div class="section-label">레어 아이템 보관함 (${RARE_ITEM_INVENTORY.length}개)</div>
+      <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:8px;">화물칸과 별도로 보관됩니다. 판매는 마켓에서, 기부는 시청에서 할 수 있습니다.</div>
+      ${itemsHtml}
+    </div>
+    <div class="status-block">
+      <div class="section-label">레어 아이템 도감 (${DISCOVERED_ITEMS.length} / ${RARE_ITEMS.length} 발견)</div>
+      <div style="max-height:180px;overflow-y:auto;">${dexHtml}</div>
+    </div>
     <div class="status-block" style="margin-bottom:0;">
       <div class="section-label">해상 이벤트 덱 (${DECK.length}장)</div>
       <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:10px;">
@@ -2549,6 +2666,13 @@ function renderHandModalContent(){
       <div style="max-height:220px;overflow-y:auto;">${deckHtml}</div>
     </div>
   `;
+
+  document.getElementById("hand-modal-body").querySelectorAll("[data-item-act]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      useRareItem(parseInt(btn.dataset.itemIdx, 10));
+      renderHandModalContent();
+    });
+  });
 
   document.getElementById("hand-modal-body").querySelectorAll("[data-act]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -2561,6 +2685,24 @@ function renderHandModalContent(){
       renderHandModalContent();
     });
   });
+}
+
+/* 레어 아이템 사용 — 소모되며 등급에 따른 즉시 보상을 준다 */
+function useRareItem(idx){
+  const item = RARE_ITEM_INVENTORY[idx];
+  if (!item) return;
+  RARE_ITEM_INVENTORY.splice(idx, 1);
+
+  const e = item.useEffect || {};
+  if (e.gold) player.gold += e.gold;
+  if (e.vp) player.vp += e.vp;
+  if (e.fame) player.fame += e.fame;
+  if (e.notoriety) player.notoriety += e.notoriety;
+  if (e.fuel) player.fuel += e.fuel;
+  if (e.food) player.food += e.food;
+
+  log("항해일지", `[${item.name}]을(를) 사용했다. ${item.useDesc}`);
+  renderGauges(); renderShipStats();
 }
 
 function closePanel(){
@@ -2587,20 +2729,6 @@ function clearPanelConfirm(){
 
 /* ===== A. 시장 거래 ===== */
 let marketQty = {};
-
-function doOpenMarket(){
-  const firstOpen = activePanel !== "market";
-  activePanel = "market";
-  if (firstOpen){ actionCharged = false; marketQty = {}; }
-  document.getElementById("panel-box").classList.add("open");
-  document.getElementById("panel-title-text").textContent = "마켓";
-  renderMarketPanel();
-  if (firstOpen){
-    const port = PORTS.find(p => p.id === player.location);
-    log("시장 상인", `어서 오시오. ${port.name}에서는 ${port.produces.join(", ")}이(가) 싸고, ${port.demands.join(", ")}은(는) 비싸게 쳐드리오.`);
-  }
-}
-
 let marketStaged = {}; // { goodName: { action:'buy'|'sell', qty } }
 
 function doOpenMarket(){
@@ -2620,10 +2748,19 @@ function renderMarketPanel(){
   const port = PORTS.find(p => p.id === player.location);
   const table = market.getMarket(port.id);
   const spaceLeft = ship.cargoSlots - ship.cargoUsed;
+
+  // 매도로 담아둔 대금만큼 매수 여력에 미리 반영한다 (실제 정산은 확정 시 매도를 먼저 처리)
+  const stagedSellRevenue = Object.entries(marketStaged).reduce((sum, [g, s]) => {
+    if (s.action !== "sell" || !table[g]) return sum;
+    return sum + table[g].price * s.qty;
+  }, 0);
+  const virtualGold = player.gold + stagedSellRevenue;
+
   const rows = ALL_GOODS.map(name => {
     const good = table[name];
     const holding = ship.cargo[name] || 0;
-    const affordable = good.price > 0 ? Math.floor(player.gold / good.price) : 0;
+    const avgCost = holding > 0 ? Math.round((ship.cargoCost[name] || 0) / holding) : null;
+    const affordable = good.price > 0 ? Math.floor(virtualGold / good.price) : 0;
     const maxBuy = good.qtyLevel > 1 ? Math.max(0, Math.min(spaceLeft, affordable)) : 0;
     const canBuy = maxBuy > 0;
     const canSell = holding > 0;
@@ -2633,8 +2770,8 @@ function renderMarketPanel(){
     marketQty[name] = qty;
     const staged = marketStaged[name];
     return `<tr>
-      <td class="name" data-label="상품">${name}</td>
-      <td class="num" data-label="재고" style="color:${STOCK_COLORS[good.qtyLevel]};">${STOCK_LABELS[good.qtyLevel]}${maxBuy > 0 ? ` <span style="color:var(--parchment-dim);font-size:10px;">(최대 ${maxBuy}개)</span>` : ""}</td>
+      <td class="name" data-label="상품">${name}${avgCost !== null ? `<br><span style="font-size:10px;color:var(--parchment-dim);font-weight:normal;">평균매입 ${avgCost}G</span>` : ""}</td>
+      <td class="num" data-label="재고" style="color:${STOCK_COLORS[good.qtyLevel]};">${STOCK_LABELS[good.qtyLevel]}${maxBuy > 0 ? `<br><span style="color:var(--parchment-dim);font-size:10px;">(최대 ${maxBuy}개)</span>` : ""}</td>
       <td class="num" data-label="가격">${good.price}G</td>
       <td class="num" data-label="보유">${holding}</td>
       <td data-label="수량">
@@ -2645,21 +2782,42 @@ function renderMarketPanel(){
         </div>
       </td>
       <td data-label="거래">
-        <button class="mini-btn" data-good="${name}" data-act="buy" ${canBuy?"":"disabled"}>매수 담기</button>
-        <button class="mini-btn sell" data-good="${name}" data-act="sell" ${canSell?"":"disabled"}>매도 담기</button>
-        ${staged ? `<div style="font-size:10px;color:var(--teal-light);margin-top:3px;">예정: ${staged.action === "buy" ? "매수" : "매도"} ${staged.qty}개
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          <button class="mini-btn" data-good="${name}" data-act="buy" ${canBuy?"":"disabled"}>매수 담기</button>
+          <button class="mini-btn sell" data-good="${name}" data-act="sell" ${canSell?"":"disabled"}>매도 담기</button>
+        </div>
+        ${staged ? `<div style="font-size:10px;color:var(--teal-light);margin-top:4px;">예정: ${staged.action === "buy" ? "매수" : "매도"} ${staged.qty}개
           <button class="mini-btn" data-cancel="${name}" style="padding:1px 5px;margin-left:4px;">취소</button></div>` : ""}
       </td>
     </tr>`;
   }).join("");
 
   document.getElementById("panel-body").innerHTML = `
-    <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:8px;">+/− 로 수량을 정한 뒤 "담기"로 예약하고, 위 확정 버튼을 눌러야 실제로 거래됩니다. 시세 변동은 이번 방문 중엔 반영되지 않고, 다음 마을 도착 시 한꺼번에 적용됩니다.</div>
-    <table class="market-table">
-      <thead><tr><th>상품</th><th>재고</th><th>가격</th><th>보유</th><th>수량</th><th>거래</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
+    <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:8px;">+/− 로 수량을 정한 뒤 "담기"로 예약하고, 위 확정 버튼을 눌러야 실제로 거래됩니다. 매도 담은 금액은 매수 여력에 미리 반영됩니다. 시세 변동은 다음 마을 도착 시 한꺼번에 적용됩니다.</div>
+    <div style="overflow-x:auto;">
+      <table class="market-table">
+        <thead><tr><th>상품</th><th>재고</th><th>가격</th><th>보유</th><th>수량</th><th>거래</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${RARE_ITEM_INVENTORY.length ? `
+      <div class="section-label" style="text-align:left;margin:16px 0 8px;">레어 아이템 판매</div>
+      <div style="font-size:11px;color:var(--parchment-dim);margin-bottom:8px;">등급이 높을수록 일반 화물보다 훨씬 비싸게 팔린다.</div>
+      ${RARE_ITEM_INVENTORY.map((item, i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(122,92,40,0.25);">
+          <span style="font-size:12px;color:var(--parchment);">${item.name} <span style="color:var(--teal-light);font-size:10.5px;">(${item.tier})</span></span>
+          <button class="mini-btn sell" data-sell-item-idx="${i}">판매 (${RARE_ITEM_BASE_VALUE * item.sellMultiplier}G)</button>
+        </div>
+      `).join("")}
+    ` : ""}
   `;
+
+  document.getElementById("panel-body").querySelectorAll("[data-sell-item-idx]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      sellRareItem(parseInt(btn.dataset.sellItemIdx, 10));
+      renderMarketPanel();
+    });
+  });
 
   document.getElementById("panel-body").querySelectorAll("[data-qty]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -2692,12 +2850,21 @@ function renderMarketPanel(){
 function confirmMarketTrades(){
   const entries = Object.entries(marketStaged);
   if (entries.length === 0) return;
-  entries.forEach(([good, staged]) => {
-    if (staged.action === "buy") tradeBuy(good, staged.qty);
-    else tradeSell(good, staged.qty);
-  });
+  // 매도를 먼저 정산해 매도 대금으로 매수 여력을 실제로 확보한 뒤 매수를 처리한다
+  entries.filter(([, s]) => s.action === "sell").forEach(([good, staged]) => tradeSell(good, staged.qty));
+  entries.filter(([, s]) => s.action === "buy").forEach(([good, staged]) => tradeBuy(good, staged.qty));
   marketStaged = {};
   renderMarketPanel();
+}
+
+function sellRareItem(idx){
+  const item = RARE_ITEM_INVENTORY[idx];
+  if (!item) return;
+  const price = RARE_ITEM_BASE_VALUE * item.sellMultiplier;
+  RARE_ITEM_INVENTORY.splice(idx, 1);
+  player.gold += price;
+  log("시장 상인", `[${item.name}]을(를) ${price}G에 팔았다. "귀한 물건이군요."`);
+  renderGauges(); renderShipStats();
 }
 
 function tradeBuy(goodName, amount){
@@ -3340,6 +3507,26 @@ function renderPromotionPanel(){
     }).join("") + `</div>`;
   }
 
+  const isDonateItemChoice = cityHallChoice && typeof cityHallChoice === "object" && cityHallChoice.type === "donateItem";
+  html += `
+    <label class="choice-option">
+      <input type="radio" name="cityhall-choice" value="donateItem" ${isDonateItemChoice ? "checked" : ""} ${RARE_ITEM_INVENTORY.length === 0 ? "disabled" : ""}>
+      <div>
+        <div class="choice-option-title">레어 아이템 기부</div>
+        <div class="choice-option-desc">${RARE_ITEM_INVENTORY.length === 0 ? "기부할 레어 아이템이 없다." : "보관함의 레어 아이템 1개를 기부해 대량의 명성·VP·영향력을 얻는다."}</div>
+      </div>
+    </label>
+  `;
+  if (isDonateItemChoice){
+    html += `<div class="choice-suboptions">` + RARE_ITEM_INVENTORY.map((item, i) => {
+      const checked = cityHallChoice.idx === i;
+      return `<label class="choice-subcheck">
+        <input type="radio" name="cityhall-donate-item" value="${i}" ${checked ? "checked" : ""}>
+        <span>${item.name} (${item.tier}) — 명성+${item.donateFame}·VP+${item.donateVP}·영향력+${item.donateInfluence}</span>
+      </label>`;
+    }).join("") + `</div>`;
+  }
+
   const cityState = CITY_STATE[port.id];
   const cap = influenceSlotsForLevel(cityState.level);
   const totalInfluence = Object.values(cityState.influence).reduce((a, b) => a + b, 0);
@@ -3366,13 +3553,21 @@ function renderPromotionPanel(){
 
   body.querySelectorAll('input[name="cityhall-choice"]').forEach(radio => {
     radio.addEventListener("change", () => {
-      cityHallChoice = radio.value === "donate" ? { type:"donate", good:null } : radio.value;
+      if (radio.value === "donate") cityHallChoice = { type:"donate", good:null };
+      else if (radio.value === "donateItem") cityHallChoice = { type:"donateItem", idx:null };
+      else cityHallChoice = radio.value;
       renderPromotionPanel();
     });
   });
   body.querySelectorAll('input[name="cityhall-donate-good"]').forEach(radio => {
     radio.addEventListener("change", () => {
       cityHallChoice = { type:"donate", good: radio.value };
+      renderPromotionPanel();
+    });
+  });
+  body.querySelectorAll('input[name="cityhall-donate-item"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+      cityHallChoice = { type:"donateItem", idx: parseInt(radio.value, 10) };
       renderPromotionPanel();
     });
   });
@@ -3383,6 +3578,7 @@ function renderPromotionPanel(){
 function isCityHallChoiceValid(){
   if (cityHallChoice === "pledge" || cityHallChoice === "invest") return true;
   if (cityHallChoice && typeof cityHallChoice === "object" && cityHallChoice.type === "donate" && cityHallChoice.good) return true;
+  if (cityHallChoice && typeof cityHallChoice === "object" && cityHallChoice.type === "donateItem" && cityHallChoice.idx !== null && cityHallChoice.idx !== undefined) return true;
   return false;
 }
 
@@ -3390,9 +3586,23 @@ function confirmCityHall(){
   if (!isCityHallChoiceValid()) return;
   if (cityHallChoice === "pledge") pledgeFame();
   else if (cityHallChoice === "invest") confirmTownInvest();
+  else if (cityHallChoice.type === "donateItem") donateRareItem(cityHallChoice.idx);
   else donateCargo(cityHallChoice.good);
   cityHallChoice = null;
   closePanel();
+}
+
+function donateRareItem(idx){
+  const item = RARE_ITEM_INVENTORY[idx];
+  if (!item) return;
+  const port = PORTS.find(p => p.id === player.location);
+  RARE_ITEM_INVENTORY.splice(idx, 1);
+  player.fame += item.donateFame;
+  player.vp += item.donateVP;
+  placeInfluence(port.id, "player", item.donateInfluence);
+  chargeActionOnce();
+  log("항구 관리소", `[${item.name}]을(를) 기부했다! 명성 +${item.donateFame}, VP +${item.donateVP}, 이 도시에 영향력 마커 ${item.donateInfluence}개를 놓았다.`);
+  renderGauges(); renderShipStats();
 }
 
 function confirmTownInvest(){
@@ -3428,9 +3638,11 @@ function donateCargo(goodName){
   const price = table[goodName] ? table[goodName].price : 0;
   const fameGain = Math.max(1, Math.round(price * 0.1));
 
+  const prevCost = ship.cargoCost[goodName] || 0;
+  ship.cargoCost[goodName] = Math.max(0, Math.round(prevCost * (1 - 1 / holding)));
   ship.cargo[goodName] = holding - 1;
   ship.cargoUsed -= 1;
-  if (ship.cargo[goodName] <= 0) delete ship.cargo[goodName];
+  if (ship.cargo[goodName] <= 0){ delete ship.cargo[goodName]; delete ship.cargoCost[goodName]; }
   player.fame += fameGain;
 
   bumpAchievementProgress(goodName, "donate", port.id);
@@ -3550,100 +3762,102 @@ function renderVoyagePanel(){
   document.getElementById("btn-step").addEventListener("click", stepVoyage);
 }
 
+const GATE_LOW = 15, GATE_MID = 30, GATE_HIGH = 50; // 명성/악명 게이트 기준 (선택지 잠금 해제 수치)
+const SPECIAL_FLOW_TYPES = new Set(["combat", "storm", "ghost", "wreck", "auction"]);
+
 function stepVoyage(){
   if (!voyage || voyage.distressed || voyage.remaining <= 0) return;
 
-  const specialKey = rollSpecialEvent();
-  if (specialKey === "storm"){
-    // 폭풍우는 실질적으로 선택지가 없으므로, 이동 클릭에 곧바로 주사위 이펙트가 뜨도록 즉시 처리한다.
-    applyStepMovementCost();
-    resolveStorm();
-    return;
-  }
-  if (specialKey){
-    applyStepMovementCost();
-    openSpecialEventPanel(specialKey);
-    return;
-  }
-
   const card = DECK[Math.floor(Math.random() * DECK.length)];
   showCardRevealEffect(card, () => {
-    let fuelCost = 1;
-    let foodCost = 1;
-    let extraNote = "";
-    let rewardText = null;
-    let damageText = null;
-
-    if (card.id === "tailwind"){
-      fuelCost = 0;
-      extraNote = " 순풍 덕에 연료 소모가 없었다.";
-    } else if (card.id === "reef"){
-      foodCost += 1;
-      extraNote = " 암초에 긁혀 식량 일부가 유실됐다.";
-      damageText = "식량 -1 추가 손실";
-    } else if (card.id === "driftcargo"){
-      player.gold += 30;
-      extraNote = " 떠내려온 화물에서 30G 상당을 건졌다.";
-      rewardText = "+30G";
-    } else if (card.id === "rare_ether_current"){
-      fuelCost = 0;
-      foodCost = 0;
-      extraNote = " 에테르 해류를 타고 연료와 식량 소모 없이 나아갔다.";
-    }
-
-    if (!rewardText && !damageText){
-      if (card.type === "bonus") rewardText = "행운의 사건";
-      else if (card.type === "hazard") damageText = "위험한 사건";
-    }
-
-    const fuelSaveChance = (player.waterFuelSaveChance || 0) + getCrewEffectValue("fuel_save_chance");
-    if (fuelCost > 0 && fuelSaveChance > 0 && Math.random() < fuelSaveChance){
-      fuelCost = 0;
-      extraNote += " 동료/사주의 기운이 연료 소모를 막아줬다.";
-    }
-
-    const finalizeStep = () => {
-      player.fuel = Math.max(0, player.fuel - fuelCost);
-      player.food = Math.max(0, player.food - foodCost);
-      voyage.remaining -= 1;
-
-      log("항해 사건", `[${card.name}] ${card.desc}${extraNote}`);
-      renderGauges();
-
-      if ((player.fuel <= 0 || player.food <= 0) && voyage.remaining > 0){
-        voyage.distressed = true;
-        log("항해일지", `연료 또는 식량이 완전히 바닥났다. 목적지까지 아직 ${voyage.remaining}칸이 남은 채로 배가 표류하기 시작한다 — 조난 상태.`);
-      }
-
-      renderVoyagePanel();
-    };
-
-    if (rewardText){
-      showTreasureEffect(rewardText, finalizeStep);
-    } else if (damageText){
-      showDamageEffect(damageText, finalizeStep);
+    if (SPECIAL_FLOW_TYPES.has(card.type)){
+      openVoyageEventChoice(card);
     } else {
-      finalizeStep();
+      resolveSimpleCard(card);
     }
   });
 }
 
-/* ===== 확장 해상 이벤트 — 명성/악명 조건부 특수 이벤트 ===== */
-function rollSpecialEvent(){
-  if (voyage.total >= 4 && !voyage._ghostSeen && Math.random() < 0.3){
-    voyage._ghostSeen = true;
-    return "ghost";
+/* 선택지/주사위가 필요 없는 카드 — 효과가 있으면 즉시 적용하고, 없으면 그대로 전진한다 */
+function resolveSimpleCard(card){
+  let fuelCost = 3;
+  let foodCost = 1 + ship.crew.length;
+  let extraNote = "";
+  let rewardText = null;
+  let damageText = null;
+
+  if (card.id === "tailwind" || card.id === "lighthouse"){
+    fuelCost = Math.max(0, fuelCost - 1);
+    extraNote = card.id === "tailwind" ? " 순풍 덕에 연료 소모가 줄었다." : " 등대지기의 조언 덕에 연료 소모가 줄었다.";
+  } else if (card.id === "reef" || card.id === "fog_bank"){
+    foodCost += 1;
+    extraNote = card.id === "reef" ? " 암초에 긁혀 식량 일부가 유실됐다." : " 안개 속에서 길을 헤매 식량을 더 소모했다.";
+    damageText = "식량 -1 추가 손실";
+  } else if (card.id === "driftcargo"){
+    player.gold += 30;
+    extraNote = " 떠내려온 화물에서 30G 상당을 건졌다.";
+    rewardText = "+30G";
+  } else if (card.id === "trade_wind"){
+    player.gold += 15;
+    extraNote = " 무역풍을 타고 소소한 부수입을 얻었다.";
+    rewardText = "+15G";
+  } else if (card.id === "lucky_shoal"){
+    player.gold += 20;
+    extraNote = " 물고기 떼를 팔아 부수입을 얻었다.";
+    rewardText = "+20G";
+  } else if (card.id === "rare_ether_current"){
+    fuelCost = 0;
+    foodCost = 0;
+    extraNote = " 에테르 해류를 타고 연료와 식량 소모 없이 나아갔다.";
+  } else if (card.type === "treasure"){
+    const lootDesc = rollTreasureChestLoot();
+    extraNote = ` 보물상자를 열어 ${lootDesc}을(를) 얻었다.`;
+    rewardText = lootDesc;
   }
-  if (player.notoriety >= 20 && Math.random() < 0.2) return "auction";
-  if (Math.random() < 0.15) return "wreck";
-  if (Math.random() < 0.15) return "storm";
-  if (Math.random() < 0.18) return "combat";
-  return null;
+
+  if (!rewardText && !damageText){
+    if (card.type === "bonus") rewardText = "행운의 사건";
+    else if (card.type === "hazard") damageText = "위험한 사건";
+  }
+
+  const fuelSaveChance = (player.waterFuelSaveChance || 0) + getCrewEffectValue("fuel_save_chance");
+  if (fuelCost > 0 && fuelSaveChance > 0 && Math.random() < fuelSaveChance){
+    fuelCost = 0;
+    extraNote += " 동료/사주의 기운이 연료 소모를 막아줬다.";
+  }
+
+  const finalizeStep = () => {
+    player.fuel = Math.max(0, player.fuel - fuelCost);
+    player.food = Math.max(0, player.food - foodCost);
+    voyage.remaining -= 1;
+
+    log("항해 사건", `[${card.name}] ${card.desc}${extraNote}`);
+    renderGauges();
+
+    if ((player.fuel <= 0 || player.food <= 0) && voyage.remaining > 0){
+      voyage.distressed = true;
+      log("항해일지", `연료 또는 식량이 완전히 바닥났다. 목적지까지 아직 ${voyage.remaining}칸이 남은 채로 배가 표류하기 시작한다 — 조난 상태.`);
+    }
+
+    renderVoyagePanel();
+  };
+
+  if (rewardText){
+    showTreasureEffect(rewardText, finalizeStep);
+  } else if (damageText){
+    showDamageEffect(damageText, finalizeStep);
+  } else {
+    finalizeStep();
+  }
 }
 
 function applyStepMovementCost(){
-  player.fuel = Math.max(0, player.fuel - 1);
-  player.food = Math.max(0, player.food - 1);
+  const fuelSaveChance = (player.waterFuelSaveChance || 0) + getCrewEffectValue("fuel_save_chance");
+  let fuelCost = 3;
+  if (fuelSaveChance > 0 && Math.random() < fuelSaveChance) fuelCost = 0;
+  const foodCost = 1 + ship.crew.length;
+  player.fuel = Math.max(0, player.fuel - fuelCost);
+  player.food = Math.max(0, player.food - foodCost);
   voyage.remaining -= 1;
   renderGauges();
   if ((player.fuel <= 0 || player.food <= 0) && voyage.remaining > 0){
@@ -3651,56 +3865,69 @@ function applyStepMovementCost(){
   }
 }
 
-function openSpecialEventPanel(key){
-  activePanel = "special-" + key;
+/* 잠금 상태를 보여주는 버튼 공통 헬퍼 — 조건 미달이면 필요 수치를 그대로 노출한다 */
+function gateButtonHTML(id, label, currentValue, requiredValue, extraClass){
+  const locked = currentValue < requiredValue;
+  return `<button class="mini-btn ${extraClass || ""}" id="${id}" ${locked ? "disabled" : ""}>${locked ? `🔒 ${label} (필요 ${requiredValue}, 현재 ${currentValue})` : label}</button>`;
+}
+
+/* 선택지 + 주사위가 필요한 이벤트 카드 — 이동 비용을 먼저 소모한 뒤 선택 화면을 띄운다 */
+function openVoyageEventChoice(card){
+  applyStepMovementCost();
+  activePanel = "special-" + card.type;
   document.getElementById("panel-box").classList.add("open");
   document.getElementById("panel-close").style.display = "none";
-  const body = document.getElementById("panel-body");
+  renderVoyageEventChoice(card);
+}
 
-  if (key === "auction"){
-    document.getElementById("panel-title-text").textContent = "해상 비밀 경매장";
+function renderVoyageEventChoice(card){
+  const body = document.getElementById("panel-body");
+  document.getElementById("panel-title-text").textContent = card.name;
+
+  if (card.type === "auction"){
+    const affordable = player.gold >= 100;
     body.innerHTML = `
-      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
-        안개 속에서 신원을 숨긴 상인들이 은밀한 경매를 연다. 참가하려면 100G가 필요하다.
-      </div>
-      <button class="mini-btn" id="auction-join" ${player.gold < 100 ? "disabled" : ""}>참가한다 (100G)</button>
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">${card.desc} 참가하려면 100G와 뒷세계에서의 신뢰(악명)가 필요하다.</div>
+      ${gateButtonHTML("auction-join", `경매에 참가한다 (100G)${affordable ? "" : " · 골드 부족"}`, player.notoriety, GATE_LOW)}
       <button class="mini-btn sell" id="auction-skip">지나친다</button>
     `;
-    document.getElementById("auction-join").addEventListener("click", () => resolveAuction(true));
+    const joinBtn = document.getElementById("auction-join");
+    if (!joinBtn.disabled && !affordable) joinBtn.disabled = true;
+    joinBtn.addEventListener("click", () => resolveAuction(true));
     document.getElementById("auction-skip").addEventListener("click", () => resolveAuction(false));
 
-  } else if (key === "wreck"){
-    document.getElementById("panel-title-text").textContent = "난파된 제국 수송선";
-    let html = `<div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
-      파도에 떠밀려온 제국 수송선의 잔해가 보인다. 생존자들이 손을 흔든다.</div>`;
-    if (player.fame >= 30) html += `<button class="mini-btn" id="wreck-share" style="margin:0 6px 8px 0;">식량을 나눠준다 (명성 조건 충족)</button>`;
-    if (player.notoriety >= 30) html += `<button class="mini-btn sell" id="wreck-loot" style="margin:0 6px 8px 0;">약탈한다 (악명 조건 충족)</button>`;
-    html += `<div><button class="mini-btn" id="wreck-skip">그냥 지나친다</button></div>`;
-    body.innerHTML = html;
-    if (player.fame >= 30) document.getElementById("wreck-share").addEventListener("click", () => resolveWreck("share"));
-    if (player.notoriety >= 30) document.getElementById("wreck-loot").addEventListener("click", () => resolveWreck("loot"));
+  } else if (card.type === "wreck"){
+    body.innerHTML = `
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">${card.desc}</div>
+      ${gateButtonHTML("wreck-share", "식량을 나눈다", player.fame, GATE_MID)}
+      ${gateButtonHTML("wreck-loot", "약탈한다", player.notoriety, GATE_MID, "sell")}
+      <div><button class="mini-btn" id="wreck-skip">그냥 지나친다</button></div>
+    `;
+    document.getElementById("wreck-share").addEventListener("click", () => resolveWreck("share"));
+    document.getElementById("wreck-loot").addEventListener("click", () => resolveWreck("loot"));
     document.getElementById("wreck-skip").addEventListener("click", () => resolveWreck("skip"));
 
-  } else if (key === "ghost"){
-    document.getElementById("panel-title-text").textContent = "유령선 오디세이";
+  } else if (card.type === "storm"){
     body.innerHTML = `
-      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
-        안개 속에서 낡은 범선 한 척이 소리 없이 나타난다 — 유령선이다.
-      </div>
-      <button class="mini-btn" id="ghost-fight">도전한다 (전투 주사위 10 이상 대성공)</button>
-      <button class="mini-btn sell" id="ghost-avoid">피한다</button>
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">${card.desc} 주사위(2D6) 합계 8 이상이 나와야 무사히 통과한다.</div>
+      <button class="mini-btn" id="storm-roll">돌파를 시도한다</button>
+    `;
+    document.getElementById("storm-roll").addEventListener("click", resolveStorm);
+
+  } else if (card.type === "ghost"){
+    body.innerHTML = `
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">${card.desc}</div>
+      <button class="mini-btn" id="ghost-fight">도전한다 (2D6 합계 11 이상 대성공)</button>
+      <button class="mini-btn sell" id="ghost-avoid">피한다 (명성 -1)</button>
     `;
     document.getElementById("ghost-fight").addEventListener("click", () => resolveGhost("fight"));
     document.getElementById("ghost-avoid").addEventListener("click", () => resolveGhost("avoid"));
 
-  } else if (key === "combat"){
-    document.getElementById("panel-title-text").textContent = "해적선의 습격";
+  } else if (card.type === "combat"){
     body.innerHTML = `
-      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
-        해적선 한 척이 뱃머리를 돌려 접근해온다. 2D6 + 함포 보정 + 동료 보정으로 판정한다. (8 이상 승리 / 11 이상 대성공 / 7 이하 패배)
-      </div>
+      <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">${card.desc} 2D6 + 함포 보정 + 동료 보정으로 판정한다. (8 이상 승리 / 11 이상 대성공 / 7 이하 패배)</div>
       <button class="mini-btn" id="combat-fight">교전한다</button>
-      <button class="mini-btn sell" id="combat-flee">도주한다 (연료 1 추가 소모)</button>
+      <button class="mini-btn sell" id="combat-flee">도주한다 (명성 -2, 연료 1 추가 소모)</button>
     `;
     document.getElementById("combat-fight").addEventListener("click", () => resolveCombat("fight"));
     document.getElementById("combat-flee").addEventListener("click", () => resolveCombat("flee"));
@@ -3708,31 +3935,50 @@ function openSpecialEventPanel(key){
 }
 
 function resolveAuction(participate){
-  if (participate){
-    if (player.gold < 100){
-      log("경매 진행자", "\"100G는 있어야 입찰할 수 있소.\"");
-    } else {
-      player.gold -= 100;
+  if (!participate){
+    log("항해일지", "은밀한 경매를 그냥 지나쳤다.");
+    afterSpecialEvent();
+    return;
+  }
+  if (player.gold < 100 || player.notoriety < GATE_LOW){
+    log("경매 진행자", "\"참가 자격이 안 되는구려.\"");
+    afterSpecialEvent();
+    return;
+  }
+  player.gold -= 100;
+
+  const d1 = Math.floor(Math.random() * 6) + 1;
+  const d2 = Math.floor(Math.random() * 6) + 1;
+  const total = d1 + d2;
+  const success = total >= 7;
+  const resultLabel = success ? "낙찰 성공!" : "낙찰 실패";
+  const resultColor = success ? "var(--teal-light)" : "var(--rust-light)";
+
+  showDiceRollEffect([d1, d2], `합계 ${total}`, resultLabel, resultColor, () => {
+    if (success){
       const rareGoods = ["마정석", "진주", "증기기관부품", "무기"];
       const reward = rareGoods[Math.floor(Math.random() * rareGoods.length)];
       const holding = ship.cargo[reward] || 0;
       if (ship.cargoUsed < ship.cargoSlots){
         ship.cargo[reward] = holding + 1;
         ship.cargoUsed += 1;
-        log("경매 진행자", `낙찰 성공! 고급 무역품 [${reward}] 1개를 손에 넣었다.`);
+        log("경매 진행자", `낙찰 성공! (합계 ${total}) 고급 무역품 [${reward}] 1개를 손에 넣었다.`);
       } else {
         player.gold += 60;
-        log("경매 진행자", "낙찰은 성공했지만 화물칸이 없어 대신 60G로 환전받았다.");
+        log("경매 진행자", `낙찰은 성공했지만 (합계 ${total}) 화물칸이 없어 대신 60G로 환전받았다.`);
       }
+    } else {
+      log("경매 진행자", `"아쉽게 됐군." (합계 ${total}) 낙찰에 실패해 100G만 날렸다.`);
     }
-  } else {
-    log("항해일지", "은밀한 경매를 그냥 지나쳤다.");
-  }
-  renderGauges(); renderShipStats();
-  afterSpecialEvent();
+    renderGauges(); renderShipStats();
+    afterSpecialEvent();
+  });
 }
 
 function resolveWreck(choice){
+  if (choice === "share" && player.fame < GATE_MID){ afterSpecialEvent(); return; }
+  if (choice === "loot" && player.notoriety < GATE_MID){ afterSpecialEvent(); return; }
+
   if (choice === "share"){
     player.food += 2;
     player.reputation.empire += 10;
@@ -3751,26 +3997,26 @@ function resolveWreck(choice){
 
 function resolveStorm(){
   const penalty = isHullBelowHalf() ? -1 : 0;
-  const roll = Math.floor(Math.random() * 10) + 1 + penalty;
+  const d1 = Math.floor(Math.random() * 6) + 1;
+  const d2 = Math.floor(Math.random() * 6) + 1;
+  const roll = d1 + d2 + penalty;
   let mitigated = false;
-  if (roll < 9 && player.failureMitigation){
+  if (roll < 8 && player.failureMitigation){
     mitigated = true;
     player.failureMitigation = false;
   }
 
-  log("항해일지", "보랏빛 에테르 폭풍우가 뱃길을 가로막는다! 돌파를 시도한다 — 주사위 9 이상이 나와야 무사히 통과한다.");
-
-  const success = roll >= 9 || mitigated;
+  const success = roll >= 8 || mitigated;
   const resultLabel = success ? (mitigated ? "위기 극복!" : "성공 — 무사통과") : "실패 — 피해 발생";
   const resultColor = success ? "var(--teal-light)" : "var(--rust-light)";
 
-  showDiceRollEffect([Math.max(1, roll)], null, resultLabel, resultColor, () => {
+  showDiceRollEffect([d1, d2], `합계 ${roll}`, resultLabel, resultColor, () => {
     if (success){
-      log("항해일지", `에테르 폭풍우 속에서 주사위 ${roll}${penalty ? " (내구도 저하 페널티 적용)" : ""}이 나왔다. ${mitigated ? "동료의 도움으로 위기를 넘겼다." : "능숙하게 폭풍을 뚫고 나갔다."}`);
+      log("항해일지", `에테르 폭풍우 속에서 주사위 합계 ${roll}${penalty ? " (내구도 저하 페널티 적용)" : ""}이 나왔다. ${mitigated ? "동료의 도움으로 위기를 넘겼다." : "능숙하게 폭풍을 뚫고 나갔다."}`);
     } else {
       player.fuel = Math.max(0, player.fuel - 2);
       ship.hullDamage += 10;
-      log("항해일지", `에테르 폭풍우 속에서 주사위 ${roll}${penalty ? " (내구도 저하 페널티 적용)" : ""}이 나와 실패했다. 연료 2를 잃고 선체 내구도가 손상됐다.`);
+      log("항해일지", `에테르 폭풍우 속에서 주사위 합계 ${roll}${penalty ? " (내구도 저하 페널티 적용)" : ""}이 나와 실패했다. 연료 2를 잃고 선체 내구도가 손상됐다.`);
     }
     renderGauges(); renderShipStats();
     afterSpecialEvent();
@@ -3780,8 +4026,9 @@ function resolveStorm(){
 function resolveCombat(action){
   if (action === "flee"){
     player.fuel = Math.max(0, player.fuel - 1);
-    log("항해일지", "전투를 피해 황급히 달아났다. 연료 1을 추가로 소모했다.");
-    renderGauges();
+    player.fame = Math.max(0, player.fame - 2);
+    log("항해일지", "전투를 피해 황급히 달아났다. 연료 1을 추가로 소모하고 명성이 2 떨어졌다.");
+    renderGauges(); renderShipStats();
     afterSpecialEvent();
     return;
   }
@@ -3845,25 +4092,28 @@ function resolveCombat(action){
 
 function resolveGhost(choice){
   if (choice === "avoid"){
-    log("항해일지", "안개 속으로 사라지는 유령선을 애써 피해 갔다.");
-    renderShipStats();
+    player.fame = Math.max(0, player.fame - 1);
+    log("항해일지", "안개 속으로 사라지는 유령선을 애써 피했다. 명성이 1 떨어졌다.");
+    renderGauges(); renderShipStats();
     afterSpecialEvent();
     return;
   }
 
-  const roll = Math.floor(Math.random() * 10) + 1;
-  const resultLabel = roll >= 10 ? "대성공!" : "실패";
-  const resultColor = roll >= 10 ? "var(--brass-light)" : "var(--rust-light)";
+  const d1 = Math.floor(Math.random() * 6) + 1;
+  const d2 = Math.floor(Math.random() * 6) + 1;
+  const total = d1 + d2;
+  const resultLabel = total >= 11 ? "대성공!" : "실패";
+  const resultColor = total >= 11 ? "var(--brass-light)" : "var(--rust-light)";
 
-  showDiceRollEffect([roll], null, resultLabel, resultColor, () => {
-    if (roll >= 10){
+  showDiceRollEffect([d1, d2], `합계 ${total}`, resultLabel, resultColor, () => {
+    if (total >= 11){
       BOARD.push({
         id: "ghost_treasure_" + Date.now(), name: "유령선의 보물", type: "achievement",
         desc: "유령선 오디세이에서 얻은 전설적인 보물. 연말 집계 시 VP로 환산된다.", vp: 20,
       });
-      log("항해일지", `전투 주사위 ${roll} — 대성공! 유령선을 정복하고 [업적 카드: 유령선의 보물](20VP)을 손에 넣었다.`);
+      log("항해일지", `전투 주사위 합계 ${total} — 대성공! 유령선을 정복하고 [업적 카드: 유령선의 보물](20VP)을 손에 넣었다.`);
     } else {
-      log("항해일지", `전투 주사위 ${roll} — 유령선과의 조우에서 아무 소득 없이 물러났다.`);
+      log("항해일지", `전투 주사위 합계 ${total} — 유령선과의 조우에서 아무 소득 없이 물러났다.`);
     }
     renderShipStats();
     afterSpecialEvent();
@@ -3879,7 +4129,7 @@ function afterSpecialEvent(){
   renderVoyagePanel();
 }
 
-/* ===== 조난 상태 — 손패 카드 또는 동료를 희생해야 전진 가능 ===== */
+/* ===== 조난 상태 — 2D6 합계 10 이상이면 희생 없이 통과, 실패하면 카드/동료를 희생해야 전진 가능 ===== */
 function attemptDistressStep(){
   if (!voyage || !voyage.distressed) return;
 
@@ -3892,11 +4142,28 @@ function attemptDistressStep(){
     return;
   }
 
-  if (HAND.length === 0 && ship.crew.length === 0){
-    shipwreck();
-    return;
-  }
-  openDistressChoicePanel();
+  const d1 = Math.floor(Math.random() * 6) + 1;
+  const d2 = Math.floor(Math.random() * 6) + 1;
+  const total = d1 + d2;
+  const resultLabel = total >= 10 ? "위기 극복!" : "판정 실패";
+  const resultColor = total >= 10 ? "var(--teal-light)" : "var(--rust-light)";
+
+  showDiceRollEffect([d1, d2], `합계 ${total}`, resultLabel, resultColor, () => {
+    if (total >= 10){
+      voyage.remaining -= 1;
+      if (voyage.remaining <= 0) voyage.distressed = false;
+      log("항해일지", `조난 극복 판정 성공 (합계 ${total})! 아무것도 희생하지 않고 한 칸 나아간다.`);
+      renderVoyagePanel();
+      return;
+    }
+
+    log("항해일지", `조난 극복 판정 실패 (합계 ${total}). 무언가를 희생해야 한다.`);
+    if (HAND.length === 0 && ship.crew.length === 0){
+      shipwreck();
+      return;
+    }
+    openDistressChoicePanel();
+  });
 }
 
 function openDistressChoicePanel(){
@@ -4133,8 +4400,8 @@ const SAVE_KEY = "aqua_mechanica_save_v1";
 
 // 배포 전 아래 두 값을 Supabase 프로젝트 값으로 채워주세요 (Project Settings -> API).
 // ANON KEY는 공개되어도 안전한 값입니다 (RLS로 보호됨). SERVICE ROLE KEY는 여기 넣지 마세요.
-const SUPABASE_URL = "https://emgsqnzfdvvbtooouaap.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0";
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
 
 let supabaseClient = null;
 let supabaseSession = null;
@@ -4220,6 +4487,7 @@ function serializeState(){
   return JSON.stringify({
     player, ship, HAND, BOARD, DECK, selectedCompanionId, turnActionsUsed,
     marketMatrices: market.matrices, cityState: CITY_STATE,
+    rareItemInventory: RARE_ITEM_INVENTORY, discoveredItems: DISCOVERED_ITEMS,
   });
 }
 
@@ -4252,6 +4520,7 @@ function applyLoadedState(data){
   ship.crewSlots = data.ship.crewSlots;
   ship.crewUsed = data.ship.crewUsed;
   ship.cargo = data.ship.cargo || {};
+  ship.cargoCost = data.ship.cargoCost || {};
   ship.crew = data.ship.crew || [];
   ship.tracks = data.ship.tracks || ship.tracks;
   ship.hullDamage = data.ship.hullDamage || 0;
@@ -4259,6 +4528,9 @@ function applyLoadedState(data){
   HAND.length = 0; (data.HAND || []).forEach(c => HAND.push(c));
   BOARD.length = 0; (data.BOARD || []).forEach(c => BOARD.push(c));
   DECK.length = 0; (data.DECK || []).forEach(c => DECK.push(c));
+
+  RARE_ITEM_INVENTORY.length = 0; (data.rareItemInventory || []).forEach(c => RARE_ITEM_INVENTORY.push(c));
+  DISCOVERED_ITEMS.length = 0; (data.discoveredItems || []).forEach(id => DISCOVERED_ITEMS.push(id));
 
   selectedCompanionId = data.selectedCompanionId;
   turnActionsUsed = data.turnActionsUsed || 0;
