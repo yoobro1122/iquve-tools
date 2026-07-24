@@ -37,6 +37,7 @@ body{
   justify-content:center;
   padding:24px;
 }
+body.has-top-banner{ padding-top:64px; }
 
 .rivet-frame{
   position:relative;
@@ -541,6 +542,22 @@ body{
 }
 
 /* ===== 플로팅 현황 버튼 ===== */
+/* ===== 상단 고정 플로팅 배너 ===== */
+#top-banner{
+  position:fixed; top:0; left:0; right:0; z-index:140;
+  display:none; align-items:center; gap:10px; flex-wrap:wrap;
+  background:linear-gradient(180deg, rgba(20,15,8,0.97), rgba(20,15,8,0.9));
+  border-bottom:2px solid var(--brass-dim);
+  padding:7px 14px;
+  font-family:'Share Tech Mono', monospace; font-size:12px; color:var(--parchment);
+  box-shadow:0 4px 14px rgba(0,0,0,0.5);
+}
+#top-banner.show{ display:flex; }
+#top-banner .tb-item{ white-space:nowrap; }
+#top-banner .tb-sep{ color:var(--brass-dim); }
+#top-banner .tb-clickable{ cursor:pointer; border-bottom:1px dotted var(--brass-dim); }
+#top-banner .tb-clickable:hover{ color:var(--brass-light); }
+
 #btn-floating-status{
   position:fixed; bottom:22px; right:22px; z-index:150;
   width:52px; height:52px; border-radius:50%;
@@ -675,6 +692,21 @@ body{
   </div>
 
   <!-- ============ 게임 화면 ============ -->
+  <div id="top-banner">
+    <span class="tb-item" id="tb-name">-</span>
+    <span class="tb-sep">·</span>
+    <span class="tb-item" id="tb-location">-</span>
+    <span class="tb-sep">·</span>
+    <span class="tb-item" id="tb-turn">-</span>
+    <span class="tb-sep">·</span>
+    <span class="tb-item" id="tb-gold">💰 0</span>
+    <span class="tb-item" id="tb-fuel">⛽ 0</span>
+    <span class="tb-item" id="tb-food">🍖 0</span>
+    <span class="tb-item tb-clickable" id="tb-cards">🃏 0</span>
+    <span class="tb-item tb-clickable" id="tb-cargo">📦 0/0</span>
+    <span class="tb-item tb-clickable" id="tb-crew">👥 0/0</span>
+  </div>
+
   <div id="game-screen" class="rivet-frame">
     <span class="rivet rv-tl"></span><span class="rivet rv-tr"></span>
     <span class="rivet rv-bl"></span><span class="rivet rv-br"></span>
@@ -685,7 +717,7 @@ body{
         <h2 class="location-banner" id="loc-name">기어헤븐</h2>
         <p class="location-sub" id="loc-sub">증기 제국 · 조선소와 관료제의 도시</p>
         <p class="dock-line" id="dock-line">현재 기어헤븐에 정박 중입니다.</p>
-        <span class="turn-counter" id="turn-counter">이번 턴 행동 <b>0</b> / 4</span>
+        <span class="turn-counter" id="turn-counter">이번 턴 행동 <b>0</b> / 3</span>
         <button class="mini-btn" id="btn-undo-turn" style="margin-left:8px;vertical-align:middle;">이번 턴 되돌리기</button>
       </div>
 
@@ -1204,6 +1236,7 @@ const player = {
   month: 1,               // 1~12월, 12월 도착 시 연말 결산
   investedCities: [],     // 마을 투자를 집행한 도시(=도시 지분 마커) 목록
   influenceWins: 0,       // 도시 영향력 경쟁에서 승리한 횟수
+  visitedPorts: [],       // 방문한 서로 다른 항구 목록 (탐험 목표 카드용)
 };
 
 const ship = {
@@ -1360,6 +1393,133 @@ const RARE_ITEMS = [
 
 let RARE_ITEM_INVENTORY = []; // 개인 보관함 — 화물칸과 무관하게 카드 형태로 보관
 let DISCOVERED_ITEMS = [];    // 도감에 기록된(한 번이라도 발견한) 아이템 id 목록
+
+/* =========================================================================
+   시나리오 목표 카드 20종 — ORIGIN_STORIES(배경 스토리) 20종과 1:1 매핑.
+   캐릭터 생성 시 originIndex에 맞는 카드가 자동으로 개인 보드에 등록된 채 시작한다.
+   goalType으로 다양한 플레이 스타일의 목표를 추적한다 (무역/전투/영향력/영입/개조/명성/악명/탐험).
+   ========================================================================= */
+const SCENARIO_GOAL_CARDS = [
+  { id:"scenario_goal_0", originId:0, name:"가문의 명예 재건", type:"achievement", installCost:{ gold:0 },
+    desc:"명성 30에 도달하여 몰락한 가문의 이름을 다시 제국 전역에 알리십시오.",
+    rewardDesc:"완료 보상: 증기 제국 평판 +10 · VP +18",
+    rewardGold:0, rewardVP:18, rewardRep:10, rewardFaction:"empire",
+    goalType:"fame_reach", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:30, rewarded:false },
+
+  { id:"scenario_goal_1", originId:1, name:"선조의 유물 수집", type:"achievement", installCost:{ gold:0 },
+    desc:"해상 전투에서 3회 승리하여 괴수와 해적들에게 빼앗긴 선조의 유물을 회수하십시오.",
+    rewardDesc:"완료 보상: 골드 500G · VP +18",
+    rewardGold:500, rewardVP:18, rewardRep:0, rewardFaction:null,
+    goalType:"combat_win", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:3, rewarded:false },
+
+  { id:"scenario_goal_2", originId:2, name:"비약의 핵심 시약", type:"achievement", installCost:{ gold:0 },
+    desc:"연금술 재료 '마정석'을 총 5회 거래하여 연구를 완수하십시오.",
+    rewardDesc:"완료 보상: 골드 300G · 연금술사 연합 평판 +10 · VP +17",
+    rewardGold:300, rewardVP:17, rewardRep:10, rewardFaction:"union",
+    goalType:"trade_good", goalParam:"마정석", goalGood:"마정석", goalCurrent:0, goalTarget:5, rewarded:false },
+
+  { id:"scenario_goal_3", originId:3, name:"동방 비단 상로 개척", type:"achievement", installCost:{ gold:0 },
+    desc:"사치품 '실크'를 총 5회 거래하여 동방 무역로를 증명하십시오.",
+    rewardDesc:"완료 보상: 골드 400G · VP +19",
+    rewardGold:400, rewardVP:19, rewardRep:0, rewardFaction:null,
+    goalType:"trade_good", goalParam:"실크", goalGood:"실크", goalCurrent:0, goalTarget:5, rewarded:false },
+
+  { id:"scenario_goal_4", originId:4, name:"독립 선단의 위용", type:"achievement", installCost:{ gold:0 },
+    desc:"선박 개조를 총 4회 완료하여 추격대를 따돌릴 강력한 함선을 건조하십시오.",
+    rewardDesc:"완료 보상: VP +18",
+    rewardGold:0, rewardVP:18, rewardRep:0, rewardFaction:null,
+    goalType:"ship_upgrade", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:4, rewarded:false },
+
+  { id:"scenario_goal_5", originId:5, name:"부둣가의 전설", type:"achievement", installCost:{ gold:0 },
+    desc:"기본 생필품 '석탄'을 총 8회 거래하여 거상으로의 발판을 마련하십시오.",
+    rewardDesc:"완료 보상: 골드 600G · VP +17",
+    rewardGold:600, rewardVP:17, rewardRep:0, rewardFaction:null,
+    goalType:"trade_good", goalParam:"석탄", goalGood:"석탄", goalCurrent:0, goalTarget:8, rewarded:false },
+
+  { id:"scenario_goal_6", originId:6, name:"할아버지의 지도 조각", type:"achievement", installCost:{ gold:0 },
+    desc:"서로 다른 항구를 6곳 방문하여 숨겨진 유산의 힌트를 모으십시오.",
+    rewardDesc:"완료 보상: 골드 400G · VP +18",
+    rewardGold:400, rewardVP:18, rewardRep:0, rewardFaction:null,
+    goalType:"port_visit", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:6, rewarded:false },
+
+  { id:"scenario_goal_7", originId:7, name:"바다의 무법자", type:"achievement", installCost:{ gold:0 },
+    desc:"악명 25에 도달하여 암시장과 무법자 바다에서 공포의 대상이 되십시오.",
+    rewardDesc:"완료 보상: 골드 500G · 무법자 & 심해 부족 평판 +15 · VP +18",
+    rewardGold:500, rewardVP:18, rewardRep:15, rewardFaction:"outlaws",
+    goalType:"infamy_reach", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:25, rewarded:false },
+
+  { id:"scenario_goal_8", originId:8, name:"영구 기관 연구 재료", type:"achievement", installCost:{ gold:0 },
+    desc:"기계 부품 '증기기관부품'을 총 5회 거래하여 연구를 진전시키십시오.",
+    rewardDesc:"완료 보상: 골드 200G · VP +19",
+    rewardGold:200, rewardVP:19, rewardRep:0, rewardFaction:null,
+    goalType:"trade_good", goalParam:"증기기관부품", goalGood:"증기기관부품", goalCurrent:0, goalTarget:5, rewarded:false },
+
+  { id:"scenario_goal_9", originId:9, name:"별의 묵시록 추적", type:"achievement", installCost:{ gold:0 },
+    desc:"서로 다른 항구 7곳을 방문하여 운명의 실타래를 푸십시오.",
+    rewardDesc:"완료 보상: VP +20",
+    rewardGold:0, rewardVP:20, rewardRep:0, rewardFaction:null,
+    goalType:"port_visit", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:7, rewarded:false },
+
+  { id:"scenario_goal_10", originId:10, name:"복수의 피의 칼날", type:"achievement", installCost:{ gold:0 },
+    desc:"해상 전투에서 3회 승리하여 배신자들의 세력을 처단하십시오.",
+    rewardDesc:"완료 보상: 골드 450G · VP +18",
+    rewardGold:450, rewardVP:18, rewardRep:0, rewardFaction:null,
+    goalType:"combat_win", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:3, rewarded:false },
+
+  { id:"scenario_goal_11", originId:11, name:"희귀 표본 수집", type:"achievement", installCost:{ gold:0 },
+    desc:"특산품 '산호'를 총 4회 거래하여 학회 보고서를 완성하십시오.",
+    rewardDesc:"완료 보상: 골드 350G · 연금술사 연합 평판 +10 · VP +18",
+    rewardGold:350, rewardVP:18, rewardRep:10, rewardFaction:"union",
+    goalType:"trade_good", goalParam:"산호", goalGood:"산호", goalCurrent:0, goalTarget:4, rewarded:false },
+
+  { id:"scenario_goal_12", originId:12, name:"제국 정보망 확장", type:"achievement", installCost:{ gold:0 },
+    desc:"도시 영향력 투자에 3회 성공하여 황실 정보망을 구축하십시오.",
+    rewardDesc:"완료 보상: 골드 300G · 증기 제국 평판 +15 · VP +19",
+    rewardGold:300, rewardVP:19, rewardRep:15, rewardFaction:"empire",
+    goalType:"city_influence", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:3, rewarded:false },
+
+  { id:"scenario_goal_13", originId:13, name:"심해의 포식자 토벌", type:"achievement", installCost:{ gold:0 },
+    desc:"해상 전투에서 4회 승리하여 바다의 위협을 제거하십시오.",
+    rewardDesc:"완료 보상: 골드 500G · VP +20",
+    rewardGold:500, rewardVP:20, rewardRep:0, rewardFaction:null,
+    goalType:"combat_win", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:4, rewarded:false },
+
+  { id:"scenario_goal_14", originId:14, name:"왕국 복원을 위한 세력 확보", type:"achievement", installCost:{ gold:0 },
+    desc:"도시 영향력 투자에 3회 성공하여 왕국 재건의 기반을 다지십시오.",
+    rewardDesc:"완료 보상: 골드 400G · VP +19",
+    rewardGold:400, rewardVP:19, rewardRep:0, rewardFaction:null,
+    goalType:"city_influence", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:3, rewarded:false },
+
+  { id:"scenario_goal_15", originId:15, name:"자유의 선단 결성", type:"achievement", installCost:{ gold:0 },
+    desc:"동료를 총 3명 영입하여 억압에 맞설 선단을 구성하십시오.",
+    rewardDesc:"완료 보상: 골드 300G · VP +18",
+    rewardGold:300, rewardVP:18, rewardRep:0, rewardFaction:null,
+    goalType:"crew_hire", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:3, rewarded:false },
+
+  { id:"scenario_goal_16", originId:16, name:"고대 신의 성물 공헌", type:"achievement", installCost:{ gold:0 },
+    desc:"사치품 '진주'를 총 4회 거래하여 교단의 비밀 의식을 준비하십시오.",
+    rewardDesc:"완료 보상: 골드 200G · VP +20",
+    rewardGold:200, rewardVP:20, rewardRep:0, rewardFaction:null,
+    goalType:"trade_good", goalParam:"진주", goalGood:"진주", goalCurrent:0, goalTarget:4, rewarded:false },
+
+  { id:"scenario_goal_17", originId:17, name:"조용한 정착 자금", type:"achievement", installCost:{ gold:0 },
+    desc:"기호품 '럼주'를 총 6회 거래하여 평화로운 정착 자금을 마련하십시오.",
+    rewardDesc:"완료 보상: 골드 500G · VP +18",
+    rewardGold:500, rewardVP:18, rewardRep:0, rewardFaction:null,
+    goalType:"trade_good", goalParam:"럼주", goalGood:"럼주", goalCurrent:0, goalTarget:6, rewarded:false },
+
+  { id:"scenario_goal_18", originId:18, name:"저주를 해제할 정화제", type:"achievement", installCost:{ gold:0 },
+    desc:"'식수정제기'를 총 4회 거래하여 불사의 저주를 풀 열쇠를 찾으십시오.",
+    rewardDesc:"완료 보상: 골드 300G · VP +20",
+    rewardGold:300, rewardVP:20, rewardRep:0, rewardFaction:null,
+    goalType:"trade_good", goalParam:"식수정제기", goalGood:"식수정제기", goalCurrent:0, goalTarget:4, rewarded:false },
+
+  { id:"scenario_goal_19", originId:19, name:"세계 무역 제국 건설", type:"achievement", installCost:{ gold:0 },
+    desc:"도시 영향력 투자에 4회 성공하여 가문의 상권을 전 바다에 넓히십시오.",
+    rewardDesc:"완료 보상: 골드 600G · 자유 상인 연맹 평판 +10 · VP +20",
+    rewardGold:600, rewardVP:20, rewardRep:10, rewardFaction:"merchants",
+    goalType:"city_influence", goalParam:null, goalGood:null, goalCurrent:0, goalTarget:4, rewarded:false },
+];
 
 function rollRareItem(){
   const r = Math.random();
@@ -1713,6 +1873,9 @@ function finalizeCharacterCreation(){
   player.zodiac = getZodiac(month, day);
 
   applyCharacterBonuses(player.element, player.zodiac.group);
+
+  const goalTemplate = SCENARIO_GOAL_CARDS.find(c => c.originId === originIndex);
+  if (goalTemplate) BOARD.push({ ...goalTemplate });
 }
 
 
@@ -1726,7 +1889,7 @@ let handModalOpen = false;
 
 
 /* 마을 단계(Town Phase) 상태 */
-const MAX_TOWN_ACTIONS = 4;
+const MAX_TOWN_ACTIONS = 3;
 let turnActionsUsed = 0;
 let activePanel = null; // "market" | "supply" | "destinations" | null
 
@@ -1835,6 +1998,7 @@ function renderGauges(){
   refreshStatusModal();
   refreshHandModal();
   refreshFloatingStatus();
+  renderTopBanner();
 }
 
 /* 명성/악명이 20 단위를 넘길 때마다 카드 1장 + VP를 얻는다 */
@@ -1862,6 +2026,7 @@ function grantThresholdReward(kind){
 
 function renderShipStats(){
   checkFameNotorietyThresholds();
+  checkThresholdGoals();
   document.getElementById("stat-fame").textContent = player.fame;
   document.getElementById("stat-notoriety").textContent = player.notoriety;
   document.getElementById("ship-cargo").textContent = `${ship.cargoUsed} / ${ship.cargoSlots}`;
@@ -1882,6 +2047,7 @@ function renderPortInfo(){
   document.getElementById("loc-sub").textContent = `${port.faction} · ${port.desc}`;
   document.getElementById("dock-line").textContent = `현재 ${port.name}에 정박 중입니다.`;
   refreshFloatingStatus();
+  renderTopBanner();
 }
 
 function renderTurnCounter(){
@@ -1889,6 +2055,7 @@ function renderTurnCounter(){
     `${player.month}월 · 이번 턴 행동 <b>${turnActionsUsed}</b> / ${MAX_TOWN_ACTIONS}`;
   renderUndoTurnButton();
   refreshFloatingStatus();
+  renderTopBanner();
 }
 
 const LOG_HISTORY = [];
@@ -2518,10 +2685,94 @@ function cardTypeLabel(type){
   switch (type){
     case "direct": return "직접보상";
     case "discount": return "할인";
+    case "selldiscount": return "매도보너스";
     case "deckmod": return "덱조작";
     case "achievement": return "달성/업적";
     default: return "기타";
   }
+}
+
+/* ===== 턴 종료 시 손패 4장 제한 강제 ===== */
+const HAND_LIMIT = 4;
+
+function checkHandLimit(){
+  if (HAND.length > HAND_LIMIT){
+    openHandLimitPanel();
+    return true;
+  }
+  return false;
+}
+
+function openHandLimitPanel(){
+  activePanel = "hand-limit";
+  document.getElementById("panel-box").classList.add("open");
+  document.getElementById("panel-close").style.display = "none";
+  document.getElementById("panel-title-text").textContent = `손패 정리 — 최대 ${HAND_LIMIT}장까지`;
+  renderHandLimitPanel();
+}
+
+function renderHandLimitPanel(){
+  const body = document.getElementById("panel-body");
+  const over = HAND.length - HAND_LIMIT;
+
+  if (over <= 0){
+    document.getElementById("panel-close").style.display = "";
+    closePanel();
+    renderTownActions();
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:12px;">
+      턴이 끝나면 손패는 최대 ${HAND_LIMIT}장까지만 유지할 수 있습니다 (개인 보드에 등록된 카드는 해당 없음).
+      현재 ${HAND.length}장 — <b style="color:var(--rust-light);">${over}장</b>을 사용하거나 판매(자원 치환)해야 합니다.
+    </div>
+    ${HAND.map((c, i) => `
+      <div class="card-row">
+        <div class="card-row-head">
+          <span class="card-name">${c.name}</span>
+          <span class="card-type-tag">${cardTypeLabel(c.type)}</span>
+        </div>
+        <div class="card-desc">${c.desc}</div>
+        <div class="card-row-actions">
+          <button class="mini-btn sell" data-hl-act="use" data-hl-idx="${i}" ${c.type === "achievement" ? "disabled" : ""}>카드 사용</button>
+          <button class="mini-btn" data-hl-act="grindfuel" data-hl-idx="${i}">판매 → 연료</button>
+          <button class="mini-btn" data-hl-act="grindfood" data-hl-idx="${i}">판매 → 식량</button>
+          <button class="mini-btn" data-hl-act="install" data-hl-idx="${i}" ${c.type === "achievement" ? "" : "disabled"}>보드 등록${c.type === "achievement" ? ` (${c.installCost.gold}G)` : ""}</button>
+        </div>
+      </div>
+    `).join("")}
+  `;
+
+  body.querySelectorAll("[data-hl-act]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.hlIdx, 10);
+      const act = btn.dataset.hlAct;
+
+      if (act === "use"){
+        useHandCard(idx);
+      } else if (act === "grindfuel" || act === "grindfood"){
+        const card = HAND.splice(idx, 1)[0];
+        if (card){
+          if (act === "grindfuel") player.fuel += 1; else player.food += 1;
+          log("항해일지", `[${card.name}]을(를) 갈아 ${act === "grindfuel" ? "연료" : "식량"} 1을 얻었다.`);
+          renderGauges(); renderShipStats();
+        }
+      } else if (act === "install"){
+        const card = HAND[idx];
+        if (card && player.gold >= card.installCost.gold){
+          player.gold -= card.installCost.gold;
+          HAND.splice(idx, 1);
+          BOARD.push(card);
+          log("항해일지", `[${card.name}]을(를) 개인 보드에 등록했다.`);
+          renderGauges(); renderShipStats();
+        } else {
+          log("항해일지", "설치 비용이 부족하다.");
+        }
+      }
+      renderHandLimitPanel();
+    });
+  });
 }
 
 function toggleHandModal(force){
@@ -2531,6 +2782,26 @@ function toggleHandModal(force){
 }
 function refreshHandModal(){
   if (handModalOpen) renderHandModalContent();
+}
+
+/* ===== 상단 고정 배너 — 이름/위치/턴/자원/카드/화물/동료를 항상 보여준다 ===== */
+function showTopBanner(){
+  document.getElementById("top-banner").classList.add("show");
+  document.body.classList.add("has-top-banner");
+}
+function renderTopBanner(){
+  const banner = document.getElementById("top-banner");
+  if (!banner.classList.contains("show")) return;
+  const port = PORTS.find(p => p.id === player.location);
+  document.getElementById("tb-name").textContent = player.name || "-";
+  document.getElementById("tb-location").textContent = port ? port.name : "-";
+  document.getElementById("tb-turn").textContent = `${player.month}월 · ${turnActionsUsed}/${MAX_TOWN_ACTIONS}`;
+  document.getElementById("tb-gold").textContent = `💰 ${player.gold}`;
+  document.getElementById("tb-fuel").textContent = `⛽ ${player.fuel}`;
+  document.getElementById("tb-food").textContent = `🍖 ${player.food}`;
+  document.getElementById("tb-cards").textContent = `🃏 ${HAND.length}`;
+  document.getElementById("tb-cargo").textContent = `📦 ${ship.cargoUsed}/${ship.cargoSlots}`;
+  document.getElementById("tb-crew").textContent = `👥 ${ship.crewUsed}/${ship.crewSlots}`;
 }
 
 /* ===== 플로팅 현황 버튼 — 눌러도 스크롤 위치가 바뀌지 않는 요약 팝업 ===== */
@@ -2731,17 +3002,43 @@ function clearPanelConfirm(){
 let marketQty = {};
 let marketStaged = {}; // { goodName: { action:'buy'|'sell', qty } }
 
+/* 마켓처럼 카드 효과(할인/매도보너스)를 쓸 수 있는 행동에 진입할 때,
+   해당 카드가 손패에 있으면 먼저 사용 여부를 물어본다 */
+function maybePromptCardUse(onDone){
+  const idx = HAND.findIndex(c => c.type === "discount" || c.type === "selldiscount");
+  if (idx === -1){ onDone(); return; }
+  const card = HAND[idx];
+  document.getElementById("panel-body").innerHTML = `
+    <div style="font-size:12.5px;color:var(--parchment-dim);margin-bottom:14px;">
+      손패에 [${card.name}] 카드가 있습니다. ${card.desc}<br>지금 사용하시겠습니까?
+    </div>
+    <button class="mini-btn sell" id="card-prompt-yes">사용한다</button>
+    <button class="mini-btn" id="card-prompt-no">사용하지 않는다</button>
+  `;
+  document.getElementById("card-prompt-yes").addEventListener("click", () => {
+    useHandCard(idx);
+    onDone();
+  });
+  document.getElementById("card-prompt-no").addEventListener("click", onDone);
+}
+
 function doOpenMarket(){
   const firstOpen = activePanel !== "market";
   activePanel = "market";
   if (firstOpen){ actionCharged = false; marketQty = {}; marketStaged = {}; }
   document.getElementById("panel-box").classList.add("open");
   document.getElementById("panel-title-text").textContent = "마켓";
-  renderMarketPanel();
-  if (firstOpen){
-    const port = PORTS.find(p => p.id === player.location);
-    log("시장 상인", `어서 오시오. ${port.name}에서는 ${port.produces.join(", ")}이(가) 싸고, ${port.demands.join(", ")}은(는) 비싸게 쳐드리오.`);
-  }
+
+  const proceed = () => {
+    renderMarketPanel();
+    if (firstOpen){
+      const port = PORTS.find(p => p.id === player.location);
+      log("시장 상인", `어서 오시오. ${port.name}에서는 ${port.produces.join(", ")}이(가) 싸고, ${port.demands.join(", ")}은(는) 비싸게 쳐드리오.`);
+    }
+  };
+
+  if (firstOpen) maybePromptCardUse(proceed);
+  else proceed();
 }
 
 function renderMarketPanel(){
@@ -2941,11 +3238,38 @@ function tradeSell(goodName, amount){
 
 function bumpAchievementProgress(goodName, context, portId){
   BOARD.forEach(c => {
+    if ((c.goalType || "trade_good") !== "trade_good") return;
     if (c.goalGood !== goodName || c.rewarded || c.goalCurrent >= c.goalTarget) return;
     if (c.missionPort && c.missionPort !== portId) return;   // 도시 임무는 해당 도시에서만 인정
     if (c.missionPort && context !== "donate") return;       // 도시 임무는 기부로만 달성
     c.goalCurrent += 1;
     if (c.goalCurrent >= c.goalTarget) triggerAchievementReward(c);
+  });
+}
+
+function bumpGoalByType(goalType){
+  BOARD.forEach(c => {
+    if (c.goalType !== goalType || c.rewarded || c.goalCurrent >= c.goalTarget) return;
+    c.goalCurrent += 1;
+    if (c.goalCurrent >= c.goalTarget) triggerAchievementReward(c);
+  });
+}
+
+/* fame_reach / infamy_reach / port_visit — 누적 카운트가 아니라 현재 수치를 그대로 동기화하는 목표들.
+   renderShipStats()에서 매번 호출되어 항상 최신 상태를 반영한다. */
+function checkThresholdGoals(){
+  BOARD.forEach(c => {
+    if (c.rewarded) return;
+    if (c.goalType === "fame_reach"){
+      c.goalCurrent = player.fame;
+      if (c.goalCurrent >= c.goalTarget) triggerAchievementReward(c);
+    } else if (c.goalType === "infamy_reach"){
+      c.goalCurrent = player.notoriety;
+      if (c.goalCurrent >= c.goalTarget) triggerAchievementReward(c);
+    } else if (c.goalType === "port_visit"){
+      c.goalCurrent = player.visitedPorts.length;
+      if (c.goalCurrent >= c.goalTarget) triggerAchievementReward(c);
+    }
   });
 }
 
@@ -3438,6 +3762,7 @@ function upgradeTrack(key){
   }
 
   chargeActionOnce();
+  bumpGoalByType("ship_upgrade");
   renderGauges(); renderShipStats();
 }
 
@@ -3614,6 +3939,7 @@ function confirmTownInvest(){
   }
   placeInfluence(port.id, "player", 1);
   chargeActionOnce();
+  bumpGoalByType("city_influence");
   log("항구 관리소", `${port.faction}에 자금을 투자했다. ${port.faction} 평판이 10 올랐다 (현재 ${player.reputation[key]}). 이 도시에 영향력 마커 1개를 놓았다.`);
   renderGauges();
 }
@@ -3674,6 +4000,7 @@ function recruitCompanion(id){
   ship.crewUsed = ship.crew.length;
   log(template.name, `"함께 하지, ${getAddressTitle()}." ${template.name}이(가) 선단에 합류했다.`);
   chargeActionOnce();
+  bumpGoalByType("crew_hire");
   renderGauges(); renderShipStats();
 }
 
@@ -3685,6 +4012,80 @@ function doOpenDestinations(){
   renderDestinationPanel();
 }
 
+/* 명성 10당 이동 가능 거리 +1칸 (기본 4칸부터 시작) */
+function getMaxAllowedVoyageDistance(){
+  return MIN_VOYAGE_DISTANCE + Math.floor(player.fame / 10);
+}
+
+/* 세계지도 SVG — 항구 좌표 + 해협 웨이포인트를 시각화한다. 현재 위치와 잠금 상태를 함께 표시한다. */
+function renderWorldMapSVG(currentPortName){
+  const factionColors = {
+    "증기 제국": "var(--brass-light)",
+    "연금술사 연합": "var(--teal-light)",
+    "자유 상인 연맹": "#d9a54f",
+    "무법자 & 심해 부족": "var(--rust-light)",
+  };
+  const routes = [
+    { from:"기어헤븐", to:"코크스 아일랜드" }, { from:"기어헤븐", to:"폰테인" },
+    { from:"기어헤븐", to:"녹스" }, { from:"기어헤븐", to:"아이언가드" }, { from:"기어헤븐", to:"스팀게이트" },
+    { from:"포그 해븐", to:"바이오스" }, { from:"포그 해븐", to:"머큐리아" },
+    { from:"포그 해븐", to:"에테르나" }, { from:"포그 해븐", to:"톡시카" },
+    { from:"골드 코스트", to:"스파이스 베이" }, { from:"골드 코스트", to:"실크 마리나" }, { from:"골드 코스트", to:"펄 리프" },
+    { from:"블랙 림", to:"헌터스 록" }, { from:"블랙 림", to:"리바이어던의 턱" },
+    { from:"스팀게이트", to:"W_북부해협" }, { from:"W_북부해협", to:"포그 해븐" },
+    { from:"W_북부해협", to:"W_중앙항로" }, { from:"W_중앙항로", to:"골드 코스트" },
+    { from:"W_중앙항로", to:"W_남단항로" }, { from:"W_남단항로", to:"블랙 림" },
+  ];
+  const getCoord = (id) => PORT_COORDS[id] || SEA_WAYPOINTS[id] || { x:0, y:0 };
+  const distances = computeDistancesFrom(currentPortName);
+  const maxAllowed = getMaxAllowedVoyageDistance();
+
+  const linesSVG = routes.map(r => {
+    const a = getCoord(r.from), b = getCoord(r.to);
+    const isWaypointRoute = r.from.startsWith("W_") || r.to.startsWith("W_");
+    return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"
+      stroke="${isWaypointRoute ? "var(--brass-dim)" : "var(--parchment-dim)"}"
+      stroke-width="${isWaypointRoute ? 1.5 : 1}"
+      stroke-dasharray="${isWaypointRoute ? "4 3" : "none"}" opacity="0.4"/>`;
+  }).join("");
+
+  const waypointsSVG = Object.entries(SEA_WAYPOINTS).map(([id, wp]) => `
+    <g transform="translate(${wp.x},${wp.y})">
+      <circle r="4" fill="none" stroke="var(--brass-dim)" stroke-width="1" opacity="0.7"/>
+      <polygon points="0,-3 3,0 0,3 -3,0" fill="var(--teal-light)" opacity="0.5"/>
+    </g>`).join("");
+
+  const portsSVG = PORTS.map(port => {
+    const coord = getCoord(port.id);
+    const color = factionColors[port.faction] || "var(--brass-light)";
+    const isCurrent = port.id === currentPortName;
+    const dist = distances[port.id];
+    const locked = !isCurrent && dist !== undefined && dist > maxAllowed;
+    return `
+      <g class="map-port-node" data-port="${port.id}" opacity="${locked ? 0.35 : 1}">
+        ${isCurrent ? `<circle cx="${coord.x}" cy="${coord.y}" r="10" fill="none" stroke="var(--teal-light)" stroke-width="1.5">
+          <animate attributeName="r" values="8;15;8" dur="2s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.8;0.1;0.8" dur="2s" repeatCount="indefinite"/>
+        </circle>` : ""}
+        <circle cx="${coord.x}" cy="${coord.y}" r="6" fill="${color}" stroke="#1a1107" stroke-width="1.5"/>
+        <circle cx="${coord.x}" cy="${coord.y}" r="2" fill="#fff" opacity="0.85"/>
+        <text x="${coord.x}" y="${coord.y + 16}" text-anchor="middle" fill="var(--parchment)" font-size="10"
+          font-family="'Cinzel', serif" font-weight="${isCurrent ? "bold" : "normal"}">${port.name}${locked ? " 🔒" : ""}</text>
+      </g>`;
+  }).join("");
+
+  return `
+    <div style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--brass-dim); border-radius:4px; padding:6px; margin-bottom:12px;">
+      <svg viewBox="20 60 800 600" width="100%" height="220" xmlns="http://www.w3.org/2000/svg">
+        <g>${linesSVG}</g>
+        <g>${waypointsSVG}</g>
+        <g>${portsSVG}</g>
+      </svg>
+      <div style="font-size:10.5px;color:var(--parchment-dim);text-align:center;margin-top:4px;">🔒 표시는 현재 명성으로 아직 갈 수 없는 항구입니다 (명성 10당 이동 가능 거리 +1칸).</div>
+    </div>
+  `;
+}
+
 function renderDestinationPanel(){
   const distances = computeDistancesFrom(player.location);
   const entries = Object.entries(distances).sort((a, b) => a[1] - b[1]);
@@ -3693,14 +4094,22 @@ function renderDestinationPanel(){
     body.innerHTML = `<div style="font-size:13px;color:var(--parchment-dim);">이 항구에서 이어지는 항로가 없다.</div>`;
     return;
   }
-  body.innerHTML = `<div style="max-height:400px;overflow-y:auto;">` + entries.map(([destId, dist]) => {
+  const maxAllowed = getMaxAllowedVoyageDistance();
+  const mapHtml = renderWorldMapSVG(player.location);
+  const listHtml = entries.map(([destId, dist]) => {
     const p = PORTS.find(pp => pp.id === destId);
     const sameFaction = p.faction === PORTS.find(pp => pp.id === player.location).faction;
-    return `<button class="dest-btn" data-dest="${destId}" data-dist="${dist}">
-       <span>${destId} <span style="font-size:10px;color:var(--parchment-dim);">(${p.faction})</span></span>
-       <span class="dist-tag">${dist}칸${sameFaction ? "" : " · 원해 항로"}</span>
+    const locked = dist > maxAllowed;
+    return `<button class="dest-btn" data-dest="${destId}" data-dist="${dist}" ${locked ? "disabled" : ""}>
+       <span>${locked ? "🔒 " : ""}${destId} <span style="font-size:10px;color:var(--parchment-dim);">(${p.faction})</span></span>
+       <span class="dist-tag">${dist}칸${sameFaction ? "" : " · 원해 항로"}${locked ? ` · 명성 ${(dist - MIN_VOYAGE_DISTANCE) * 10} 필요` : ""}</span>
      </button>`;
-  }).join("") + `</div>`;
+  }).join("");
+
+  body.innerHTML = mapHtml +
+    `<div style="font-size:11px;color:var(--parchment-dim);margin-bottom:8px;">현재 명성 ${player.fame} — 최대 ${maxAllowed}칸까지 항해 가능</div>` +
+    `<div style="max-height:320px;overflow-y:auto;">${listHtml}</div>`;
+
   body.querySelectorAll(".dest-btn").forEach(btn => {
     btn.addEventListener("click", () => beginVoyage(btn.dataset.dest, parseInt(btn.dataset.dist, 10)));
   });
@@ -3708,6 +4117,10 @@ function renderDestinationPanel(){
 
 /* ===== 항해 단계 — 거리만큼 한 칸씩 이동 ===== */
 function beginVoyage(destination, distance){
+  if (distance > getMaxAllowedVoyageDistance()){
+    log("항해일지", "아직 명성이 부족해 그렇게 먼 곳까지는 갈 수 없다.");
+    return;
+  }
   closePanel();
   voyage = { destination, total: distance, remaining: distance, distressed: false };
   document.getElementById("town-actions").innerHTML = "";
@@ -4073,11 +4486,13 @@ function resolveCombat(action){
         purgeNote = ` 위협적인 항로 카드 [${purged.name}]을(를) 덱에서 영구히 파기했다.`;
       }
       log("전투", `대성공! (${rollNote}, 기준 ${greatThreshold}+) 적을 완파하고 전리품 80G를 얻었다. 명성 +5, 악명 +3, VP +15.${purgeNote}${stealLoot()}`);
+      bumpGoalByType("combat_win");
     } else if (total >= 8){
       player.gold += 80;
       player.notoriety += 2;
       player.vp += 8;
       log("전투", `승리! (${rollNote}) 적을 물리치고 전리품 80G를 얻었다. 악명 +2, VP +8.${stealLoot()}`);
+      bumpGoalByType("combat_win");
     } else {
       ship.hullDamage += 20;
       const lost = Math.min(100, player.gold);
@@ -4317,6 +4732,7 @@ function arriveAtPort(){
   document.getElementById("voyage-box").classList.remove("open");
   document.getElementById("voyage-box").innerHTML = "";
   turnActionsUsed = 0;
+  if (!player.visitedPorts.includes(player.location)) player.visitedPorts.push(player.location);
 
   const voyageVP = Math.max(1, Math.round(traveledDistance / 3));
   player.vp += voyageVP;
@@ -4333,6 +4749,7 @@ function arriveAtPort(){
   advanceMonth();
   takeTurnSnapshot();
   saveGame();
+  checkHandLimit();
 }
 
 /* ===== 연말(12월) VP 결산 ===== */
@@ -4400,8 +4817,8 @@ const SAVE_KEY = "aqua_mechanica_save_v1";
 
 // 배포 전 아래 두 값을 Supabase 프로젝트 값으로 채워주세요 (Project Settings -> API).
 // ANON KEY는 공개되어도 안전한 값입니다 (RLS로 보호됨). SERVICE ROLE KEY는 여기 넣지 마세요.
-const SUPABASE_URL = "https://emgsqnzfdvvbtooouaap.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3NxbnpmZHZ2YnRvb291YWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxODA4OTEsImV4cCI6MjA5MDc1Njg5MX0.kWXiNT9IbLoGTgzdCe1oCmekOLv_Y-O2bxnCZfn6uR0";
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
 
 let supabaseClient = null;
 let supabaseSession = null;
@@ -4576,6 +4993,8 @@ async function continueGame(){
   renderProfileBar();
   takeTurnSnapshot();
   showFloatingStatusButton();
+  showTopBanner();
+  renderTopBanner();
   log("항해일지", "이전 항해 기록을 불러왔다. 항해를 계속한다.");
 }
 
@@ -4599,6 +5018,10 @@ document.getElementById("btn-undo-turn").addEventListener("click", undoTurnActio
 
 document.getElementById("btn-floating-status").addEventListener("click", () => toggleFloatingStatus());
 
+document.getElementById("tb-cards").addEventListener("click", () => toggleHandModal());
+document.getElementById("tb-cargo").addEventListener("click", () => toggleStatusModal());
+document.getElementById("tb-crew").addEventListener("click", () => toggleStatusModal());
+
 /* =========================================================================
    5. 게임 시작
    ========================================================================= */
@@ -4606,6 +5029,7 @@ function startGame(){
   const companion = COMPANIONS.find(c => c.id === selectedCompanionId);
   ship.crew.push(companion);
   ship.crewUsed = ship.crew.length;
+  if (!player.visitedPorts.includes(player.location)) player.visitedPorts.push(player.location);
 
   document.getElementById("companion-select").style.display = "none";
   document.getElementById("game-screen").style.display = "block";
@@ -4625,6 +5049,8 @@ function startGame(){
   log("항해일지", opening);
   takeTurnSnapshot();
   showFloatingStatusButton();
+  showTopBanner();
+  renderTopBanner();
   saveGame();
 }
 
