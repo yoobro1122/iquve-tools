@@ -21,13 +21,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   if (result === "pass") {
     await db.from("tasks").update({ status: "done", completed_date: new Date().toISOString().slice(0, 10) }).eq("id", params.id);
-    const { subject, html } = reviewApprovedEmail(task.project.name, task.subheading.label);
+    const { subject, html } = reviewApprovedEmail(task.project.name, task.subheading?.label ?? "적용 안함");
     await sendMail(task.contractor.email, subject, html);
     await db.from("project_logs").insert({ project_id: task.project_id, actor_id: user.id, actor_name: profile.name, change: `업무 ${task.code} 검수 확인 → 완료` });
   } else {
     await db.from("tasks").update({ status: "rework_notice", rework_acknowledged: false }).eq("id", params.id);
     await db.from("task_rework_notes").insert({ task_id: params.id, message: note ?? "" });
-    const { subject, html } = reworkRequestedEmail(task.project.name, task.subheading.label, note ?? "");
+    const { subject, html } = reworkRequestedEmail(task.project.name, task.subheading?.label ?? "적용 안함", note ?? "");
     await sendMail(task.contractor.email, subject, html);
     await db.from("project_logs").insert({ project_id: task.project_id, actor_id: user.id, actor_name: profile.name, change: `업무 ${task.code} 재작업 요청 - ${note ?? ""}` });
   }

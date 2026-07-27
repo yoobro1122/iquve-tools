@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { sendMail } from "@/lib/resend";
+import { taskAssignedEmail } from "@/lib/email-templates";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -24,6 +26,16 @@ export async function POST(req: Request) {
   await db.from("project_logs").insert({
     project_id, actor_id: user.id, actor_name: profile.name, change: `업무 ${code} 신규 등록`,
   });
+
+  const [{ data: project }, { data: subheading }, { data: contractor }] = await Promise.all([
+    db.from("projects").select("name").eq("id", project_id).single(),
+    subheading_id ? db.from("subheadings").select("label").eq("id", subheading_id).single() : Promise.resolve({ data: null }),
+    db.from("profiles").select("email,name").eq("id", contractor_id).single(),
+  ]);
+  if (project && contractor) {
+    const { subject, html } = taskAssignedEmail(project.name, subheading?.label ?? "적용 안함", contractor.name);
+    await sendMail(contractor.email, subject, html);
+  }
 
   return NextResponse.json({ item: data });
 }

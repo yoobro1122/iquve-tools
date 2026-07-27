@@ -23,7 +23,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const { data: managers } = await db.from("profiles").select("email").eq("role", "manager");
-  const { subject, html } = taskSubmittedEmail(task.project.name, task.subheading.label, task.contractor.name, isResubmit);
+  const { subject, html } = taskSubmittedEmail(task.project.name, task.subheading?.label ?? "적용 안함", task.contractor.name, isResubmit);
   for (const m of managers ?? []) await sendMail(m.email, subject, html);
 
   await db.from("project_logs").insert({

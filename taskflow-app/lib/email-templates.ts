@@ -10,6 +10,16 @@ function taskLine(projectName: string, taskLabel: string) {
   return `<p>프로젝트: <b>${projectName}</b><br/>업무: <b>${taskLabel}</b></p>`;
 }
 
+export function taskAssignedEmail(projectName: string, taskLabel: string, contractorName: string) {
+  return {
+    subject: `[업무 등록] 새 업무가 배정되었습니다`,
+    html: wrap(
+      "업무 등록 알림",
+      `<p><b>${contractorName}</b>님에게 새 업무가 배정되었습니다.</p>${taskLine(projectName, taskLabel)}`
+    ),
+  };
+}
+
 export function taskStartedEmail(projectName: string, taskLabel: string, contractorName: string) {
   return {
     subject: `[업무 시작] ${contractorName}님이 업무를 시작했습니다`,

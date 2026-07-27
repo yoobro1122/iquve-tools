@@ -18,7 +18,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const { data: managers } = await db.from("profiles").select("email").eq("role", "manager");
-  const { subject, html } = taskStartedEmail(task.project.name, task.subheading.label, task.contractor.name);
+  const { subject, html } = taskStartedEmail(task.project.name, task.subheading?.label ?? "적용 안함", task.contractor.name);
   for (const m of managers ?? []) await sendMail(m.email, subject, html);
 
   await db.from("project_logs").insert({ project_id: task.project_id, actor_id: user.id, actor_name: task.contractor.name, change: `업무 ${task.code} 시작` });
