@@ -10,14 +10,14 @@ export async function POST(req: Request) {
   if (profile?.role !== "manager") return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
 
   const { project_id, category_id, subheading_id, contractor_id } = await req.json();
-  if (!project_id || !category_id || !subheading_id || !contractor_id)
-    return NextResponse.json({ error: "카테고리, subheading, 외주 작업자를 모두 선택해주세요." }, { status: 400 });
+  if (!project_id || !category_id || !contractor_id)
+    return NextResponse.json({ error: "카테고리와 외주 작업자를 선택해주세요." }, { status: 400 });
 
   const { count } = await db.from("tasks").select("id", { count: "exact", head: true }).eq("project_id", project_id);
   const code = "W" + String((count ?? 0) + 1).padStart(3, "0");
 
   const { data, error } = await db.from("tasks").insert({
-    project_id, category_id, subheading_id, contractor_id, code,
+    project_id, category_id, subheading_id: subheading_id || null, contractor_id, code,
   }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

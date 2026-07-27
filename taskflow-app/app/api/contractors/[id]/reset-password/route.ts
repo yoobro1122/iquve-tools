@@ -12,6 +12,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const tempPassword = Math.random().toString(36).slice(2, 10);
   const { error } = await db.auth.admin.updateUserById(params.id, { password: tempPassword });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await db.from("profiles").update({ must_change_password: true }).eq("id", params.id);
 
   return NextResponse.json({ ok: true, tempPassword });
 }

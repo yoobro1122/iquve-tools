@@ -17,6 +17,7 @@ export interface Profile {
   role: Role;
   specialty: string;
   note: string;
+  must_change_password: boolean;
 }
 
 export interface MajorCategory {
@@ -65,7 +66,7 @@ export interface Task {
   code: string;
   project_id: string;
   category_id: string;
-  subheading_id: string;
+  subheading_id: string | null;
   contractor_id: string;
   status: TaskStatus;
   start_date: string | null;

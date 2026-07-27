@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
   const { data: newProfile, error: profileErr } = await db.from("profiles").insert({
     id: created.user.id, email: email.trim(), name: name.trim(), role: "contractor",
-    specialty: specialty ?? "", note: note ?? "",
+    specialty: specialty ?? "", note: note ?? "", must_change_password: true,
   }).select().single();
   if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 500 });
 

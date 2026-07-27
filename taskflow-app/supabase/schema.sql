@@ -13,6 +13,7 @@ create table if not exists profiles (
   role text not null check (role in ('manager', 'contractor')),
   specialty text default '',
   note text default '',
+  must_change_password boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -70,7 +71,7 @@ create table if not exists tasks (
   code text not null,
   project_id uuid not null references projects(id) on delete cascade,
   category_id uuid not null references categories(id),
-  subheading_id uuid not null references subheadings(id),
+  subheading_id uuid references subheadings(id),
   contractor_id uuid not null references profiles(id),
   status text not null default 'waiting',
   start_date date,
@@ -126,6 +127,12 @@ on conflict (label) do nothing;
 insert into categories (label) values
   ('리디자인'), ('4K 업스케일'), ('신규 일러스트'), ('사운드 디자인'), ('표정팩')
 on conflict (label) do nothing;
+
+-- ============================================================
+-- 이미 스키마를 실행하셨다면 (기존 DB에 적용할 경우) 아래 두 줄만 추가로 실행하세요.
+-- ============================================================
+-- alter table tasks alter column subheading_id drop not null;
+-- alter table profiles add column if not exists must_change_password boolean not null default false;
 
 -- ============================================================
 -- Row Level Security

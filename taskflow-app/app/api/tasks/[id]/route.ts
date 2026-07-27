@@ -31,13 +31,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     changes.push(`업무 ${task.code} 수정 - 카테고리: ${oldCat?.label} → ${newCat?.label}`);
     patch.category_id = body.category_id;
   }
-  if (body.subheading_id && body.subheading_id !== task.subheading_id) {
-    const [{ data: oldSub }, { data: newSub }] = await Promise.all([
-      db.from("subheadings").select("label").eq("id", task.subheading_id).single(),
-      db.from("subheadings").select("label").eq("id", body.subheading_id).single(),
-    ]);
-    changes.push(`업무 ${task.code} 수정 - subheading: ${oldSub?.label} → ${newSub?.label}`);
-    patch.subheading_id = body.subheading_id;
+  if ("subheading_id" in body && (body.subheading_id || null) !== task.subheading_id) {
+    const newSubId = body.subheading_id || null;
+    let oldLabel = "적용 안함";
+    let newLabel = "적용 안함";
+    if (task.subheading_id) {
+      const { data: oldSub } = await db.from("subheadings").select("label").eq("id", task.subheading_id).single();
+      oldLabel = oldSub?.label ?? oldLabel;
+    }
+    if (newSubId) {
+      const { data: newSub } = await db.from("subheadings").select("label").eq("id", newSubId).single();
+      newLabel = newSub?.label ?? newLabel;
+    }
+    changes.push(`업무 ${task.code} 수정 - subheading: ${oldLabel} → ${newLabel}`);
+    patch.subheading_id = newSubId;
   }
   if (body.contractor_id && body.contractor_id !== task.contractor_id) {
     const [{ data: oldC }, { data: newC }] = await Promise.all([

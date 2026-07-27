@@ -6,7 +6,7 @@ import Header from "@/app/components/Header";
 import {
   Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
-  Boxes, Settings, RotateCcw, ClipboardList,
+  Boxes, Settings, RotateCcw, ClipboardList, Loader2,
 } from "lucide-react";
 import {
   Profile, MajorCategory, Category, Project, Task,
@@ -47,6 +47,12 @@ export default function BoardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [contractors, setContractors] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
 
   const [majorCategoryId, setMajorCategoryId] = useState<string>("ALL_MC");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -87,9 +93,10 @@ export default function BoardPage() {
   const [reworkModalTaskId, setReworkModalTaskId] = useState<string | null>(null);
   const [reworkMessage, setReworkMessage] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isInitial = false) => {
+    if (!isInitial) setRefreshing(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setRefreshing(false); return; }
     const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     setMe(profile as Profile);
 
@@ -114,9 +121,10 @@ export default function BoardPage() {
     }
 
     setLoading(false);
+    setRefreshing(false);
   }, [supabase]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(true); }, [load]);
 
   const isAllMc = majorCategoryId === "ALL_MC";
   const scopedProjects = useMemo(
@@ -181,15 +189,38 @@ export default function BoardPage() {
   }, [scopedProjects, tasks]);
 
   // ---------------- actions ----------------
+  async function submitPasswordChange() {
+    setPwError("");
+    if (newPassword.length < 8) { setPwError("비밀번호는 8자 이상이어야 합니다."); return; }
+    if (newPassword !== confirmPassword) { setPwError("입력한 비밀번호가 서로 다릅니다. 다시 확인해주세요."); return; }
+    setPwSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) { setPwError(error.message); return; }
+      const res = await fetch("/api/me/complete-password-setup", { method: "POST" });
+      if (!res.ok) { setPwError("비밀번호는 변경되었지만 상태 갱신에 실패했습니다. 새로고침 해주세요."); return; }
+      setMe((m) => (m ? { ...m, must_change_password: false } : m));
+      setNewPassword("");
+      setConfirmPassword("");
+    } finally {
+      setPwSaving(false);
+    }
+  }
+
   async function api(url: string, method: string, body?: any) {
-    const res = await fetch(url, {
-      method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { alert(data.error ?? "오류가 발생했습니다."); return null; }
-    return data;
+    setBusy(true);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data.error ?? "오류가 발생했습니다."); return null; }
+      return data;
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function taskStart(t: Task) { if (await api(`/api/tasks/${t.id}/start`, "POST")) load(); }
@@ -207,7 +238,7 @@ export default function BoardPage() {
 
   function openEditTask(t: Task) {
     setEditTaskId(t.id);
-    setEditTaskDraft({ category_id: t.category_id, subheading_id: t.subheading_id, contractor_id: t.contractor_id });
+    setEditTaskDraft({ category_id: t.category_id, subheading_id: t.subheading_id ?? "", contractor_id: t.contractor_id });
   }
   async function saveEditTask() {
     if (await api(`/api/tasks/${editTaskId}`, "PATCH", editTaskDraft)) { setEditTaskId(null); load(); }
@@ -219,7 +250,6 @@ export default function BoardPage() {
   async function restoreTask(t: Task) { if (await api(`/api/tasks/${t.id}`, "PATCH", { archived: false })) load(); }
 
   async function createTask() {
-    if (!newTask.subheading_id) { alert("subheading을 선택하거나 추가해주세요."); return; }
     if (await api("/api/tasks", "POST", { project_id: selectedProject!.id, ...newTask })) { setShowNewTask(false); load(); }
   }
 
@@ -322,7 +352,7 @@ export default function BoardPage() {
 
   const projectDone = selectedProject ? allTasksDone(selectedProject, tasks) : false;
 
-  function subheadingLabel(t: Task) { return t.subheading?.label ?? "-"; }
+  function subheadingLabel(t: Task) { return t.subheading?.label ?? "적용 안함"; }
   function contractorName(t: Task) { return t.contractor?.name ?? "-"; }
 
   if (loading || !me) return <div className="p-6 text-sm text-[#79766D]">불러오는 중...</div>;
@@ -407,10 +437,34 @@ export default function BoardPage() {
     <div className="flex min-h-screen flex-col bg-[#F6F5F0] text-[#1F1E1B]">
       <Header name={me.name} role={me.role} />
 
-      <div className="flex items-center border-b border-[#E4E1D6] bg-white px-6">
-        <button onClick={() => setMajorCategoryId("ALL_MC")} className={`px-4.5 py-3 text-[13.5px] font-bold ${isAllMc ? "border-b-2 border-[#2C56C9] text-[#2C56C9]" : "border-b-2 border-transparent text-[#79766D]"}`}>전체 보기</button>
+      {(busy || refreshing) && (
+        <div className="fixed left-1/2 top-4 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#1F1E1B] px-4 py-2 text-xs font-semibold text-white shadow-lg">
+          <Loader2 size={14} className="animate-spin" /> 처리 중...
+        </div>
+      )}
+
+      {me.must_change_password && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-5">
+          <div className="w-[380px] rounded-2xl bg-white p-5">
+            <h3 className="mb-1 text-[15.5px] font-bold">비밀번호를 설정해주세요</h3>
+            <p className="mb-4 text-xs text-[#A7A399]">임시 비밀번호로 로그인하셨습니다. 계속 사용하시려면 본인만의 비밀번호로 변경해주세요.</p>
+
+            <label className="mb-1 block text-xs text-[#79766D]">새 비밀번호 (8자 이상)</label>
+            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="mb-2.5 w-full rounded-lg border border-[#E4E1D6] px-2.5 py-2 text-[13.5px]" />
+            <label className="mb-1 block text-xs text-[#79766D]">새 비밀번호 다시 입력</label>
+            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="mb-3 w-full rounded-lg border border-[#E4E1D6] px-2.5 py-2 text-[13.5px]" />
+            {pwError && <div className="mb-3 text-xs text-red-600">{pwError}</div>}
+            <button onClick={submitPasswordChange} disabled={pwSaving} className="w-full rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              {pwSaving ? "저장 중..." : "비밀번호 설정하고 계속하기"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-1 border-b border-[#E4E1D6] bg-white px-6">
+        <button onClick={() => setMajorCategoryId("ALL_MC")} className={`px-5 py-3 text-[13.5px] font-bold ${isAllMc ? "border-b-2 border-[#2C56C9] text-[#2C56C9]" : "border-b-2 border-transparent text-[#79766D]"}`}>전체 보기</button>
         {majorCategories.map((mc) => (
-          <button key={mc.id} onClick={() => setMajorCategoryId(mc.id)} className={`px-4.5 py-3 text-[13.5px] font-bold ${majorCategoryId === mc.id ? "border-b-2 border-[#2C56C9] text-[#2C56C9]" : "border-b-2 border-transparent text-[#79766D]"}`}>{mc.label}</button>
+          <button key={mc.id} onClick={() => setMajorCategoryId(mc.id)} className={`px-5 py-3 text-[13.5px] font-bold ${majorCategoryId === mc.id ? "border-b-2 border-[#2C56C9] text-[#2C56C9]" : "border-b-2 border-transparent text-[#79766D]"}`}>{mc.label}</button>
         ))}
         {me.role === "manager" && (
           <button onClick={() => setShowMcManage(true)} className="ml-auto flex items-center gap-1.5 px-2.5 py-2 text-[12.5px] font-semibold text-[#79766D]"><Settings size={13} /> 수정</button>
@@ -453,7 +507,7 @@ export default function BoardPage() {
                       <div className={`truncate text-[13px] font-semibold ${active ? "text-[#2C56C9]" : ""}`}>{p.name}</div>
                     </button>
                     {p.archived && me.role === "manager" && (
-                      <button onClick={() => restoreProject(p)} title="복원" className="flex h-6.5 w-6.5 flex-shrink-0 items-center justify-center rounded-md border border-[#E4E1D6]"><RotateCcw size={12} /></button>
+                      <button onClick={() => restoreProject(p)} title="복원" className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-[#E4E1D6]"><RotateCcw size={12} /></button>
                     )}
                   </div>
                 ) : (
@@ -566,7 +620,7 @@ export default function BoardPage() {
               )}
 
               {!isAllView && !selectedProject!.archived && me.role === "manager" && computeProjectStatus(selectedProject!, tasks) === "확인 완료" && (
-                <div className="mb-4.5 flex items-center gap-2.5 rounded-xl bg-violet-50 px-3.5 py-2.5 text-sm">
+                <div className="mb-5 flex items-center gap-2.5 rounded-xl bg-violet-50 px-3.5 py-2.5 text-sm">
                   <span className="font-semibold text-violet-700">프로젝트가 게시 되었나요?</span>
                   <div className="ml-auto flex gap-2">
                     <button onClick={handlePublishConfirm} className={`${btnSuccess} flex items-center gap-1.5`}><UploadCloud size={13} /> 게시 확인</button>
@@ -610,7 +664,7 @@ export default function BoardPage() {
               )}
 
               {archivedTasksInScope.length > 0 && (
-                <div className="mt-6.5">
+                <div className="mt-7">
                   <button onClick={() => setShowArchivedTasks((v) => !v)} className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#79766D]">
                     <ChevronDown size={13} style={{ transform: showArchivedTasks ? "rotate(0deg)" : "rotate(-90deg)" }} />
                     삭제된 업무 · {archivedTasksInScope.length}
@@ -707,7 +761,7 @@ export default function BoardPage() {
           <div onClick={(e) => e.stopPropagation()} className="max-h-[85vh] w-[460px] overflow-y-auto rounded-2xl bg-white p-5">
             <h3 className="mb-1 text-[15.5px] font-bold">프로젝트 상태 수정</h3>
             <p className="mb-4 text-xs text-[#A7A399]">{selectedProject!.code} · {selectedProject!.name}</p>
-            <div className="mb-4.5 flex flex-col gap-3">
+            <div className="mb-5 flex flex-col gap-3">
               <div>
                 <label className="mb-1 flex items-center gap-1.5 text-xs text-[#79766D]"><Volume2 size={13} /> 음량 확인</label>
                 <select value={draftStatus.volume_check} onChange={(e) => setDraftStatus({ ...draftStatus, volume_check: e.target.value })} className={inputCls}>
@@ -732,7 +786,7 @@ export default function BoardPage() {
               </div>
               {!projectDone && <p className="text-[11.5px] text-[#A7A399]">모든 업무가 완료 상태가 되어야 업로드/검수를 Complete로 바꿀 수 있습니다.</p>}
             </div>
-            <div className="mb-4.5 flex gap-2">
+            <div className="mb-5 flex gap-2">
               <button onClick={saveStatus} className={btnPrimary}>저장</button>
               <button onClick={() => setStatusModalOpen(false)} className={btnDefault}>취소</button>
             </div>
@@ -818,7 +872,7 @@ export default function BoardPage() {
             <div className="mb-3.5">
               <label className="mb-1 block text-xs text-[#79766D]">Subheading (프로젝트별 관리)</label>
               <select value={newTask.subheading_id} onChange={(e) => setNewTask({ ...newTask, subheading_id: e.target.value })} className={`${inputCls} mb-2`}>
-                <option value="">선택 안함</option>
+                <option value="">적용 안함</option>
                 {selectedProject?.subheadings?.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
               <div className="mb-1.5 flex gap-1.5">
@@ -862,7 +916,8 @@ export default function BoardPage() {
             </div>
             <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">Subheading</label>
-              <select value={editTaskDraft.subheading_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, subheading_id: e.target.value })} className={inputCls}>
+              <select value={editTaskDraft.subheading_id ?? ""} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, subheading_id: e.target.value })} className={inputCls}>
+                <option value="">적용 안함</option>
                 {projects.find((p) => p.id === tasks.find((t) => t.id === editTaskId)?.project_id)?.subheadings?.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>

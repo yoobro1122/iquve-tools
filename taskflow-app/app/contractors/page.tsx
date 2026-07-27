@@ -4,17 +4,21 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/lib/types";
 import Header from "@/app/components/Header";
-import { Plus, Pencil, KeyRound, Trash2 } from "lucide-react";
+import { Plus, Pencil, KeyRound, Trash2, Copy, Check, Loader2 } from "lucide-react";
 
 export default function ContractorsPage() {
   const supabase = createClient();
   const [me, setMe] = useState<Profile | null>(null);
   const [contractors, setContractors] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState({ id: "", name: "", specialty: "", note: "", email: "" });
   const [error, setError] = useState("");
+
+  const [credModal, setCredModal] = useState<{ title: string; email: string; password: string } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -41,39 +45,65 @@ export default function ContractorsPage() {
     setFormOpen(true);
   }
 
-  async function save() {
-    if (draft.id) {
-      const res = await fetch(`/api/contractors/${draft.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: draft.name, specialty: draft.specialty, note: draft.note }),
-      });
-      if (!res.ok) { setError((await res.json()).error); return; }
-    } else {
-      const res = await fetch("/api/contractors", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error); return; }
-      alert(`계정이 생성되었습니다.\n이메일: ${draft.email}\n임시 비밀번호: ${data.tempPassword}\n이 정보를 작업자에게 전달해주세요.`);
+  async function copy(text: string, field: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1500);
+    } catch {
+      // 클립보드 접근이 막힌 환경 - 사용자가 직접 드래그해서 복사할 수 있도록 안내만 유지
     }
-    setFormOpen(false);
-    load();
+  }
+
+  async function save() {
+    setBusy(true);
+    try {
+      if (draft.id) {
+        const res = await fetch(`/api/contractors/${draft.id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: draft.name, specialty: draft.specialty, note: draft.note }),
+        });
+        if (!res.ok) { setError((await res.json()).error); return; }
+        setFormOpen(false);
+      } else {
+        const res = await fetch("/api/contractors", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(draft),
+        });
+        const data = await res.json();
+        if (!res.ok) { setError(data.error); return; }
+        setFormOpen(false);
+        setCredModal({ title: "작업자 계정이 생성되었습니다", email: draft.email, password: data.tempPassword });
+      }
+      load();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function resetPassword(c: Profile) {
-    const res = await fetch(`/api/contractors/${c.id}/reset-password`, { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) { alert(data.error); return; }
-    alert(`${c.name}님의 임시 비밀번호가 재발급되었습니다: ${data.tempPassword}`);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/contractors/${c.id}/reset-password`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error); return; }
+      setCredModal({ title: `${c.name}님의 비밀번호가 초기화되었습니다`, email: c.email, password: data.tempPassword });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function remove(c: Profile) {
     if (!confirm(`${c.name}님을 삭제할까요? 담당 업무가 남아있으면 삭제되지 않습니다.`)) return;
-    const res = await fetch(`/api/contractors/${c.id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (!res.ok) { alert(data.error); return; }
-    load();
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/contractors/${c.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error); return; }
+      load();
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (loading || !me) return <div className="p-6 text-sm text-[#79766D]">불러오는 중...</div>;
@@ -81,6 +111,13 @@ export default function ContractorsPage() {
   return (
     <div>
       <Header name={me.name} role={me.role} />
+
+      {busy && (
+        <div className="fixed left-1/2 top-4 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#1F1E1B] px-4 py-2 text-xs font-semibold text-white shadow-lg">
+          <Loader2 size={14} className="animate-spin" /> 처리 중...
+        </div>
+      )}
+
       <main className="mx-auto max-w-4xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">외주 작업자 관리</h2>
@@ -135,9 +172,45 @@ export default function ContractorsPage() {
               </div>
               {error && <div className="text-xs text-red-600">{error}</div>}
               <div className="flex gap-2 pt-1">
-                <button onClick={save} className="rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white">저장</button>
+                <button onClick={save} disabled={busy} className="rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50">저장</button>
                 <button onClick={() => setFormOpen(false)} className="rounded-lg border border-[#E4E1D6] px-3.5 py-2 text-sm">취소</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 계정 생성 / 비밀번호 초기화 결과 - 복사 가능한 모달 */}
+      {credModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setCredModal(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[400px] rounded-2xl bg-white p-5">
+            <h3 className="mb-1 text-[15.5px] font-bold">{credModal.title}</h3>
+            <p className="mb-4 text-xs text-[#A7A399]">이 정보를 외주 작업자에게 전달해주세요. 처음 로그인하면 비밀번호를 직접 변경하도록 안내됩니다.</p>
+
+            <label className="mb-1 block text-xs text-[#79766D]">이메일</label>
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex-1 rounded-lg border border-[#E4E1D6] bg-[#F6F5F0] px-2.5 py-2 text-[13.5px]">{credModal.email}</div>
+              <button onClick={() => copy(credModal.email, "email")} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-[#E4E1D6]" title="이메일 복사">
+                {copiedField === "email" ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              </button>
+            </div>
+
+            <label className="mb-1 block text-xs text-[#79766D]">임시 비밀번호</label>
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex-1 rounded-lg border border-[#E4E1D6] bg-[#F6F5F0] px-2.5 py-2 font-mono text-[13.5px]">{credModal.password}</div>
+              <button onClick={() => copy(credModal.password, "password")} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-[#E4E1D6]" title="비밀번호 복사">
+                {copiedField === "password" ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => copy(`이메일: ${credModal.email}\n임시 비밀번호: ${credModal.password}`, "both")}
+                className="flex items-center gap-1.5 rounded-lg border border-[#E4E1D6] px-3.5 py-2 text-sm"
+              >
+                {copiedField === "both" ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />} 둘 다 복사
+              </button>
+              <button onClick={() => setCredModal(null)} className="ml-auto rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white">닫기</button>
             </div>
           </div>
         </div>
