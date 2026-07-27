@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Users, Film } from "lucide-react";
+import { Users, Film, UserCog } from "lucide-react";
 
 export default function Header({ name, role }: { name: string; role: "manager" | "contractor" }) {
   const router = useRouter();
@@ -41,6 +41,12 @@ export default function Header({ name, role }: { name: string; role: "manager" |
               className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${pathname === "/contractors" ? "bg-white" : "text-[#79766D]"}`}
             >
               <Users size={13} /> 외주 작업자 관리
+            </button>
+            <button
+              onClick={() => router.push("/managers")}
+              className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${pathname === "/managers" ? "bg-white" : "text-[#79766D]"}`}
+            >
+              <UserCog size={13} /> 담당자 관리
             </button>
           </div>
         )}
