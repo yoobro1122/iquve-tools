@@ -26,7 +26,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
 
   const patch: Record<string, unknown> = decision === "confirm"
-    ? { upload_decision: "confirmed", upload_status: "Complete", completed_at: new Date().toISOString() }
+    ? { upload_decision: "confirmed", decline_reason: "" }
     : { upload_decision: "declined", decline_reason: reason ?? "" };
 
   const { data: updated, error } = await db.from("projects").update(patch).eq("id", params.id).select().single();
@@ -34,7 +34,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   await db.from("project_logs").insert({
     project_id: params.id, actor_id: user.id, actor_name: profile.name,
-    change: decision === "confirm" ? "게시 확인 처리 (업로드 완료로 전환)" : `게시 불가 처리 - 사유: ${reason ?? ""}`,
+    change: decision === "confirm" ? "게재 확인 처리 (서비스 노출 완료)" : `게재 불가 처리 - 사유: ${reason ?? ""}`,
   });
 
   // 관련 외주 작업자 전원에게 안내 메일 (중복 이메일 제거)

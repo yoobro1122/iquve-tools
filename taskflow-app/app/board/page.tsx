@@ -726,6 +726,9 @@ export default function BoardPage() {
                         <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">음량 {selectedProject!.volume_check}</span>
                         <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">업로드 {selectedProject!.upload_status}</span>
                         <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">검수 {selectedProject!.review_status}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${selectedProject!.upload_decision === "confirmed" ? "bg-emerald-50 text-emerald-700" : selectedProject!.upload_decision === "declined" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-500"}`}>
+                          게재 {selectedProject!.upload_decision === "confirmed" ? "완료" : selectedProject!.upload_decision === "declined" ? "불가" : "미정"}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -744,16 +747,16 @@ export default function BoardPage() {
                 </div>
               )}
 
-              {!isAllView && computeProjectStatus(selectedProject!, tasks) === "업로드 보류" && selectedProject!.decline_reason && (
-                <div className="mb-3.5 text-xs text-red-600">게시 불가 사유: {selectedProject!.decline_reason}</div>
+              {!isAllView && selectedProject!.upload_decision === "declined" && selectedProject!.decline_reason && (
+                <div className="mb-3.5 text-xs text-red-600">게재 불가 사유: {selectedProject!.decline_reason}</div>
               )}
 
-              {!isAllView && !selectedProject!.archived && me.role === "manager" && computeProjectStatus(selectedProject!, tasks) === "확인 완료" && (
+              {!isAllView && !selectedProject!.archived && me.role === "manager" && allTasksDone(selectedProject!, tasks) && selectedProject!.review_status === "Complete(Kor)" && !selectedProject!.upload_decision && (
                 <div className="mb-5 flex items-center gap-2.5 rounded-xl bg-violet-50 px-3.5 py-2.5 text-sm">
-                  <span className="font-semibold text-violet-700">프로젝트가 게시 되었나요?</span>
+                  <span className="font-semibold text-violet-700">프로젝트가 서비스에 게재 되었나요?</span>
                   <div className="ml-auto flex gap-2">
-                    <button onClick={handlePublishConfirm} className={`${btnSuccess} flex items-center gap-1.5`}><UploadCloud size={13} /> 게시 확인</button>
-                    <button onClick={openDeclineModal} className={`${btnDanger} flex items-center gap-1.5`}><X size={13} /> 게시 불가</button>
+                    <button onClick={handlePublishConfirm} className={`${btnSuccess} flex items-center gap-1.5`}><UploadCloud size={13} /> 게재 확인</button>
+                    <button onClick={openDeclineModal} className={`${btnDanger} flex items-center gap-1.5`}><X size={13} /> 게재 불가</button>
                   </div>
                 </div>
               )}
@@ -984,8 +987,8 @@ export default function BoardPage() {
       {declineModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setDeclineModalOpen(false)}>
           <div onClick={(e) => e.stopPropagation()} className="w-[400px] rounded-2xl bg-white p-5">
-            <h3 className="mb-3 text-[15.5px] font-bold">게시 불가 사유가 무엇인가요?</h3>
-            <textarea rows={4} value={declineReasonDraft} onChange={(e) => setDeclineReasonDraft(e.target.value)} placeholder="게시가 불가한 이유를 입력해주세요." className={`${inputCls} mb-3 resize-y`} />
+            <h3 className="mb-3 text-[15.5px] font-bold">게재 불가 사유가 무엇인가요?</h3>
+            <textarea rows={4} value={declineReasonDraft} onChange={(e) => setDeclineReasonDraft(e.target.value)} placeholder="게재가 불가한 이유를 입력해주세요." className={`${inputCls} mb-3 resize-y`} />
             <div className="flex gap-2">
               <button onClick={submitDecline} disabled={!declineReasonDraft.trim()} className={`${btnDanger} disabled:opacity-50`}>제출</button>
               <button onClick={() => setDeclineModalOpen(false)} className={btnDefault}>취소</button>
@@ -1012,7 +1015,7 @@ export default function BoardPage() {
       {viewDeclineProjectId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setViewDeclineProjectId(null)}>
           <div onClick={(e) => e.stopPropagation()} className="w-[380px] rounded-2xl bg-white p-5">
-            <h3 className="mb-3 text-[15.5px] font-bold">게시 불가 사유</h3>
+            <h3 className="mb-3 text-[15.5px] font-bold">게재 불가 사유</h3>
             <p className="mb-3.5 text-sm text-red-600">{projects.find((p) => p.id === viewDeclineProjectId)?.decline_reason || "사유가 기록되지 않았습니다."}</p>
             <button onClick={() => setViewDeclineProjectId(null)} className={btnDefault}>닫기</button>
           </div>

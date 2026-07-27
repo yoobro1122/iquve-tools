@@ -30,6 +30,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ error: "모든 업무가 완료되어야 업로드를 Complete로 바꿀 수 있습니다." }, { status: 400 });
     changes.push(`프로젝트 업로드: ${project.upload_status} → ${upload_status}`);
     patch.upload_status = upload_status;
+    if (upload_status === "Complete" && !project.completed_at) patch.completed_at = new Date().toISOString();
   }
   if (review_status && review_status !== project.review_status) {
     if (review_status === "Complete(Kor)" && !allDone)

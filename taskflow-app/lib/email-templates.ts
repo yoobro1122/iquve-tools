@@ -73,12 +73,12 @@ export function reworkRequestedEmail(projectName: string, taskLabel: string, mes
 
 export function publishDecidedEmail(projectName: string, decision: "confirmed" | "declined", reason?: string) {
   return {
-    subject: decision === "confirmed" ? `[게시 완료] "${projectName}" 프로젝트가 게시되었습니다` : `[게시 보류] "${projectName}" 프로젝트 게시가 보류되었습니다`,
+    subject: decision === "confirmed" ? `[게재 완료] "${projectName}" 프로젝트가 게재되었습니다` : `[게재 불가] "${projectName}" 프로젝트 게재가 불가 처리되었습니다`,
     html: wrap(
-      decision === "confirmed" ? "게시 완료" : "게시 보류",
+      decision === "confirmed" ? "게재 완료" : "게재 불가",
       decision === "confirmed"
-        ? `<p>프로젝트 <b>${projectName}</b>이(가) 게시 완료 처리되었습니다.</p>`
-        : `<p>프로젝트 <b>${projectName}</b> 게시가 보류되었습니다.</p><p style="background:#f5f5f5; padding:12px; border-radius:6px;">${reason || ""}</p>`
+        ? `<p>프로젝트 <b>${projectName}</b>이(가) 게재 완료 처리되었습니다.</p>`
+        : `<p>프로젝트 <b>${projectName}</b> 게재가 불가 처리되었습니다.</p><p style="background:#f5f5f5; padding:12px; border-radius:6px;">${reason || ""}</p>`
     ),
   };
 }

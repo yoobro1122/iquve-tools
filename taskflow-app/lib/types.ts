@@ -87,12 +87,13 @@ export interface Task {
 }
 
 // 프로젝트 상태 계산 - 비활성화(archived)된 업무는 완료 판정에서 제외합니다.
+// 주의: '게재(서비스 노출)' 여부는 upload_decision 필드로 완전히 별개로 관리되며,
+// 여기서 계산하는 프로젝트 상태(제작 파이프라인 단계)에는 영향을 주지 않습니다.
 export function computeProjectStatus(project: Project, tasks: Task[]) {
   const list = tasks.filter((t) => t.project_id === project.id && !t.archived);
   const started = list.some((t) => t.status !== "waiting");
   const allDone = list.length > 0 && list.every((t) => t.status === "done");
   if (project.upload_status === "Complete") return "업로드 완료";
-  if (project.upload_decision === "declined") return "업로드 보류";
   if (allDone && project.review_status === "Complete(Kor)") return "확인 완료";
   if (allDone) return "검수 중";
   if (started) return "작업 중";
