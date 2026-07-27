@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const majorCategoryId = searchParams.get("major_category_id");
 
-  let query = db.from("projects").select("*, subheadings(*)").order("created_at", { ascending: false });
+  let query = db.from("projects").select("*, episodes(*)").order("created_at", { ascending: false });
   if (majorCategoryId) query = query.eq("major_category_id", majorCategoryId);
 
   const { data, error } = await query;

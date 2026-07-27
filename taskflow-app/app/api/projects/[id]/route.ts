@@ -54,3 +54,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   return NextResponse.json({ item: updated });
 }
+
+// 완전 삭제: 이미 비활성화(archived=true) 상태인 프로젝트만 DB에서 영구 삭제할 수 있습니다.
+// (하위 에피소드/업무/업무로그는 on delete cascade로 함께 삭제됩니다.)
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const r = await requireManager();
+  if (r.error) return r.error;
+
+  const { data: project } = await r.db!.from("projects").select("*").eq("id", params.id).single();
+  if (!project) return NextResponse.json({ error: "프로젝트를 찾을 수 없습니다." }, { status: 404 });
+  if (!project.archived) return NextResponse.json({ error: "삭제(비활성화)된 프로젝트만 완전 삭제할 수 있습니다." }, { status: 400 });
+
+  const { error } = await r.db!.from("projects").delete().eq("id", params.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}

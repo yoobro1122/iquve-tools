@@ -6,11 +6,12 @@ import Header from "@/app/components/Header";
 import {
   Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
-  Boxes, Settings, RotateCcw, ClipboardList, Loader2,
+  Boxes, Settings, RotateCcw, ClipboardList, Loader2, Link as LinkIcon,
+  Search, Download, XCircle,
 } from "lucide-react";
 import {
   Profile, MajorCategory, Category, Project, Task,
-  TASK_STATUS_LABEL, computeProjectStatus, allTasksDone, ddayLabel,
+  TASK_STATUS_LABEL, computeProjectStatus, allTasksDone, ddayLabel, workDays,
 } from "@/lib/types";
 
 const PROJECT_STATUS_COLOR: Record<string, string> = {
@@ -31,6 +32,10 @@ function fmtDate(iso: string | null) {
   const d = new Date(iso);
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
 }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 function simplifiedStatus(full: string) {
   if (full === "준비 중") return "준비 중";
   if (full === "업로드 완료") return "완료";
@@ -46,9 +51,11 @@ export default function BoardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [contractors, setContractors] = useState<Profile[]>([]);
+  const [managers, setManagers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwError, setPwError] = useState("");
@@ -58,15 +65,18 @@ export default function BoardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [openBuckets, setOpenBuckets] = useState<Record<string, boolean>>({ ready: true, inprogress: true, done: true, archived: false });
   const [selectedProjectId, setSelectedProjectId] = useState<string>("ALL");
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"category" | "status">("category");
   const [projectStatusView, setProjectStatusView] = useState(false);
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
+  const [expandedStatusRows, setExpandedStatusRows] = useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [showMcManage, setShowMcManage] = useState(false);
   const [newMcLabel, setNewMcLabel] = useState("");
 
   const [showNewProject, setShowNewProject] = useState(false);
-  const [newProjectDraft, setNewProjectDraft] = useState({ code: "", name: "" });
+  const [newProjectDraft, setNewProjectDraft] = useState({ code: "", name: "", major_category_id: "" });
   const [projectFormError, setProjectFormError] = useState("");
 
   const [editProjectOpen, setEditProjectOpen] = useState(false);
@@ -82,16 +92,23 @@ export default function BoardPage() {
   const [remarkDraft, setRemarkDraft] = useState("");
   const [viewDeclineProjectId, setViewDeclineProjectId] = useState<string | null>(null);
 
+  const [showEpisodeManage, setShowEpisodeManage] = useState(false);
+  const [newEpLabel, setNewEpLabel] = useState("");
+
   const [showNewTask, setShowNewTask] = useState(false);
-  const [newTask, setNewTask] = useState({ category_id: "", subheading_id: "", contractor_id: "" });
-  const [newCatLabel, setNewCatLabel] = useState("");
-  const [newSubLabel, setNewSubLabel] = useState("");
+  const [newTask, setNewTask] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", planned_start_date: todayStr(), memo: "" });
 
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
-  const [editTaskDraft, setEditTaskDraft] = useState({ category_id: "", subheading_id: "", contractor_id: "" });
+  const [editTaskDraft, setEditTaskDraft] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", memo: "" });
 
   const [reworkModalTaskId, setReworkModalTaskId] = useState<string | null>(null);
   const [reworkMessage, setReworkMessage] = useState("");
+
+  const [submitModalTaskId, setSubmitModalTaskId] = useState<string | null>(null);
+  const [fileLinkDraft, setFileLinkDraft] = useState("");
+
+  const [showExportPicker, setShowExportPicker] = useState(false);
+  const [exportProjectId, setExportProjectId] = useState("");
 
   const load = useCallback(async (isInitial = false) => {
     if (!isInitial) setRefreshing(true);
@@ -100,18 +117,20 @@ export default function BoardPage() {
     const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     setMe(profile as Profile);
 
-    const [mcRes, catRes, projRes] = await Promise.all([
+    const [mcRes, catRes, projRes, mgrRes] = await Promise.all([
       supabase.from("major_categories").select("*").order("sort_order"),
       supabase.from("categories").select("*").order("label"),
-      supabase.from("projects").select("*, subheadings(*)").order("created_at", { ascending: false }),
+      supabase.from("projects").select("*, episodes(*)").order("created_at", { ascending: false }),
+      supabase.from("profiles").select("*").eq("role", "manager").order("name"),
     ]);
     setMajorCategories((mcRes.data as MajorCategory[]) ?? []);
     setCategories((catRes.data as Category[]) ?? []);
     setProjects((projRes.data as Project[]) ?? []);
+    setManagers((mgrRes.data as Profile[]) ?? []);
 
     const { data: taskData } = await supabase
       .from("tasks")
-      .select("*, project:project_id(*), category:category_id(*), subheading:subheading_id(*), contractor:contractor_id(*), rework_notes:task_rework_notes(*)")
+      .select("*, project:project_id(*), category:category_id(*), episode:episode_id(*), contractor:contractor_id(*), manager:manager_id(*), rework_notes:task_rework_notes(*)")
       .order("created_at", { ascending: true });
     setTasks((taskData as unknown as Task[]) ?? []);
 
@@ -126,69 +145,6 @@ export default function BoardPage() {
 
   useEffect(() => { load(true); }, [load]);
 
-  const isAllMc = majorCategoryId === "ALL_MC";
-  const scopedProjects = useMemo(
-    () => (isAllMc ? projects : projects.filter((p) => p.major_category_id === majorCategoryId)),
-    [projects, majorCategoryId, isAllMc]
-  );
-  const isAllView = selectedProjectId === "ALL";
-  const selectedProject = !isAllView ? projects.find((p) => p.id === selectedProjectId) ?? null : null;
-
-  const rawScopeTasks = useMemo(() => {
-    let list: Task[];
-    if (isAllView) {
-      const ids = new Set(scopedProjects.map((p) => p.id));
-      list = tasks.filter((t) => ids.has(t.project_id));
-    } else if (selectedProject) {
-      list = tasks.filter((t) => t.project_id === selectedProject.id);
-    } else list = [];
-    return list.filter((t) => !t.archived);
-  }, [isAllView, scopedProjects, tasks, selectedProject]);
-
-  const archivedTasksInScope = useMemo(() => {
-    let list: Task[];
-    if (isAllView) {
-      const ids = new Set(scopedProjects.map((p) => p.id));
-      list = tasks.filter((t) => ids.has(t.project_id));
-    } else if (selectedProject) {
-      list = tasks.filter((t) => t.project_id === selectedProject.id);
-    } else list = [];
-    return list.filter((t) => t.archived);
-  }, [isAllView, scopedProjects, tasks, selectedProject]);
-
-  const visibleTasks = useMemo(() => {
-    if (me?.role === "contractor") return rawScopeTasks.filter((t) => t.contractor_id === me.id);
-    return rawScopeTasks;
-  }, [rawScopeTasks, me]);
-
-  const grouped = useMemo(() => {
-    if (viewMode === "status") {
-      return {
-        waiting: visibleTasks.filter((t) => t.status === "waiting"),
-        active: visibleTasks.filter((t) => ["in_progress", "reviewing", "rework_notice"].includes(t.status)),
-        done: visibleTasks.filter((t) => t.status === "done"),
-      } as Record<string, Task[]>;
-    }
-    const byCat: Record<string, Task[]> = {};
-    categories.forEach((c) => { byCat[c.id] = visibleTasks.filter((t) => t.category_id === c.id); });
-    return byCat;
-  }, [visibleTasks, viewMode, categories]);
-
-  const buckets = useMemo(() => {
-    const b: Record<string, Project[]> = { ready: [], inprogress: [], done: [], archived: [] };
-    scopedProjects.forEach((p) => {
-      if (p.archived) b.archived.push(p);
-      else {
-        const s = computeProjectStatus(p, tasks);
-        if (s === "준비 중") b.ready.push(p);
-        else if (s === "업로드 완료") b.done.push(p);
-        else b.inprogress.push(p);
-      }
-    });
-    return b;
-  }, [scopedProjects, tasks]);
-
-  // ---------------- actions ----------------
   async function submitPasswordChange() {
     setPwError("");
     if (newPassword.length < 8) { setPwError("비밀번호는 8자 이상이어야 합니다."); return; }
@@ -223,8 +179,88 @@ export default function BoardPage() {
     }
   }
 
+  const isAllMc = majorCategoryId === "ALL_MC";
+  const scopedProjects = useMemo(
+    () => (isAllMc ? projects : projects.filter((p) => p.major_category_id === majorCategoryId)),
+    [projects, majorCategoryId, isAllMc]
+  );
+  const isAllView = selectedProjectId === "ALL";
+  const selectedProject = !isAllView ? projects.find((p) => p.id === selectedProjectId) ?? null : null;
+
+  const rawScopeTasks = useMemo(() => {
+    let list: Task[];
+    if (isAllView) {
+      const ids = new Set(scopedProjects.map((p) => p.id));
+      list = tasks.filter((t) => ids.has(t.project_id));
+    } else if (selectedProject) {
+      list = tasks.filter((t) => t.project_id === selectedProject.id);
+    } else list = [];
+    return list.filter((t) => !t.archived);
+  }, [isAllView, scopedProjects, tasks, selectedProject]);
+
+  const archivedTasksInScope = useMemo(() => {
+    let list: Task[];
+    if (isAllView) {
+      const ids = new Set(scopedProjects.map((p) => p.id));
+      list = tasks.filter((t) => ids.has(t.project_id));
+    } else if (selectedProject) {
+      list = tasks.filter((t) => t.project_id === selectedProject.id);
+    } else list = [];
+    return list.filter((t) => t.archived);
+  }, [isAllView, scopedProjects, tasks, selectedProject]);
+
+  const episodeFilteredTasks = useMemo(() => {
+    if (isAllView || selectedEpisodeId === "ALL") return rawScopeTasks;
+    return rawScopeTasks.filter((t) => t.episode_id === selectedEpisodeId);
+  }, [rawScopeTasks, isAllView, selectedEpisodeId]);
+
+  const visibleTasks = useMemo(() => {
+    let list = episodeFilteredTasks;
+    if (me?.role === "contractor") list = list.filter((t) => t.contractor_id === me.id);
+    if (isAllView && searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter((t) => t.contractor?.name?.toLowerCase().includes(q) || t.manager?.name?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [episodeFilteredTasks, me, isAllView, searchQuery]);
+
+  const grouped = useMemo(() => {
+    if (viewMode === "status") {
+      return {
+        waiting: visibleTasks.filter((t) => t.status === "waiting"),
+        active: visibleTasks.filter((t) => ["in_progress", "reviewing", "rework_notice"].includes(t.status)),
+        done: visibleTasks.filter((t) => t.status === "done"),
+      } as Record<string, Task[]>;
+    }
+    const byCat: Record<string, Task[]> = {};
+    categories.forEach((c) => { byCat[c.id] = visibleTasks.filter((t) => t.category_id === c.id); });
+    return byCat;
+  }, [visibleTasks, viewMode, categories]);
+
+  const buckets = useMemo(() => {
+    const b: Record<string, Project[]> = { ready: [], inprogress: [], done: [], archived: [] };
+    scopedProjects.forEach((p) => {
+      if (p.archived) b.archived.push(p);
+      else {
+        const s = computeProjectStatus(p, tasks);
+        if (s === "준비 중") b.ready.push(p);
+        else if (s === "업로드 완료") b.done.push(p);
+        else b.inprogress.push(p);
+      }
+    });
+    return b;
+  }, [scopedProjects, tasks]);
+
+  // ---------------- task actions ----------------
   async function taskStart(t: Task) { if (await api(`/api/tasks/${t.id}/start`, "POST")) load(); }
-  async function taskSubmit(t: Task) { if (await api(`/api/tasks/${t.id}/submit`, "POST")) load(); }
+  function openSubmitModal(t: Task) { setSubmitModalTaskId(t.id); setFileLinkDraft(t.file_link || ""); }
+  async function confirmSubmit() {
+    if (!fileLinkDraft.trim()) { alert("작업 파일 링크를 입력해주세요."); return; }
+    if (await api(`/api/tasks/${submitModalTaskId}/submit`, "POST", { file_link: fileLinkDraft.trim() })) {
+      setSubmitModalTaskId(null);
+      load();
+    }
+  }
   async function acknowledgeMessage(t: Task) { if (await api(`/api/tasks/${t.id}/acknowledge`, "POST")) load(); }
   async function reviewApprove(t: Task) { if (await api(`/api/tasks/${t.id}/review`, "POST", { result: "pass" })) load(); }
   function openReworkModal(t: Task) { setReworkModalTaskId(t.id); setReworkMessage(""); }
@@ -238,16 +274,20 @@ export default function BoardPage() {
 
   function openEditTask(t: Task) {
     setEditTaskId(t.id);
-    setEditTaskDraft({ category_id: t.category_id, subheading_id: t.subheading_id ?? "", contractor_id: t.contractor_id });
+    setEditTaskDraft({ category_id: t.category_id, episode_id: t.episode_id ?? "", contractor_id: t.contractor_id, manager_id: t.manager_id ?? "", memo: t.memo ?? "" });
   }
   async function saveEditTask() {
     if (await api(`/api/tasks/${editTaskId}`, "PATCH", editTaskDraft)) { setEditTaskId(null); load(); }
   }
-  async function deleteTaskFromModal() {
+  async function archiveTaskFromModal() {
     if (!confirm("이 업무를 삭제(비활성화) 처리할까요? 나중에 복원할 수 있습니다.")) return;
     if (await api(`/api/tasks/${editTaskId}`, "PATCH", { archived: true })) { setEditTaskId(null); load(); }
   }
   async function restoreTask(t: Task) { if (await api(`/api/tasks/${t.id}`, "PATCH", { archived: false })) load(); }
+  async function permanentlyDeleteTask(t: Task) {
+    if (!confirm(`업무 ${t.code}를 DB에서 완전히 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+    if (await api(`/api/tasks/${t.id}`, "DELETE")) load();
+  }
 
   async function createTask() {
     if (await api("/api/tasks", "POST", { project_id: selectedProject!.id, ...newTask })) { setShowNewTask(false); load(); }
@@ -267,20 +307,20 @@ export default function BoardPage() {
     if (!confirm("이 카테고리를 삭제할까요?")) return;
     if (await api(`/api/categories/${id}`, "DELETE")) load();
   }
+  const [newCatLabel, setNewCatLabel] = useState("");
 
-  async function addSubheading() {
-    if (!newSubLabel.trim() || !selectedProject) return;
-    const data = await api(`/api/projects/${selectedProject.id}/subheadings`, "POST", { label: newSubLabel.trim() });
-    if (data) { setNewTask((n) => ({ ...n, subheading_id: data.item.id })); setNewSubLabel(""); load(); }
+  async function addEpisode() {
+    if (!newEpLabel.trim() || !selectedProject) return;
+    if (await api(`/api/projects/${selectedProject.id}/episodes`, "POST", { label: newEpLabel.trim() })) { setNewEpLabel(""); load(); }
   }
-  async function renameSubheading(id: string, current: string) {
-    const label = prompt("subheading 수정", current);
+  async function renameEpisode(id: string, current: string) {
+    const label = prompt("에피소드 이름 수정", current);
     if (!label) return;
-    if (await api(`/api/subheadings/${id}`, "PATCH", { label })) load();
+    if (await api(`/api/episodes/${id}`, "PATCH", { label })) load();
   }
-  async function deleteSubheading(id: string) {
-    if (!confirm("이 subheading을 삭제할까요?")) return;
-    if (await api(`/api/subheadings/${id}`, "DELETE")) load();
+  async function deleteEpisode(id: string) {
+    if (!confirm("이 에피소드를 삭제할까요? (해당 에피소드가 지정된 업무는 '적용 안함'으로 바뀝니다)")) return;
+    if (await api(`/api/episodes/${id}`, "DELETE")) { if (selectedEpisodeId === id) setSelectedEpisodeId("ALL"); load(); }
   }
 
   async function addMajorCategory() {
@@ -318,14 +358,23 @@ export default function BoardPage() {
     }
   }
   async function restoreProject(p: Project) { if (await api(`/api/projects/${p.id}`, "PATCH", { archived: false })) load(); }
+  async function permanentlyDeleteProject(p: Project) {
+    if (!confirm(`프로젝트 "${p.name}"를 DB에서 완전히 삭제할까요? 하위 업무/에피소드도 모두 함께 삭제되며, 이 작업은 되돌릴 수 없습니다.`)) return;
+    if (await api(`/api/projects/${p.id}`, "DELETE")) { if (selectedProjectId === p.id) setSelectedProjectId("ALL"); load(); }
+  }
 
+  function openNewProjectModal() {
+    setNewProjectDraft({ code: "", name: "", major_category_id: isAllMc ? "" : majorCategoryId });
+    setProjectFormError("");
+    setShowNewProject(true);
+  }
   async function submitNewProject() {
-    if (isAllMc) { setProjectFormError("대분류 탭에서 특정 카테고리를 먼저 선택해주세요."); return; }
-    const data = await api("/api/projects", "POST", { ...newProjectDraft, major_category_id: majorCategoryId });
+    if (!newProjectDraft.major_category_id) { setProjectFormError("대분류를 선택해주세요."); return; }
+    const data = await api("/api/projects", "POST", newProjectDraft);
     if (!data) return;
+    setMajorCategoryId(newProjectDraft.major_category_id);
     setSelectedProjectId(data.item.id);
     setShowNewProject(false);
-    setNewProjectDraft({ code: "", name: "" });
     load();
   }
 
@@ -352,8 +401,9 @@ export default function BoardPage() {
 
   const projectDone = selectedProject ? allTasksDone(selectedProject, tasks) : false;
 
-  function subheadingLabel(t: Task) { return t.subheading?.label ?? "적용 안함"; }
+  function episodeLabel(t: Task) { return t.episode?.label ?? "적용 안함"; }
   function contractorName(t: Task) { return t.contractor?.name ?? "-"; }
+  function managerName(t: Task) { return t.manager?.name ?? "-"; }
 
   if (loading || !me) return <div className="p-6 text-sm text-[#79766D]">불러오는 중...</div>;
 
@@ -375,15 +425,23 @@ export default function BoardPage() {
         <div className="mb-1.5 flex items-start justify-between">
           <div className="text-[10.5px] text-[#A7A399]">{proj.code} / {t.code} / {proj.name}</div>
           {isManagerView && !projectArchived && (
-            <div className="flex gap-1">
-              <button onClick={() => openEditTask(t)} title="업무 수정"><Pencil size={12} className="text-[#79766D]" /></button>
-            </div>
+            <button onClick={() => openEditTask(t)} title="업무 수정"><Pencil size={12} className="text-[#79766D]" /></button>
           )}
         </div>
-        <div className="mb-2 text-[15px] font-bold">{subheadingLabel(t)}</div>
+        <div className="mb-1.5 text-[15px] font-bold">{episodeLabel(t)}</div>
         <div className="mb-2 text-[12.5px] text-[#79766D]">
-          {contractorName(t)} · <span className={`font-semibold ${TASK_STATUS_COLOR[t.status]}`}>{TASK_STATUS_LABEL[t.status]}</span>
+          {contractorName(t)} <span className="text-[#A7A399]">(담당: {managerName(t)})</span> · <span className={`font-semibold ${TASK_STATUS_COLOR[t.status]}`}>{TASK_STATUS_LABEL[t.status]}</span>
         </div>
+
+        {t.memo && (
+          <div className="mb-2 rounded-lg bg-[#F6F5F0] p-2 text-xs text-[#79766D]"><b>메모</b> {t.memo}</div>
+        )}
+
+        {t.file_link && (
+          <a href={t.file_link} target="_blank" rel="noreferrer" className="mb-2 flex items-center gap-1 text-xs text-[#2C56C9] underline">
+            <LinkIcon size={11} /> 작업 파일 확인
+          </a>
+        )}
 
         {t.status === "rework_notice" && notes.length > 0 && (
           <div className="mb-2 flex flex-col gap-1.5">
@@ -405,7 +463,7 @@ export default function BoardPage() {
           <button onClick={() => taskStart(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Play size={13} /> 업무 시작</button>
         )}
         {!projectArchived && isMine && t.status === "in_progress" && (
-          <button onClick={() => taskSubmit(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Check size={13} /> 업무 종료</button>
+          <button onClick={() => openSubmitModal(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Check size={13} /> 업무 종료</button>
         )}
         {!projectArchived && isMine && t.status === "reviewing" && (
           <div className="text-xs text-[#A7A399]">담당자 검수를 기다리는 중입니다.</div>
@@ -414,7 +472,7 @@ export default function BoardPage() {
           <button onClick={() => acknowledgeMessage(t)} className={`${btnDanger} w-full`}>메시지 확인 완료</button>
         )}
         {!projectArchived && isMine && t.status === "rework_notice" && t.rework_acknowledged && (
-          <button onClick={() => taskSubmit(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Check size={13} /> 수정 완료</button>
+          <button onClick={() => openSubmitModal(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Check size={13} /> 수정 완료</button>
         )}
 
         {!projectArchived && isManagerView && t.status === "reviewing" && (
@@ -448,7 +506,6 @@ export default function BoardPage() {
           <div className="w-[380px] rounded-2xl bg-white p-5">
             <h3 className="mb-1 text-[15.5px] font-bold">비밀번호를 설정해주세요</h3>
             <p className="mb-4 text-xs text-[#A7A399]">임시 비밀번호로 로그인하셨습니다. 계속 사용하시려면 본인만의 비밀번호로 변경해주세요.</p>
-
             <label className="mb-1 block text-xs text-[#79766D]">새 비밀번호 (8자 이상)</label>
             <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="mb-2.5 w-full rounded-lg border border-[#E4E1D6] px-2.5 py-2 text-[13.5px]" />
             <label className="mb-1 block text-xs text-[#79766D]">새 비밀번호 다시 입력</label>
@@ -480,8 +537,8 @@ export default function BoardPage() {
             </button>
           </div>
 
-          {sidebarOpen && me.role === "manager" && !isAllMc && (
-            <button onClick={() => { setNewProjectDraft({ code: "", name: "" }); setProjectFormError(""); setShowNewProject(true); }} className="mb-3 flex w-full items-center gap-1.5 rounded-lg border border-dashed border-[#E4E1D6] px-2.5 py-1.5 text-[12.5px] font-semibold text-[#2C56C9]">
+          {sidebarOpen && me.role === "manager" && (
+            <button onClick={openNewProjectModal} className="mb-3 flex w-full items-center gap-1.5 rounded-lg border border-dashed border-[#E4E1D6] px-2.5 py-1.5 text-[12.5px] font-semibold text-[#2C56C9]">
               <FolderPlus size={14} /> 새 프로젝트
             </button>
           )}
@@ -502,16 +559,19 @@ export default function BoardPage() {
                 const count = tasks.filter((t) => t.project_id === p.id && !t.archived).length;
                 return sidebarOpen ? (
                   <div key={p.id} className="mb-0.5 flex items-center gap-1">
-                    <button onClick={() => { setSelectedProjectId(p.id); setProjectStatusView(false); }} className={`min-w-0 flex-1 rounded-lg px-2.5 py-2 text-left ${active ? "bg-[#E8EDFB]" : ""}`} style={{ opacity: p.archived ? 0.55 : 1 }}>
+                    <button onClick={() => { setSelectedProjectId(p.id); setSelectedEpisodeId("ALL"); setProjectStatusView(false); }} className={`min-w-0 flex-1 rounded-lg px-2.5 py-2 text-left ${active ? "bg-[#E8EDFB]" : ""}`} style={{ opacity: p.archived ? 0.55 : 1 }}>
                       <div className={`text-[10.5px] font-bold ${active ? "text-[#2C56C9]" : "text-[#A7A399]"}`}>{p.code} / 업무 {count}건</div>
                       <div className={`truncate text-[13px] font-semibold ${active ? "text-[#2C56C9]" : ""}`}>{p.name}</div>
                     </button>
                     {p.archived && me.role === "manager" && (
-                      <button onClick={() => restoreProject(p)} title="복원" className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-[#E4E1D6]"><RotateCcw size={12} /></button>
+                      <>
+                        <button onClick={() => restoreProject(p)} title="복원" className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-[#E4E1D6]"><RotateCcw size={12} /></button>
+                        <button onClick={() => permanentlyDeleteProject(p)} title="완전 삭제" className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-[#E4E1D6] text-red-600"><XCircle size={12} /></button>
+                      </>
                     )}
                   </div>
                 ) : (
-                  <button key={p.id} onClick={() => { setSelectedProjectId(p.id); setProjectStatusView(false); }} title={`${p.code} · ${p.name}`} className={`mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-lg text-[10.5px] font-bold ${active ? "bg-[#E8EDFB] text-[#2C56C9]" : "text-[#79766D]"}`} style={{ opacity: p.archived ? 0.55 : 1 }}>
+                  <button key={p.id} onClick={() => { setSelectedProjectId(p.id); setSelectedEpisodeId("ALL"); setProjectStatusView(false); }} title={`${p.code} · ${p.name}`} className={`mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-lg text-[10.5px] font-bold ${active ? "bg-[#E8EDFB] text-[#2C56C9]" : "text-[#79766D]"}`} style={{ opacity: p.archived ? 0.55 : 1 }}>
                     {p.code.slice(0, 4)}
                   </button>
                 );
@@ -532,7 +592,14 @@ export default function BoardPage() {
         <main className="flex-1 overflow-x-auto p-6">
           {projectStatusView ? (
             <>
-              <h2 className="mb-4 text-lg font-bold">프로젝트 현황</h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold">프로젝트 현황</h2>
+                {me.role === "manager" && (
+                  <button onClick={() => { setExportProjectId(scopedProjects[0]?.id ?? ""); setShowExportPicker(true); }} className={`${btnDefault} flex items-center gap-1.5`}>
+                    <Download size={14} /> 엑셀 다운로드
+                  </button>
+                )}
+              </div>
               <div className="overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
                 <div className="grid grid-cols-[1.4fr_0.9fr_0.9fr_0.9fr_0.9fr_0.9fr_1.1fr] border-b border-[#E4E1D6] px-3.5 py-2.5 text-[11px] font-bold text-[#79766D]">
                   <span>프로젝트명</span><span>진행 상태</span><span>등록일</span><span>업무 시작일</span><span>완료일</span><span>게재 상태</span><span>비고</span>
@@ -540,24 +607,53 @@ export default function BoardPage() {
                 {scopedProjects.map((p) => {
                   const full = computeProjectStatus(p, tasks);
                   const simple = simplifiedStatus(full);
-                  const started = tasks.filter((t) => t.project_id === p.id && t.start_date).map((t) => t.start_date!).sort()[0];
+                  const projTasks = tasks.filter((t) => t.project_id === p.id && !t.archived);
+                  const started = projTasks.filter((t) => t.start_date).map((t) => t.start_date!).sort()[0];
+                  const isExpanded = !!expandedStatusRows[p.id];
                   return (
-                    <div key={p.id} className="grid grid-cols-[1.4fr_0.9fr_0.9fr_0.9fr_0.9fr_0.9fr_1.1fr] items-center border-b border-[#E4E1D6] px-3.5 py-2.5 text-[12.5px]">
-                      <span className="font-semibold">{p.name}</span>
-                      <span><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${PROJECT_STATUS_COLOR[simple === "완료" ? "업로드 완료" : simple === "검수 중" ? "검수 중" : simple === "진행 중" ? "작업 중" : "준비 중"]}`}>{simple}</span></span>
-                      <span className="text-[#79766D]">{fmtDate(p.created_at)}</span>
-                      <span className="text-[#79766D]">{started ? fmtDate(started) : "-"}</span>
-                      <span className="text-[#79766D]">{p.completed_at ? fmtDate(p.completed_at) : "-"}</span>
-                      <span>
-                        {p.upload_decision === "confirmed" && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">완료</span>}
-                        {p.upload_decision === "declined" && (
-                          <span onClick={() => setViewDeclineProjectId(p.id)} className="cursor-pointer rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-700">불가</span>
-                        )}
-                        {!p.upload_decision && <span className="text-[#A7A399]">-</span>}
-                      </span>
-                      <span onClick={() => { setRemarkModalProjectId(p.id); setRemarkDraft(p.remark || ""); }} className={`cursor-pointer text-[12px] ${p.remark ? "" : "text-[#A7A399]"}`}>
-                        {p.remark ? (p.remark.length > 14 ? p.remark.slice(0, 14) + "…" : p.remark) : "+ 입력"}
-                      </span>
+                    <div key={p.id} className="border-b border-[#E4E1D6]">
+                      <div className="grid grid-cols-[1.4fr_0.9fr_0.9fr_0.9fr_0.9fr_0.9fr_1.1fr] items-center px-3.5 py-2.5 text-[12.5px]">
+                        <button onClick={() => setExpandedStatusRows((s) => ({ ...s, [p.id]: !s[p.id] }))} className="flex items-center gap-1.5 text-left font-semibold">
+                          <ChevronDown size={13} style={{ transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)" }} className="flex-shrink-0 text-[#A7A399]" />
+                          {p.name}
+                        </button>
+                        <span><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${PROJECT_STATUS_COLOR[simple === "완료" ? "업로드 완료" : simple === "검수 중" ? "검수 중" : simple === "진행 중" ? "작업 중" : "준비 중"]}`}>{simple}</span></span>
+                        <span className="text-[#79766D]">{fmtDate(p.created_at)}</span>
+                        <span className="text-[#79766D]">{started ? fmtDate(started) : "-"}</span>
+                        <span className="text-[#79766D]">{p.completed_at ? fmtDate(p.completed_at) : "-"}</span>
+                        <span>
+                          {p.upload_decision === "confirmed" && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">완료</span>}
+                          {p.upload_decision === "declined" && (
+                            <span onClick={() => setViewDeclineProjectId(p.id)} className="cursor-pointer rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-700">불가</span>
+                          )}
+                          {!p.upload_decision && <span className="text-[#A7A399]">-</span>}
+                        </span>
+                        <span onClick={() => { setRemarkModalProjectId(p.id); setRemarkDraft(p.remark || ""); }} className={`cursor-pointer text-[12px] ${p.remark ? "" : "text-[#A7A399]"}`}>
+                          {p.remark ? (p.remark.length > 14 ? p.remark.slice(0, 14) + "…" : p.remark) : "+ 입력"}
+                        </span>
+                      </div>
+                      {isExpanded && (
+                        <div className="bg-[#FAFAF7] px-3.5 pb-3">
+                          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_0.8fr_0.8fr_0.7fr] gap-0 border-b border-[#E4E1D6] py-1.5 text-[10.5px] font-bold text-[#A7A399]">
+                            <span>에피소드</span><span>업무</span><span>외주 작업자</span><span>담당자</span><span>시작일</span><span>종료일</span><span>작업일수</span>
+                          </div>
+                          {projTasks.map((t) => {
+                            const days = workDays(t.start_date, t.completed_date);
+                            return (
+                              <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_0.8fr_0.8fr_0.7fr] gap-0 border-b border-[#EEEDE7] py-1.5 text-[11.5px] last:border-b-0">
+                                <span>{episodeLabel(t)}</span>
+                                <span className="text-[#79766D]">{t.category?.label ?? "-"}</span>
+                                <span>{contractorName(t)}</span>
+                                <span>{managerName(t)}</span>
+                                <span className="text-[#79766D]">{t.start_date ? fmtDate(t.start_date) : "-"}</span>
+                                <span className="text-[#79766D]">{t.completed_date ? fmtDate(t.completed_date) : "-"}</span>
+                                <span className="text-[#79766D]">{days ?? "-"}</span>
+                              </div>
+                            );
+                          })}
+                          {projTasks.length === 0 && <div className="py-2 text-xs text-[#A7A399]">등록된 업무가 없습니다.</div>}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -582,38 +678,34 @@ export default function BoardPage() {
                     </>
                   )}
                 </div>
-                <div className="flex rounded-lg bg-[#EEEDE7] p-0.5">
-                  <button onClick={() => setViewMode("category")} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${viewMode === "category" ? "bg-white" : "text-[#79766D]"}`}>업무별</button>
-                  <button onClick={() => setViewMode("status")} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${viewMode === "status" ? "bg-white" : "text-[#79766D]"}`}>진행상황별</button>
-                </div>
-              </div>
 
-              {!isAllView && selectedProject!.archived && (
-                <div className="mb-3.5 flex items-center gap-2.5 rounded-xl bg-[#EEEDE7] px-3.5 py-2.5 text-sm">
-                  <span className="font-semibold text-[#79766D]">이 프로젝트는 삭제(비활성화)되었습니다.</span>
-                  {me.role === "manager" && (
-                    <button onClick={() => restoreProject(selectedProject!)} className={`${btnPrimary} ml-auto flex items-center gap-1.5`}><RotateCcw size={13} /> 복원</button>
-                  )}
-                </div>
-              )}
-
-              <div className="mb-2">
-                {isAllView ? (
-                  <div className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E1D6] bg-[#F6F5F0] px-3 py-2">
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-400">프로젝트 상태 -</span>
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-400">음량 -</span>
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-400">업로드 -</span>
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-400">검수 -</span>
-                  </div>
-                ) : (
-                  <div onClick={() => me.role === "manager" && !selectedProject!.archived && openStatusModal()} className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E1D6] bg-[#F6F5F0] px-3 py-2" style={{ cursor: me.role === "manager" && !selectedProject!.archived ? "pointer" : "default" }}>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${PROJECT_STATUS_COLOR[computeProjectStatus(selectedProject!, tasks)]}`}>{computeProjectStatus(selectedProject!, tasks)}</span>
-                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">음량 {selectedProject!.volume_check}</span>
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">업로드 {selectedProject!.upload_status}</span>
-                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">검수 {selectedProject!.review_status}</span>
+                {!isAllView && (
+                  <div>
+                    {selectedProject!.archived ? (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-400">삭제됨</span>
+                    ) : (
+                      <div onClick={() => me.role === "manager" && openStatusModal()} className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E1D6] bg-[#F6F5F0] px-3 py-2" style={{ cursor: me.role === "manager" ? "pointer" : "default" }}>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${PROJECT_STATUS_COLOR[computeProjectStatus(selectedProject!, tasks)]}`}>{computeProjectStatus(selectedProject!, tasks)}</span>
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">음량 {selectedProject!.volume_check}</span>
+                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">업로드 {selectedProject!.upload_status}</span>
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">검수 {selectedProject!.review_status}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
+
+              {!isAllView && !selectedProject!.archived && (
+                <div className="mb-3.5 flex flex-wrap items-center gap-1.5">
+                  <button onClick={() => setSelectedEpisodeId("ALL")} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold ${selectedEpisodeId === "ALL" ? "bg-[#1F1E1B] text-white" : "bg-[#EEEDE7] text-[#79766D]"}`}>전체</button>
+                  {(selectedProject!.episodes ?? []).map((ep) => (
+                    <button key={ep.id} onClick={() => setSelectedEpisodeId(ep.id)} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold ${selectedEpisodeId === ep.id ? "bg-[#1F1E1B] text-white" : "bg-[#EEEDE7] text-[#79766D]"}`}>{ep.label}</button>
+                  ))}
+                  {me.role === "manager" && (
+                    <button onClick={() => setShowEpisodeManage(true)} className="ml-1 flex items-center gap-1 text-[12px] font-semibold text-[#2C56C9]"><Settings size={12} /> 수정</button>
+                  )}
+                </div>
+              )}
 
               {!isAllView && computeProjectStatus(selectedProject!, tasks) === "업로드 보류" && selectedProject!.decline_reason && (
                 <div className="mb-3.5 text-xs text-red-600">게시 불가 사유: {selectedProject!.decline_reason}</div>
@@ -629,13 +721,25 @@ export default function BoardPage() {
                 </div>
               )}
 
-              {!isAllView && !selectedProject!.archived && me.role === "manager" && (
-                <div className="mb-3.5 flex justify-end">
-                  <button onClick={() => { setNewTask({ category_id: categories[0]?.id ?? "", subheading_id: selectedProject!.subheadings?.[0]?.id ?? "", contractor_id: contractors[0]?.id ?? "" }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
-                    <Plus size={14} /> 업무 등록
-                  </button>
+              <div className="mb-3.5 flex items-center justify-between gap-3">
+                {isAllView ? (
+                  <div className="relative flex-1 max-w-xs">
+                    <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#A7A399]" />
+                    <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="작업자/담당자 이름 검색" className="w-full rounded-lg border border-[#E4E1D6] py-2 pl-8 pr-3 text-[13px]" />
+                  </div>
+                ) : <div />}
+                <div className="flex items-center gap-2">
+                  {!isAllView && !selectedProject!.archived && me.role === "manager" && (
+                    <button onClick={() => { setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: todayStr(), memo: "" }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
+                      <Plus size={14} /> 업무 등록
+                    </button>
+                  )}
+                  <div className="flex rounded-lg bg-[#EEEDE7] p-0.5">
+                    <button onClick={() => setViewMode("category")} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${viewMode === "category" ? "bg-white" : "text-[#79766D]"}`}>업무별</button>
+                    <button onClick={() => setViewMode("status")} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${viewMode === "status" ? "bg-white" : "text-[#79766D]"}`}>진행상황별</button>
+                  </div>
                 </div>
-              )}
+              </div>
 
               {viewMode === "category" ? (
                 <div className="flex flex-col gap-5">
@@ -674,10 +778,13 @@ export default function BoardPage() {
                       {archivedTasksInScope.map((t) => (
                         <div key={t.id} className="rounded-xl border border-[#E4E1D6] bg-white p-3.5 opacity-60">
                           <div className="mb-1.5 text-[10.5px] text-[#A7A399]">{t.project!.code} / {t.code} / {t.project!.name}</div>
-                          <div className="mb-2 text-sm font-bold">{subheadingLabel(t)}</div>
+                          <div className="mb-2 text-sm font-bold">{episodeLabel(t)}</div>
                           <div className="mb-2.5 text-xs text-[#79766D]">{contractorName(t)}</div>
                           {me.role === "manager" && (
-                            <button onClick={() => restoreTask(t)} className={`${btnDefault} flex w-full items-center justify-center gap-1.5`}><RotateCcw size={13} /> 복원</button>
+                            <div className="flex gap-2">
+                              <button onClick={() => restoreTask(t)} className={`${btnDefault} flex flex-1 items-center justify-center gap-1.5`}><RotateCcw size={13} /> 복원</button>
+                              <button onClick={() => permanentlyDeleteTask(t)} className={`${btnDanger} flex items-center gap-1.5`}><XCircle size={13} /></button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -692,7 +799,7 @@ export default function BoardPage() {
         </main>
       </div>
 
-      {/* 대분류 관리 모달 */}
+      {/* 대분류 관리 */}
       {showMcManage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setShowMcManage(false)}>
           <div onClick={(e) => e.stopPropagation()} className="w-[380px] rounded-2xl bg-white p-5">
@@ -717,12 +824,42 @@ export default function BoardPage() {
         </div>
       )}
 
+      {/* 에피소드 관리 */}
+      {showEpisodeManage && selectedProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setShowEpisodeManage(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[380px] rounded-2xl bg-white p-5">
+            <h3 className="mb-3.5 text-[15.5px] font-bold">에피소드 관리</h3>
+            <div className="mb-3 flex gap-1.5">
+              <input placeholder="새 에피소드 추가" value={newEpLabel} onChange={(e) => setNewEpLabel(e.target.value)} className={inputCls} style={{ flex: 1 }} />
+              <button onClick={addEpisode} className={btnDefault}><Plus size={13} /></button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {(selectedProject.episodes ?? []).map((ep) => (
+                <div key={ep.id} className="flex items-center justify-between rounded-lg border border-[#E4E1D6] px-2.5 py-2">
+                  <span className="text-[13px] font-semibold">{ep.label}</span>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => renameEpisode(ep.id, ep.label)}><Pencil size={14} /></button>
+                    <button onClick={() => deleteEpisode(ep.id)} className="text-red-600"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              ))}
+              {(selectedProject.episodes ?? []).length === 0 && <div className="text-xs text-[#A7A399]">등록된 에피소드가 없습니다.</div>}
+            </div>
+            <div className="mt-3.5"><button onClick={() => setShowEpisodeManage(false)} className={btnDefault}>닫기</button></div>
+          </div>
+        </div>
+      )}
+
       {/* 새 프로젝트 */}
       {showNewProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setShowNewProject(false)}>
           <div onClick={(e) => e.stopPropagation()} className="w-[380px] rounded-2xl bg-white p-5">
-            <h3 className="mb-1 text-[15.5px] font-bold">새 프로젝트</h3>
-            <p className="mb-3.5 text-[11.5px] text-[#A7A399]">{majorCategories.find((m) => m.id === majorCategoryId)?.label}</p>
+            <h3 className="mb-3.5 text-[15.5px] font-bold">새 프로젝트</h3>
+            <label className="mb-1 block text-xs text-[#79766D]">대분류</label>
+            <select value={newProjectDraft.major_category_id} onChange={(e) => setNewProjectDraft({ ...newProjectDraft, major_category_id: e.target.value })} className={`${inputCls} mb-2.5`}>
+              <option value="">대분류 선택</option>
+              {majorCategories.map((mc) => <option key={mc.id} value={mc.id}>{mc.label}</option>)}
+            </select>
             <label className="mb-1 block text-xs text-[#79766D]">프로젝트 넘버</label>
             <input value={newProjectDraft.code} onChange={(e) => setNewProjectDraft({ ...newProjectDraft, code: e.target.value })} className={`${inputCls} mb-2.5`} placeholder="예: P004" />
             <label className="mb-1 block text-xs text-[#79766D]">프로젝트명</label>
@@ -784,7 +921,7 @@ export default function BoardPage() {
                   <option value="Complete(Kor)" disabled={!projectDone}>Complete(Kor){!projectDone ? " (모든 업무 완료 필요)" : ""}</option>
                 </select>
               </div>
-              {!projectDone && <p className="text-[11.5px] text-[#A7A399]">모든 업무가 완료 상태가 되어야 업로드/검수를 Complete로 바꿀 수 있습니다.</p>}
+              {!projectDone && <p className="text-[11.5px] text-[#A7A399]">모든 업무가 완료 상태가 되어야 업로드/검수를 Complete로 바꿀 수 있습니다. (삭제된 업무는 계산에서 제외됩니다)</p>}
             </div>
             <div className="mb-5 flex gap-2">
               <button onClick={saveStatus} className={btnPrimary}>저장</button>
@@ -850,7 +987,16 @@ export default function BoardPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setShowNewTask(false)}>
           <div onClick={(e) => e.stopPropagation()} className="max-h-[88vh] w-[440px] overflow-y-auto rounded-2xl bg-white p-5">
             <h3 className="mb-3.5 text-[15.5px] font-bold">새 업무 등록</h3>
-            <div className="mb-3.5">
+
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-[#79766D]">에피소드</label>
+              <select value={newTask.episode_id} onChange={(e) => setNewTask({ ...newTask, episode_id: e.target.value })} className={inputCls}>
+                <option value="">적용 안함</option>
+                {selectedProject?.episodes?.map((ep) => <option key={ep.id} value={ep.id}>{ep.label}</option>)}
+              </select>
+            </div>
+
+            <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">카테고리</label>
               <select value={newTask.category_id} onChange={(e) => setNewTask({ ...newTask, category_id: e.target.value })} className={`${inputCls} mb-2`}>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
@@ -869,32 +1015,31 @@ export default function BoardPage() {
                 ))}
               </div>
             </div>
-            <div className="mb-3.5">
-              <label className="mb-1 block text-xs text-[#79766D]">Subheading (프로젝트별 관리)</label>
-              <select value={newTask.subheading_id} onChange={(e) => setNewTask({ ...newTask, subheading_id: e.target.value })} className={`${inputCls} mb-2`}>
-                <option value="">적용 안함</option>
-                {selectedProject?.subheadings?.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
-              <div className="mb-1.5 flex gap-1.5">
-                <input placeholder="새 subheading 추가" value={newSubLabel} onChange={(e) => setNewSubLabel(e.target.value)} className={inputCls} style={{ flex: 1 }} />
-                <button onClick={addSubheading} className={btnDefault}><Plus size={13} /></button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedProject?.subheadings?.map((s) => (
-                  <span key={s.id} className="flex items-center gap-1 rounded-full bg-[#EEEDE7] py-0.5 pl-2.5 pr-1.5 text-[11px]">
-                    {s.label}
-                    <Pencil size={11} className="cursor-pointer" onClick={() => renameSubheading(s.id, s.label)} />
-                    <Trash2 size={11} className="cursor-pointer text-red-600" onClick={() => deleteSubheading(s.id)} />
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="mb-4">
+
+            <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">외주 작업자 (등록된 작업자만 선택 가능)</label>
               <select value={newTask.contractor_id} onChange={(e) => setNewTask({ ...newTask, contractor_id: e.target.value })} className={inputCls}>
                 {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-[#79766D]">담당자</label>
+              <select value={newTask.manager_id} onChange={(e) => setNewTask({ ...newTask, manager_id: e.target.value })} className={inputCls}>
+                {managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-[#79766D]">업무 시작일 (오늘 이후 날짜로 바꾸면 그날 00시에 등록 알림 메일 발송)</label>
+              <input type="date" value={newTask.planned_start_date} onChange={(e) => setNewTask({ ...newTask, planned_start_date: e.target.value })} className={inputCls} />
+            </div>
+
+            <div className="mb-4">
+              <label className="mb-1 block text-xs text-[#79766D]">메모 (등록 알림 메일에 함께 발송됩니다)</label>
+              <textarea rows={2} value={newTask.memo} onChange={(e) => setNewTask({ ...newTask, memo: e.target.value })} className={`${inputCls} resize-y`} />
+            </div>
+
             <div className="flex gap-2">
               <button onClick={createTask} className={btnPrimary}>등록</button>
               <button onClick={() => setShowNewTask(false)} className={btnDefault}>취소</button>
@@ -906,7 +1051,7 @@ export default function BoardPage() {
       {/* 업무 수정 (+ 삭제 버튼 포함) */}
       {editTaskId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setEditTaskId(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-[400px] rounded-2xl bg-white p-5">
+          <div onClick={(e) => e.stopPropagation()} className="max-h-[88vh] w-[400px] overflow-y-auto rounded-2xl bg-white p-5">
             <h3 className="mb-3.5 text-[15.5px] font-bold">업무 수정</h3>
             <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">카테고리</label>
@@ -915,22 +1060,47 @@ export default function BoardPage() {
               </select>
             </div>
             <div className="mb-3">
-              <label className="mb-1 block text-xs text-[#79766D]">Subheading</label>
-              <select value={editTaskDraft.subheading_id ?? ""} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, subheading_id: e.target.value })} className={inputCls}>
+              <label className="mb-1 block text-xs text-[#79766D]">에피소드</label>
+              <select value={editTaskDraft.episode_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, episode_id: e.target.value })} className={inputCls}>
                 <option value="">적용 안함</option>
-                {projects.find((p) => p.id === tasks.find((t) => t.id === editTaskId)?.project_id)?.subheadings?.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                {projects.find((p) => p.id === tasks.find((t) => t.id === editTaskId)?.project_id)?.episodes?.map((ep) => <option key={ep.id} value={ep.id}>{ep.label}</option>)}
               </select>
             </div>
-            <div className="mb-4">
+            <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">외주 작업자</label>
               <select value={editTaskDraft.contractor_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, contractor_id: e.target.value })} className={inputCls}>
                 {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-[#79766D]">담당자</label>
+              <select value={editTaskDraft.manager_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, manager_id: e.target.value })} className={inputCls}>
+                {managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="mb-1 block text-xs text-[#79766D]">메모</label>
+              <textarea rows={2} value={editTaskDraft.memo} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, memo: e.target.value })} className={`${inputCls} resize-y`} />
+            </div>
             <div className="flex items-center gap-2">
               <button onClick={saveEditTask} className={btnPrimary}>저장</button>
               <button onClick={() => setEditTaskId(null)} className={btnDefault}>취소</button>
-              <button onClick={deleteTaskFromModal} className={`${btnDanger} ml-auto flex items-center gap-1.5`}><Trash2 size={13} /> 삭제</button>
+              <button onClick={archiveTaskFromModal} className={`${btnDanger} ml-auto flex items-center gap-1.5`}><Trash2 size={13} /> 삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 업무 종료 / 수정완료 - 파일 링크 입력 */}
+      {submitModalTaskId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setSubmitModalTaskId(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[420px] rounded-2xl bg-white p-5">
+            <h3 className="mb-3 text-[15.5px] font-bold">작업 파일 링크</h3>
+            <p className="mb-2 text-xs text-[#A7A399]">담당자가 확인할 수 있도록 업로드한 파일의 링크를 입력해주세요.</p>
+            <input value={fileLinkDraft} onChange={(e) => setFileLinkDraft(e.target.value)} placeholder="https://drive.google.com/..." className={`${inputCls} mb-3`} />
+            <div className="flex gap-2">
+              <button onClick={confirmSubmit} className={btnPrimary}>제출하고 종료</button>
+              <button onClick={() => setSubmitModalTaskId(null)} className={btnDefault}>취소</button>
             </div>
           </div>
         </div>
@@ -945,6 +1115,25 @@ export default function BoardPage() {
             <div className="flex gap-2">
               <button onClick={submitRework} disabled={!reworkMessage.trim()} className={`${btnDanger} disabled:opacity-50`}>보내기</button>
               <button onClick={() => setReworkModalTaskId(null)} className={btnDefault}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 엑셀 다운로드 - 프로젝트 선택 */}
+      {showExportPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setShowExportPicker(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[380px] rounded-2xl bg-white p-5">
+            <h3 className="mb-3.5 text-[15.5px] font-bold">엑셀 다운로드</h3>
+            <label className="mb-1 block text-xs text-[#79766D]">프로젝트 선택</label>
+            <select value={exportProjectId} onChange={(e) => setExportProjectId(e.target.value)} className={`${inputCls} mb-4`}>
+              {scopedProjects.map((p) => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <a href={exportProjectId ? `/api/projects/${exportProjectId}/export` : undefined} className={`${btnPrimary} flex items-center gap-1.5`} onClick={() => setShowExportPicker(false)}>
+                <Download size={13} /> 다운로드
+              </a>
+              <button onClick={() => setShowExportPicker(false)} className={btnDefault}>취소</button>
             </div>
           </div>
         </div>

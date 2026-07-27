@@ -31,7 +31,7 @@ export default function LoginPage() {
       <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4 rounded-2xl border border-[#E4E1D6] bg-white p-8 shadow-sm">
         <div>
           <h1 className="text-lg font-semibold">TaskFlow</h1>
-          <p className="text-sm text-[#79766D]">iQUVE 외주 업무 관리 시스템</p>
+          <p className="text-sm text-[#79766D]">미디어팀 외주 업무 관리 시스템</p>
         </div>
         <div className="space-y-2">
           <input

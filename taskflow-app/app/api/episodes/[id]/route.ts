@@ -15,7 +15,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const r = await requireManager();
   if (r.error) return r.error;
   const { label } = await req.json();
-  const { data, error } = await r.db!.from("subheadings").update({ label }).eq("id", params.id).select().single();
+  const { data, error } = await r.db!.from("episodes").update({ label }).eq("id", params.id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ item: data });
 }
@@ -23,7 +23,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const r = await requireManager();
   if (r.error) return r.error;
-  const { error } = await r.db!.from("subheadings").delete().eq("id", params.id);
+  const { error } = await r.db!.from("episodes").delete().eq("id", params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

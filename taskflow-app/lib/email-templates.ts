@@ -2,20 +2,34 @@ const wrap = (title: string, bodyHtml: string) => `
 <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #222;">
   <h2 style="font-size: 18px; margin-bottom: 16px;">${title}</h2>
   <div style="font-size: 14px; line-height: 1.6;">${bodyHtml}</div>
-  <p style="margin-top: 24px; font-size: 12px; color: #888;">TaskFlow (iQUVE 외주 업무 관리)에서 자동 발송된 메일입니다.</p>
+  <p style="margin-top: 24px; font-size: 12px; color: #888;">TaskFlow (미디어팀 외주 업무 관리)에서 자동 발송된 메일입니다.</p>
 </div>
 `;
 
 function taskLine(projectName: string, taskLabel: string) {
   return `<p>프로젝트: <b>${projectName}</b><br/>업무: <b>${taskLabel}</b></p>`;
 }
+function memoLine(memo?: string) {
+  if (!memo?.trim()) return "";
+  return `<p style="background:#f5f5f5; padding:12px; border-radius:6px;"><b>메모</b><br/>${memo}</p>`;
+}
 
-export function taskAssignedEmail(projectName: string, taskLabel: string, contractorName: string) {
+export function taskAssignedEmail(projectName: string, taskLabel: string, contractorName: string, memo?: string) {
   return {
     subject: `[업무 등록] 새 업무가 배정되었습니다`,
     html: wrap(
       "업무 등록 알림",
-      `<p><b>${contractorName}</b>님에게 새 업무가 배정되었습니다.</p>${taskLine(projectName, taskLabel)}`
+      `<p><b>${contractorName}</b>님에게 새 업무가 배정되었습니다.</p>${taskLine(projectName, taskLabel)}${memoLine(memo)}`
+    ),
+  };
+}
+
+export function taskReassignedEmail(projectName: string, taskLabel: string, contractorName: string, memo?: string) {
+  return {
+    subject: `[업무 재배정] 업무가 배정되었습니다`,
+    html: wrap(
+      "업무 재배정 알림",
+      `<p><b>${contractorName}</b>님에게 아래 업무가 새로 배정되었습니다.</p>${taskLine(projectName, taskLabel)}${memoLine(memo)}`
     ),
   };
 }
@@ -27,12 +41,13 @@ export function taskStartedEmail(projectName: string, taskLabel: string, contrac
   };
 }
 
-export function taskSubmittedEmail(projectName: string, taskLabel: string, contractorName: string, isResubmit: boolean) {
+export function taskSubmittedEmail(projectName: string, taskLabel: string, contractorName: string, isResubmit: boolean, fileLink: string) {
   return {
     subject: isResubmit ? `[재제출] "${taskLabel}" 수정 완료, 검수 요청` : `[검수 요청] "${taskLabel}" 업무가 종료되었습니다`,
     html: wrap(
       isResubmit ? "수정 완료 - 재검수 요청" : "검수 요청 알림",
-      `<p><b>${contractorName}</b> 작업자가 ${isResubmit ? "수정을 완료하고 재제출" : "업무를 종료"}했습니다. 검수를 진행해주세요.</p>${taskLine(projectName, taskLabel)}`
+      `<p><b>${contractorName}</b> 작업자가 ${isResubmit ? "수정을 완료하고 재제출" : "업무를 종료"}했습니다. 검수를 진행해주세요.</p>${taskLine(projectName, taskLabel)}
+       <p>업로드 파일: <a href="${fileLink}">${fileLink}</a></p>`
     ),
   };
 }

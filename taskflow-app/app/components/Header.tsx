@@ -22,8 +22,8 @@ export default function Header({ name, role }: { name: string; role: "manager" |
           <Film size={17} color="#fff" />
         </div>
         <div>
-          <div className="text-[15px] font-bold leading-tight">TaskFlow</div>
-          <div className="text-[11px] text-[#79766D]">iQUVE 외주 업무 관리</div>
+          <div className="text-[15px] font-bold leading-tight">TaskFlow <span className="text-[10px] font-normal text-[#A7A399]">v1.01</span></div>
+          <div className="text-[11px] text-[#79766D]">미디어팀 외주 업무 관리</div>
         </div>
       </div>
 
