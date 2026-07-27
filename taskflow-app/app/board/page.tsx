@@ -224,6 +224,19 @@ export default function BoardPage() {
     return list;
   }, [episodeFilteredTasks, me, isAllView, searchQuery]);
 
+  // 카테고리가 수정/삭제되어 목록이 바뀌면, 이미 열려있는 모달의 선택값이 더 이상
+  // 존재하지 않는 카테고리를 가리키고 있을 수 있어 자동으로 교정합니다.
+  useEffect(() => {
+    if (categories.length === 0) return;
+    const validIds = new Set(categories.map((c) => c.id));
+    if (showNewTask && !validIds.has(newTask.category_id)) {
+      setNewTask((n) => ({ ...n, category_id: categories[0].id }));
+    }
+    if (editTaskId && !validIds.has(editTaskDraft.category_id)) {
+      setEditTaskDraft((d) => ({ ...d, category_id: categories[0].id }));
+    }
+  }, [categories, showNewTask, editTaskId]);
+
   const grouped = useMemo(() => {
     if (viewMode === "status") {
       return {
@@ -277,6 +290,18 @@ export default function BoardPage() {
     setEditTaskDraft({ category_id: t.category_id, episode_id: t.episode_id ?? "", contractor_id: t.contractor_id, manager_id: t.manager_id ?? "", memo: t.memo ?? "" });
   }
   async function saveEditTask() {
+    if (!categories.some((c) => c.id === editTaskDraft.category_id)) {
+      alert("카테고리를 선택해주세요.");
+      return;
+    }
+    if (!contractors.some((c) => c.id === editTaskDraft.contractor_id)) {
+      alert("외주 작업자를 선택해주세요.");
+      return;
+    }
+    if (editTaskDraft.manager_id && !managers.some((m) => m.id === editTaskDraft.manager_id)) {
+      alert("담당자를 선택해주세요.");
+      return;
+    }
     if (await api(`/api/tasks/${editTaskId}`, "PATCH", editTaskDraft)) { setEditTaskId(null); load(); }
   }
   async function archiveTaskFromModal() {
@@ -290,6 +315,18 @@ export default function BoardPage() {
   }
 
   async function createTask() {
+    if (!categories.some((c) => c.id === newTask.category_id)) {
+      alert("카테고리를 선택해주세요.");
+      return;
+    }
+    if (!contractors.some((c) => c.id === newTask.contractor_id)) {
+      alert("외주 작업자를 선택해주세요.");
+      return;
+    }
+    if (newTask.manager_id && !managers.some((m) => m.id === newTask.manager_id)) {
+      alert("담당자를 선택해주세요.");
+      return;
+    }
     if (await api("/api/tasks", "POST", { project_id: selectedProject!.id, ...newTask })) { setShowNewTask(false); load(); }
   }
 
@@ -455,8 +492,8 @@ export default function BoardPage() {
         )}
 
         <div className="mb-2 flex justify-between text-[11px] text-[#A7A399]">
-          <span>{t.start_date ? fmtDate(t.start_date) : "\u00A0"}</span>
-          <span>{t.completed_date ? fmtDate(t.completed_date) : "\u00A0"}</span>
+          <span>{t.status === "waiting" ? `등록일 ${fmtDate(t.planned_start_date)}` : (t.start_date ? `시작일 ${fmtDate(t.start_date)}` : "\u00A0")}</span>
+          <span>{t.completed_date ? `종료일 ${fmtDate(t.completed_date)}` : "\u00A0"}</span>
         </div>
 
         {!projectArchived && isMine && t.status === "waiting" && (
@@ -1031,7 +1068,7 @@ export default function BoardPage() {
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 block text-xs text-[#79766D]">업무 시작일 (오늘 이후 날짜로 바꾸면 그날 00시에 등록 알림 메일 발송)</label>
+              <label className="mb-1 block text-xs text-[#79766D]">등록일 (오늘 이후 날짜로 바꾸면 그날 00시에 등록 알림 메일 발송)</label>
               <input type="date" value={newTask.planned_start_date} onChange={(e) => setNewTask({ ...newTask, planned_start_date: e.target.value })} className={inputCls} />
             </div>
 
