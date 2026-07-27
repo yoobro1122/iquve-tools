@@ -1,10 +1,14 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let client: Resend | null = null;
+function getClient() {
+  if (!client) client = new Resend(process.env.RESEND_API_KEY);
+  return client;
+}
 
 export async function sendMail(to: string, subject: string, html: string) {
   try {
-    const result = await resend.emails.send({
+    const result = await getClient().emails.send({
       from: process.env.EMAIL_FROM!,
       to,
       subject,

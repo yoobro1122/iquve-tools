@@ -4,11 +4,11 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 async function requireManager() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }) };
   const db = createServiceRoleClient();
+  if (!user) return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }), db: null as ReturnType<typeof createServiceRoleClient> | null };
   const { data: profile } = await db.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "manager") return { error: NextResponse.json({ error: "권한이 없습니다." }, { status: 403 }) };
-  return { db };
+  if (profile?.role !== "manager") return { error: NextResponse.json({ error: "권한이 없습니다." }, { status: 403 }), db: null as ReturnType<typeof createServiceRoleClient> | null };
+  return { error: null as NextResponse | null, db };
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {

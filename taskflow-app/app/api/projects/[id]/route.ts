@@ -4,11 +4,12 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 async function requireManager() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }) };
   const db = createServiceRoleClient();
+  type Db = ReturnType<typeof createServiceRoleClient>;
+  if (!user) return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }), db: null as Db | null, user: null as any, profile: null as any };
   const { data: profile } = await db.from("profiles").select("role,name").eq("id", user.id).single();
-  if (profile?.role !== "manager") return { error: NextResponse.json({ error: "권한이 없습니다." }, { status: 403 }) };
-  return { db, user, profile };
+  if (profile?.role !== "manager") return { error: NextResponse.json({ error: "권한이 없습니다." }, { status: 403 }), db: null as Db | null, user: null as any, profile: null as any };
+  return { error: null as NextResponse | null, db, user, profile };
 }
 
 // 프로젝트 수정 (넘버/이름) + 삭제(비활성화, 소프트 삭제)를 한 라우트에서 처리.
