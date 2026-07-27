@@ -7,7 +7,7 @@ import {
   Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
   Boxes, Settings, RotateCcw, ClipboardList, Loader2, Link as LinkIcon,
-  Search, Download, XCircle,
+  Search, Download, XCircle, Bell,
 } from "lucide-react";
 import {
   Profile, MajorCategory, Category, Project, Task,
@@ -109,6 +109,10 @@ export default function BoardPage() {
 
   const [showExportPicker, setShowExportPicker] = useState(false);
   const [exportProjectId, setExportProjectId] = useState("");
+
+  const [logDrawerOpen, setLogDrawerOpen] = useState(false);
+  const [systemLogs, setSystemLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const load = useCallback(async (isInitial = false) => {
     if (!isInitial) setRefreshing(true);
@@ -415,6 +419,18 @@ export default function BoardPage() {
     load();
   }
 
+  async function openLogDrawer() {
+    setLogDrawerOpen(true);
+    setLogsLoading(true);
+    const { data } = await supabase
+      .from("project_logs")
+      .select("*, project:project_id(name, code)")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    setSystemLogs(data ?? []);
+    setLogsLoading(false);
+  }
+
   async function openStatusModal() {
     if (!selectedProject) return;
     setDraftStatus({ volume_check: selectedProject.volume_check, upload_status: selectedProject.upload_status, review_status: selectedProject.review_status });
@@ -561,7 +577,10 @@ export default function BoardPage() {
           <button key={mc.id} onClick={() => setMajorCategoryId(mc.id)} className={`px-5 py-3 text-[13.5px] font-bold ${majorCategoryId === mc.id ? "border-b-2 border-[#2C56C9] text-[#2C56C9]" : "border-b-2 border-transparent text-[#79766D]"}`}>{mc.label}</button>
         ))}
         {me.role === "manager" && (
-          <button onClick={() => setShowMcManage(true)} className="ml-auto flex items-center gap-1.5 px-2.5 py-2 text-[12.5px] font-semibold text-[#79766D]"><Settings size={13} /> 수정</button>
+          <>
+            <button onClick={openLogDrawer} className="ml-auto flex items-center gap-1.5 px-2.5 py-2 text-[12.5px] font-semibold text-[#79766D]"><Bell size={13} /> 전체 로그</button>
+            <button onClick={() => setShowMcManage(true)} className="flex items-center gap-1.5 px-2.5 py-2 text-[12.5px] font-semibold text-[#79766D]"><Settings size={13} /> 수정</button>
+          </>
         )}
       </div>
 
@@ -1175,6 +1194,30 @@ export default function BoardPage() {
               </a>
               <button onClick={() => setShowExportPicker(false)} className={btnDefault}>취소</button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* 전체 시스템 로그 (프로젝트/업무 전체 변경 이력) */}
+      {logDrawerOpen && (
+        <div className="fixed inset-0 z-[60]" onClick={() => setLogDrawerOpen(false)}>
+          <div className="absolute inset-0 bg-black/25" />
+          <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-0 h-full w-[380px] overflow-y-auto border-l border-[#E4E1D6] bg-white p-5">
+            <div className="mb-3.5 flex items-center justify-between">
+              <h3 className="text-[15px] font-bold">전체 로그</h3>
+              <button onClick={() => setLogDrawerOpen(false)}><X size={17} className="text-[#79766D]" /></button>
+            </div>
+            {logsLoading && <div className="text-xs text-[#A7A399]">불러오는 중...</div>}
+            {!logsLoading && systemLogs.length === 0 && <div className="text-xs text-[#A7A399]">기록이 없습니다.</div>}
+            {systemLogs.map((l) => (
+              <div key={l.id} className="flex gap-2.5 border-t border-[#E4E1D6] py-2.5 first:border-t-0">
+                <Bell size={13} className="mt-0.5 flex-shrink-0 text-[#2C56C9]" />
+                <div className="min-w-0">
+                  <div className="text-[12.5px] font-semibold">{l.project?.code} · {l.project?.name}</div>
+                  <div className="mt-0.5 text-xs text-[#79766D]">{l.change}</div>
+                  <div className="mt-0.5 text-[10.5px] text-[#A7A399]">{l.actor_name} · {new Date(l.created_at).toLocaleString("ko-KR")}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
