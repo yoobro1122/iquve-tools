@@ -2,14 +2,18 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Profile } from "@/lib/types";
+import { Profile, avgDurationLabel } from "@/lib/types";
 import Header from "@/app/components/Header";
 import { Plus, Pencil, KeyRound, Trash2, Copy, Check, Loader2 } from "lucide-react";
+
+interface ContractorWithStats extends Profile {
+  stats: { totalDone: number; avgDurationMinutes: number | null; avgRating: number | null };
+}
 
 export default function ContractorsPage() {
   const supabase = createClient();
   const [me, setMe] = useState<Profile | null>(null);
-  const [contractors, setContractors] = useState<Profile[]>([]);
+  const [contractors, setContractors] = useState<ContractorWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -118,7 +122,7 @@ export default function ContractorsPage() {
         </div>
       )}
 
-      <main className="mx-auto max-w-4xl p-6">
+      <main className="mx-auto max-w-5xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">외주 작업자 관리</h2>
           <button onClick={openNew} className="flex items-center gap-1.5 rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white">
@@ -127,15 +131,18 @@ export default function ContractorsPage() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
-          <div className="grid grid-cols-[1fr_1.4fr_1.6fr_1.4fr_auto] gap-0 border-b border-[#E4E1D6] px-4 py-2.5 text-[11.5px] font-bold text-[#79766D]">
-            <span>이름</span><span>담당 업무</span><span>이메일</span><span>비고</span><span></span>
+          <div className="grid grid-cols-[1fr_1.2fr_1.5fr_1fr_0.8fr_1fr_0.8fr_auto] gap-0 border-b border-[#E4E1D6] px-4 py-2.5 text-[11.5px] font-bold text-[#79766D]">
+            <span>이름</span><span>담당 업무</span><span>이메일</span><span>비고</span><span>총 업무</span><span>평균 작업시간</span><span>평균 평점</span><span></span>
           </div>
           {contractors.map((c) => (
-            <div key={c.id} className="grid grid-cols-[1fr_1.4fr_1.6fr_1.4fr_auto] items-center gap-0 border-b border-[#E4E1D6] px-4 py-3 text-[13px]">
+            <div key={c.id} className="grid grid-cols-[1fr_1.2fr_1.5fr_1fr_0.8fr_1fr_0.8fr_auto] items-center gap-0 border-b border-[#E4E1D6] px-4 py-3 text-[13px]">
               <span className="font-semibold">{c.name}</span>
               <span className="text-[#79766D]">{c.specialty || "-"}</span>
               <span className="text-[#79766D]">{c.email}</span>
               <span className="text-[#A7A399]">{c.note || "-"}</span>
+              <span className="text-[#79766D]">{c.stats.totalDone}건</span>
+              <span className="text-[#79766D]">{avgDurationLabel(c.stats.avgDurationMinutes)}</span>
+              <span className="text-[#79766D]">{c.stats.avgRating != null ? `${c.stats.avgRating.toFixed(1)}점` : "-"}</span>
               <div className="flex gap-1.5">
                 <button onClick={() => openEdit(c)} title="수정" className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E4E1D6]"><Pencil size={13} /></button>
                 <button onClick={() => resetPassword(c)} title="비밀번호 초기화" className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E4E1D6]"><KeyRound size={13} /></button>

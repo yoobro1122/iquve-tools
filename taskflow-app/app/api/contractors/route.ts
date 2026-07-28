@@ -11,7 +11,32 @@ export async function GET() {
 
   const { data, error } = await db.from("profiles").select("*").eq("role", "contractor").order("name");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ items: data });
+
+  // 완료된 업무 기준으로 작업자별 통계(총 건수/평균 작업시간/평균 평점) 계산
+  const { data: doneTasks } = await db
+    .from("tasks")
+    .select("contractor_id, start_date, completed_date, rating")
+    .eq("status", "done");
+
+  const statsByContractor: Record<string, { total: number; durations: number[]; ratings: number[] }> = {};
+  for (const t of doneTasks ?? []) {
+    const s = (statsByContractor[t.contractor_id] ??= { total: 0, durations: [], ratings: [] });
+    s.total += 1;
+    if (t.start_date && t.completed_date) {
+      const minutes = (new Date(t.completed_date).getTime() - new Date(t.start_date).getTime()) / 60000;
+      if (minutes >= 0) s.durations.push(minutes);
+    }
+    if (typeof t.rating === "number") s.ratings.push(t.rating);
+  }
+
+  const items = (data ?? []).map((c) => {
+    const s = statsByContractor[c.id];
+    const avgDurationMinutes = s && s.durations.length > 0 ? s.durations.reduce((a, b) => a + b, 0) / s.durations.length : null;
+    const avgRating = s && s.ratings.length > 0 ? s.ratings.reduce((a, b) => a + b, 0) / s.ratings.length : null;
+    return { ...c, stats: { totalDone: s?.total ?? 0, avgDurationMinutes, avgRating } };
+  });
+
+  return NextResponse.json({ items });
 }
 
 // 새 외주 작업자 등록: Supabase Auth 계정을 생성하고 profiles에 role='contractor'로 저장.

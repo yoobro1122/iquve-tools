@@ -14,7 +14,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (task.contractor_id !== user.id) return NextResponse.json({ error: "본인 업무만 시작할 수 있습니다." }, { status: 403 });
   if (task.status !== "waiting") return NextResponse.json({ error: "이미 시작된 업무입니다." }, { status: 400 });
 
-  const { error } = await db.from("tasks").update({ status: "in_progress", start_date: new Date().toISOString().slice(0, 10) }).eq("id", params.id);
+  const { error } = await db.from("tasks").update({ status: "in_progress", start_date: new Date().toISOString() }).eq("id", params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const recipients: string[] = [];

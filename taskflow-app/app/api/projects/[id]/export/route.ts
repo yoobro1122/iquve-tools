@@ -6,6 +6,18 @@ function fmt(d: string | null) {
   if (!d) return "";
   return new Date(d).toISOString().slice(0, 10);
 }
+function fmtDateTime(d: string | null) {
+  if (!d) return "";
+  const dt = new Date(d);
+  return `${fmt(d)} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+}
+function durationLabel(start: string | null, end: string | null) {
+  if (!start || !end) return "";
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (ms < 0) return "";
+  const totalMinutes = Math.round(ms / 60000);
+  return `${Math.floor(totalMinutes / 60)}시간 ${totalMinutes % 60}분`;
+}
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -31,31 +43,27 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const rows: (string | number)[][] = [
     ["프로젝트명", project.name],
     ["등록일", fmt(project.created_at)],
-    ["업무 시작일", fmt(earliestStart)],
+    ["업무 시작일", fmtDateTime(earliestStart)],
     ["완료일", fmt(project.completed_at)],
     [],
-    ["에피소드", "업무(카테고리)", "외주 작업자", "담당자", "시작일", "종료일", "작업일수"],
+    ["에피소드", "업무(카테고리)", "외주 작업자", "담당자", "시작일시", "종료일시", "작업시간", "평점"],
   ];
 
   for (const t of tasks ?? []) {
-    let workDays = "";
-    if (t.start_date && t.completed_date) {
-      const days = Math.round((new Date(t.completed_date).getTime() - new Date(t.start_date).getTime()) / 86400000) + 1;
-      workDays = String(days);
-    }
     rows.push([
       t.episode?.label ?? "적용 안함",
       t.category?.label ?? "",
       t.contractor?.name ?? "",
       t.manager?.name ?? "",
-      fmt(t.start_date),
-      fmt(t.completed_date),
-      workDays,
+      fmtDateTime(t.start_date),
+      fmtDateTime(t.completed_date),
+      durationLabel(t.start_date, t.completed_date),
+      t.rating ? `${t.rating}점` : "",
     ]);
   }
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = [{ wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
+  ws["!cols"] = [{ wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 8 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "프로젝트 현황");
 

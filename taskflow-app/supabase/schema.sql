@@ -76,8 +76,9 @@ create table if not exists tasks (
   start_notice_sent boolean not null default false,
   memo text default '',
   file_link text default '',
-  start_date date,
-  completed_date date,
+  start_date timestamptz,
+  completed_date timestamptz,
+  rating int check (rating between 1 and 5),
   rework_acknowledged boolean not null default false,
   archived boolean not null default false,
   created_at timestamptz not null default now(),
@@ -187,3 +188,8 @@ create policy "project_logs_select_manager" on project_logs for select using (
 -- alter table tasks add column if not exists start_notice_sent boolean not null default false;
 -- alter table tasks add column if not exists memo text default '';
 -- alter table tasks add column if not exists file_link text default '';
+
+-- v1.02 마이그레이션: 업무 시작/완료 시각(시:분) 기록 + 업무별 평점
+-- alter table tasks alter column start_date type timestamptz using start_date::timestamptz;
+-- alter table tasks alter column completed_date type timestamptz using completed_date::timestamptz;
+-- alter table tasks add column if not exists rating int check (rating between 1 and 5);

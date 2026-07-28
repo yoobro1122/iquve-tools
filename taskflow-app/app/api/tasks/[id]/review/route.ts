@@ -20,7 +20,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (task.status !== "reviewing") return NextResponse.json({ error: "현재 검수 대기 상태가 아닙니다." }, { status: 400 });
 
   if (result === "pass") {
-    await db.from("tasks").update({ status: "done", completed_date: new Date().toISOString().slice(0, 10) }).eq("id", params.id);
+    await db.from("tasks").update({ status: "done", completed_date: new Date().toISOString() }).eq("id", params.id);
     const { subject, html } = reviewApprovedEmail(task.project.name, task.episode?.label ?? "적용 안함");
     await sendMail(task.contractor.email, subject, html);
     await db.from("project_logs").insert({ project_id: task.project_id, actor_id: user.id, actor_name: profile.name, change: `업무 ${task.code} 검수 확인 → 완료` });

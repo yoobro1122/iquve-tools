@@ -76,6 +76,7 @@ export interface Task {
   file_link: string;
   start_date: string | null;
   completed_date: string | null;
+  rating: number | null;
   rework_acknowledged: boolean;
   archived: boolean;
   project?: Project;
@@ -112,8 +113,21 @@ export function ddayLabel(project: Project) {
   return `D+${days}`;
 }
 
-export function workDays(start: string | null, end: string | null) {
+// 작업 시작~완료까지 걸린 시간을 "N시간 M분" 형식으로 계산합니다.
+export function workDuration(start: string | null, end: string | null) {
   if (!start || !end) return null;
-  const days = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000);
-  return days + 1; // 시작일 당일도 1일로 포함
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (ms < 0) return null;
+  const totalMinutes = Math.round(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}시간 ${minutes}분`;
+}
+
+// 평균 작업 시간(분 단위)을 "N시간 M분" 형식으로 표시합니다.
+export function avgDurationLabel(avgMinutes: number | null) {
+  if (avgMinutes == null) return "-";
+  const hours = Math.floor(avgMinutes / 60);
+  const minutes = Math.round(avgMinutes % 60);
+  return `${hours}시간 ${minutes}분`;
 }

@@ -7,11 +7,11 @@ import {
   Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
   Boxes, Settings, RotateCcw, ClipboardList, Loader2, Link as LinkIcon,
-  Search, Download, XCircle, Bell,
+  Search, Download, XCircle, Bell, Star,
 } from "lucide-react";
 import {
   Profile, MajorCategory, Category, Project, Task,
-  TASK_STATUS_LABEL, computeProjectStatus, allTasksDone, ddayLabel, workDays,
+  TASK_STATUS_LABEL, computeProjectStatus, allTasksDone, ddayLabel, workDuration,
 } from "@/lib/types";
 
 const PROJECT_STATUS_COLOR: Record<string, string> = {
@@ -31,6 +31,11 @@ function fmtDate(iso: string | null) {
   if (!iso) return "-";
   const d = new Date(iso);
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+}
+function fmtDateTime(iso: string | null) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 function todayStr() {
   const d = new Date();
@@ -317,6 +322,9 @@ export default function BoardPage() {
     if (!confirm(`업무 ${t.code}를 DB에서 완전히 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
     if (await api(`/api/tasks/${t.id}`, "DELETE")) load();
   }
+  async function rateTask(taskId: string, rating: number) {
+    if (await api(`/api/tasks/${taskId}`, "PATCH", { rating })) load();
+  }
 
   async function createTask() {
     if (!categories.some((c) => c.id === newTask.category_id)) {
@@ -508,8 +516,8 @@ export default function BoardPage() {
         )}
 
         <div className="mb-2 flex justify-between text-[11px] text-[#A7A399]">
-          <span>{t.status === "waiting" ? `등록일 ${fmtDate(t.planned_start_date)}` : (t.start_date ? `시작일 ${fmtDate(t.start_date)}` : "\u00A0")}</span>
-          <span>{t.completed_date ? `종료일 ${fmtDate(t.completed_date)}` : "\u00A0"}</span>
+          <span>{t.status === "waiting" ? `등록일 ${fmtDate(t.planned_start_date)}` : (t.start_date ? `시작 ${fmtDateTime(t.start_date)}` : "\u00A0")}</span>
+          <span>{t.completed_date ? `종료 ${fmtDateTime(t.completed_date)}` : "\u00A0"}</span>
         </div>
 
         {!projectArchived && isMine && t.status === "waiting" && (
@@ -639,14 +647,16 @@ export default function BoardPage() {
             <button onClick={() => { setSelectedProjectId("ALL"); setProjectStatusView(false); }} className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${isAllView && !projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
               <Boxes size={14} />{sidebarOpen && " 전체 업무"}
             </button>
-            <button onClick={() => setProjectStatusView(true)} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
-              <ClipboardList size={14} />{sidebarOpen && " 프로젝트 현황"}
-            </button>
+            {me.role === "manager" && (
+              <button onClick={() => setProjectStatusView(true)} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
+                <ClipboardList size={14} />{sidebarOpen && " 프로젝트 현황"}
+              </button>
+            )}
           </div>
         </aside>
 
         <main className="flex-1 overflow-x-auto p-6">
-          {projectStatusView ? (
+          {projectStatusView && me.role === "manager" ? (
             <>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-bold">프로젝트 현황</h2>
@@ -690,20 +700,27 @@ export default function BoardPage() {
                       </div>
                       {isExpanded && (
                         <div className="bg-[#FAFAF7] px-3.5 pb-3">
-                          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_0.8fr_0.8fr_0.7fr] gap-0 border-b border-[#E4E1D6] py-1.5 text-[10.5px] font-bold text-[#A7A399]">
-                            <span>에피소드</span><span>업무</span><span>외주 작업자</span><span>담당자</span><span>시작일</span><span>종료일</span><span>작업일수</span>
+                          <div className="grid grid-cols-[0.9fr_0.9fr_0.9fr_0.9fr_1.2fr_1.2fr_1fr_1fr] gap-0 border-b border-[#E4E1D6] py-1.5 text-[10.5px] font-bold text-[#A7A399]">
+                            <span>에피소드</span><span>업무</span><span>외주 작업자</span><span>담당자</span><span>시작일시</span><span>종료일시</span><span>작업시간</span><span>평점</span>
                           </div>
                           {projTasks.map((t) => {
-                            const days = workDays(t.start_date, t.completed_date);
+                            const duration = workDuration(t.start_date, t.completed_date);
                             return (
-                              <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_0.8fr_0.8fr_0.7fr] gap-0 border-b border-[#EEEDE7] py-1.5 text-[11.5px] last:border-b-0">
+                              <div key={t.id} className="grid grid-cols-[0.9fr_0.9fr_0.9fr_0.9fr_1.2fr_1.2fr_1fr_1fr] items-center gap-0 border-b border-[#EEEDE7] py-1.5 text-[11.5px] last:border-b-0">
                                 <span>{episodeLabel(t)}</span>
                                 <span className="text-[#79766D]">{t.category?.label ?? "-"}</span>
                                 <span>{contractorName(t)}</span>
                                 <span>{managerName(t)}</span>
-                                <span className="text-[#79766D]">{t.start_date ? fmtDate(t.start_date) : "-"}</span>
-                                <span className="text-[#79766D]">{t.completed_date ? fmtDate(t.completed_date) : "-"}</span>
-                                <span className="text-[#79766D]">{days ?? "-"}</span>
+                                <span className="text-[#79766D]">{t.start_date ? fmtDateTime(t.start_date) : "-"}</span>
+                                <span className="text-[#79766D]">{t.completed_date ? fmtDateTime(t.completed_date) : "-"}</span>
+                                <span className="text-[#79766D]">{duration ?? "-"}</span>
+                                <span className="flex gap-0.5">
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <button key={n} onClick={() => rateTask(t.id, n)} title={`${n}점`}>
+                                      <Star size={13} className={n <= (t.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-[#D9D6CC]"} />
+                                    </button>
+                                  ))}
+                                </span>
                               </div>
                             );
                           })}

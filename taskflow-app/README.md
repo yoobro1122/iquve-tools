@@ -1,4 +1,12 @@
-# TaskFlow — 미디어팀 외주 업무 관리 시스템 (v1.01)
+# TaskFlow — 미디어팀 외주 업무 관리 시스템 (v1.02)
+
+## v1.02 주요 변경사항
+
+1. **시간 표시**: 업무 시작일/종료일에 시:분까지 표시됩니다. "작업일수" 대신 실제 걸린 "작업시간"(N시간 M분)을 보여줍니다.
+2. **업무 평점**: 프로젝트 현황에서 프로젝트를 펼치면 업무별로 1~5점 평점을 매길 수 있습니다 (해당 업무를 수행한 외주 작업자에게 귀속). 프로젝트 현황 메뉴는 담당자에게만 보이고 외주 작업자에게는 보이지 않습니다.
+3. **작업자 통계**: 외주 작업자 관리 화면에서 작업자별 총 완료 업무 건수, 평균 작업시간, 평균 평점을 확인할 수 있습니다.
+4. **이메일 발송 오류 수정**: Resend가 실패 시 예외를 던지지 않고 결과에 에러를 담아 반환하는데, 이를 확인하지 않던 버그를 고쳐 실패가 서버 로그에 정확히 남도록 했습니다.
+5. **전체 로그 복원**: 헤더의 "전체 로그" 버튼으로 모든 프로젝트의 변경 이력을 한 번에 볼 수 있습니다 (담당자 전용).
 
 Next.js + Supabase + Resend로 만든 실제 서비스용 앱입니다.
 
@@ -41,6 +49,14 @@ alter table tasks add column if not exists planned_start_date date not null defa
 alter table tasks add column if not exists start_notice_sent boolean not null default false;
 alter table tasks add column if not exists memo text default '';
 alter table tasks add column if not exists file_link text default '';
+```
+
+**v1.02로 업그레이드하신다면** 아래도 추가로 실행해주세요 (시:분 기록 + 평점):
+
+```sql
+alter table tasks alter column start_date type timestamptz using start_date::timestamptz;
+alter table tasks alter column completed_date type timestamptz using completed_date::timestamptz;
+alter table tasks add column if not exists rating int check (rating between 1 and 5);
 ```
 
 4. **첫 담당자 계정**만 아래처럼 SQL로 직접 만들어주세요 (이후 담당자는 앱 안의 "담당자 관리" 화면에서 서로 추가할 수 있습니다).

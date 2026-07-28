@@ -70,6 +70,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     changes.push(`업무 ${task.code} 메모 수정`);
     patch.memo = body.memo;
   }
+  if (typeof body.rating === "number" && body.rating !== task.rating) {
+    if (body.rating < 1 || body.rating > 5) return NextResponse.json({ error: "평점은 1~5 사이여야 합니다." }, { status: 400 });
+    changes.push(`업무 ${task.code} 평점: ${task.rating ?? "-"} → ${body.rating}`);
+    patch.rating = body.rating;
+  }
 
   if (Object.keys(patch).length === 0) return NextResponse.json({ item: task });
 
