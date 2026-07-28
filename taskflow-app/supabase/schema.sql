@@ -63,6 +63,8 @@ create table if not exists episodes (
 
 -- 6) tasks
 -- status: 'waiting' | 'in_progress' | 'reviewing' | 'rework_notice' | 'done'
+-- contractor_id: 현재(최신) 구간을 담당하는 외주 작업자. manager_id: 메인 담당자.
+-- 실제 시작/종료 시각, 파일 링크, 평점은 인계 시마다 나뉘는 task_assignments(구간)에서 관리합니다.
 create table if not exists tasks (
   id uuid primary key default gen_random_uuid(),
   code text not null,
@@ -75,14 +77,35 @@ create table if not exists tasks (
   planned_start_date timestamptz not null default now(), -- 등록 시 지정한 발송 예정 일시 (알림 메일 기준)
   start_notice_sent boolean not null default false,
   memo text default '',
-  file_link text default '',
-  start_date timestamptz,
-  completed_date timestamptz,
-  rating int check (rating between 1 and 5),
   rework_acknowledged boolean not null default false,
   archived boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+-- 6-1) task_assignments: 업무 배정 구간 (인계가 일어날 때마다 새 구간 생성)
+-- 각 구간별로 시작/종료 시각, 제출 파일 링크, 평점을 따로 기록해 비용 지급/평가 자료로 사용합니다.
+create table if not exists task_assignments (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references tasks(id) on delete cascade,
+  contractor_id uuid not null references profiles(id),
+  started_at timestamptz,
+  ended_at timestamptz,
+  file_link text default '',
+  rating int check (rating between 1 and 5),
+  handoff_reason text default '', -- 이 구간이 인계로 종료된 경우의 사유
+  created_at timestamptz not null default now()
+);
+
+-- 6-2) task_sub_managers: 서브 담당자 (이메일 참조 개념) - 확인 여부 + 의견만 남기고 검수 권한은 없음
+create table if not exists task_sub_managers (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references tasks(id) on delete cascade,
+  manager_id uuid not null references profiles(id),
+  acknowledged boolean not null default false,
+  comment text default '',
+  created_at timestamptz not null default now(),
+  unique (task_id, manager_id)
 );
 
 -- 7) task_rework_notes
@@ -139,6 +162,8 @@ alter table categories enable row level security;
 alter table projects enable row level security;
 alter table episodes enable row level security;
 alter table tasks enable row level security;
+alter table task_assignments enable row level security;
+alter table task_sub_managers enable row level security;
 alter table task_rework_notes enable row level security;
 alter table project_logs enable row level security;
 
@@ -160,6 +185,18 @@ create policy "episodes_select" on episodes for select using (auth.role() = 'aut
 drop policy if exists "tasks_select" on tasks;
 create policy "tasks_select" on tasks for select using (
   contractor_id = auth.uid()
+  or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+);
+
+drop policy if exists "task_assignments_select" on task_assignments;
+create policy "task_assignments_select" on task_assignments for select using (
+  contractor_id = auth.uid()
+  or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+);
+
+drop policy if exists "task_sub_managers_select" on task_sub_managers;
+create policy "task_sub_managers_select" on task_sub_managers for select using (
+  manager_id = auth.uid()
   or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
 );
 
@@ -201,3 +238,41 @@ create policy "project_logs_select_manager" on project_logs for select using (
 -- alter table tasks alter column category_id drop not null;
 -- alter table tasks drop constraint if exists tasks_category_id_fkey;
 -- alter table tasks add constraint tasks_category_id_fkey foreign key (category_id) references categories(id) on delete set null;
+
+-- v1.04 마이그레이션: 업무 인계(핸드오프) 지원 - 구간별 배정 기록 + 서브 담당자(참조)
+-- 기존 tasks.start_date/completed_date/file_link/rating 데이터를 새 task_assignments로 옮긴 뒤 컬럼을 제거합니다.
+-- insert into task_assignments (task_id, contractor_id, started_at, ended_at, file_link, rating, created_at)
+--   select id, contractor_id, start_date, completed_date, file_link, rating, created_at from tasks;
+-- alter table tasks drop column if exists start_date;
+-- alter table tasks drop column if exists completed_date;
+-- alter table tasks drop column if exists file_link;
+-- alter table tasks drop column if exists rating;
+--
+-- create table if not exists task_assignments (
+--   id uuid primary key default gen_random_uuid(),
+--   task_id uuid not null references tasks(id) on delete cascade,
+--   contractor_id uuid not null references profiles(id),
+--   started_at timestamptz,
+--   ended_at timestamptz,
+--   file_link text default '',
+--   rating int check (rating between 1 and 5),
+--   handoff_reason text default '',
+--   created_at timestamptz not null default now()
+-- );
+-- create table if not exists task_sub_managers (
+--   id uuid primary key default gen_random_uuid(),
+--   task_id uuid not null references tasks(id) on delete cascade,
+--   manager_id uuid not null references profiles(id),
+--   acknowledged boolean not null default false,
+--   comment text default '',
+--   created_at timestamptz not null default now(),
+--   unique (task_id, manager_id)
+-- );
+-- alter table task_assignments enable row level security;
+-- alter table task_sub_managers enable row level security;
+-- create policy "task_assignments_select" on task_assignments for select using (
+--   contractor_id = auth.uid() or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+-- );
+-- create policy "task_sub_managers_select" on task_sub_managers for select using (
+--   manager_id = auth.uid() or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+-- );

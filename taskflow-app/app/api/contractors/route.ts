@@ -12,21 +12,21 @@ export async function GET() {
   const { data, error } = await db.from("profiles").select("*").eq("role", "contractor").order("name");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // 완료된 업무 기준으로 작업자별 통계(총 건수/평균 작업시간/평균 평점) 계산
-  const { data: doneTasks } = await db
-    .from("tasks")
-    .select("contractor_id, start_date, completed_date, rating")
-    .eq("status", "done");
+  // 완료된(종료된) 배정 구간 기준으로 작업자별 통계(총 건수/평균 작업시간/평균 평점) 계산
+  const { data: assignments } = await db
+    .from("task_assignments")
+    .select("contractor_id, started_at, ended_at, rating")
+    .not("ended_at", "is", null);
 
   const statsByContractor: Record<string, { total: number; durations: number[]; ratings: number[] }> = {};
-  for (const t of doneTasks ?? []) {
-    const s = (statsByContractor[t.contractor_id] ??= { total: 0, durations: [], ratings: [] });
+  for (const a of assignments ?? []) {
+    const s = (statsByContractor[a.contractor_id] ??= { total: 0, durations: [], ratings: [] });
     s.total += 1;
-    if (t.start_date && t.completed_date) {
-      const minutes = (new Date(t.completed_date).getTime() - new Date(t.start_date).getTime()) / 60000;
+    if (a.started_at && a.ended_at) {
+      const minutes = (new Date(a.ended_at).getTime() - new Date(a.started_at).getTime()) / 60000;
       if (minutes >= 0) s.durations.push(minutes);
     }
-    if (typeof t.rating === "number") s.ratings.push(t.rating);
+    if (typeof a.rating === "number") s.ratings.push(a.rating);
   }
 
   const items = (data ?? []).map((c) => {

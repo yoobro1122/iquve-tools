@@ -71,6 +71,28 @@ export function reworkRequestedEmail(projectName: string, taskLabel: string, mes
   };
 }
 
+export function taskHandoffEmail(projectName: string, taskLabel: string, newContractorName: string, reason: string) {
+  return {
+    subject: `[업무 인계] "${taskLabel}" 업무가 인계되었습니다`,
+    html: wrap(
+      "업무 인계 알림",
+      `<p><b>${newContractorName}</b>님에게 업무가 새로 인계되었습니다.</p>${taskLine(projectName, taskLabel)}
+       <p style="background:#f5f5f5; padding:12px; border-radius:6px;"><b>인계 사유</b><br/>${reason}</p>`
+    ),
+  };
+}
+
+export function subManagerAckEmail(projectName: string, taskLabel: string, subManagerName: string, comment: string) {
+  return {
+    subject: `[참조 확인] "${taskLabel}" - ${subManagerName}님이 확인했습니다`,
+    html: wrap(
+      "서브 담당자 확인",
+      `<p><b>${subManagerName}</b>님이 업무를 확인하고 의견을 남겼습니다.</p>${taskLine(projectName, taskLabel)}
+       ${comment?.trim() ? `<p style="background:#f5f5f5; padding:12px; border-radius:6px;">${comment}</p>` : ""}`
+    ),
+  };
+}
+
 export function publishDecidedEmail(projectName: string, decision: "confirmed" | "declined", reason?: string) {
   return {
     subject: decision === "confirmed" ? `[게재 완료] "${projectName}" 프로젝트가 게재되었습니다` : `[게재 불가] "${projectName}" 프로젝트 게재가 불가 처리되었습니다`,

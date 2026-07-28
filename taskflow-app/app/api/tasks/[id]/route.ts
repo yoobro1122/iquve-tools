@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { sendMail } from "@/lib/resend";
-import { taskReassignedEmail } from "@/lib/email-templates";
 
-// 업무 수정(카테고리/에피소드/외주작업자/담당자/메모) + 삭제(비활성화)/복원을 한 라우트에서 처리.
-// body: { category_id?, episode_id?, contractor_id?, manager_id?, memo? } -> 수정
+// 업무 수정(카테고리/에피소드/담당자/메모/서브담당자) + 삭제(비활성화)/복원을 한 라우트에서 처리.
+// body: { category_id?, episode_id?, manager_id?, memo?, sub_manager_ids? } -> 수정
 // body: { archived: true|false } -> 삭제/복원
+// 참고: 외주 작업자 변경(인계)은 검수 화면의 "다른 작업자에게 인계" 액션으로만 처리합니다
+// (구간 기록이 함께 남아야 하기 때문에 이 라우트에서는 contractor_id를 바꾸지 않습니다).
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,7 +20,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const body = await req.json();
   const changes: string[] = [];
   const patch: Record<string, unknown> = {};
-  let reassignedContractorId: string | null = null;
 
   if (typeof body.archived === "boolean" && body.archived !== task.archived) {
     patch.archived = body.archived;
@@ -49,15 +48,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     changes.push(`업무 ${task.code} 수정 - 에피소드: ${oldLabel} → ${newLabel}`);
     patch.episode_id = newEpId;
   }
-  if (body.contractor_id && body.contractor_id !== task.contractor_id) {
-    const [{ data: oldC }, { data: newC }] = await Promise.all([
-      db.from("profiles").select("name").eq("id", task.contractor_id).single(),
-      db.from("profiles").select("name,email").eq("id", body.contractor_id).single(),
-    ]);
-    changes.push(`업무 ${task.code} 수정 - 외주 작업자: ${oldC?.name} → ${newC?.name}`);
-    patch.contractor_id = body.contractor_id;
-    reassignedContractorId = body.contractor_id;
-  }
   if (body.manager_id && body.manager_id !== task.manager_id) {
     const [{ data: oldM }, { data: newM }] = await Promise.all([
       task.manager_id ? db.from("profiles").select("name").eq("id", task.manager_id).single() : Promise.resolve({ data: null }),
@@ -70,31 +60,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     changes.push(`업무 ${task.code} 메모 수정`);
     patch.memo = body.memo;
   }
-  if (typeof body.rating === "number" && body.rating !== task.rating) {
-    if (body.rating < 1 || body.rating > 5) return NextResponse.json({ error: "평점은 1~5 사이여야 합니다." }, { status: 400 });
-    changes.push(`업무 ${task.code} 평점: ${task.rating ?? "-"} → ${body.rating}`);
-    patch.rating = body.rating;
+
+  if (Array.isArray(body.sub_manager_ids)) {
+    const { data: existing } = await db.from("task_sub_managers").select("manager_id").eq("task_id", params.id);
+    const existingIds = new Set((existing ?? []).map((r) => r.manager_id));
+    const newIds = new Set(body.sub_manager_ids.filter((id: string) => id && id !== (patch.manager_id ?? task.manager_id)));
+    const toAdd = [...newIds].filter((id) => !existingIds.has(id as string));
+    const toRemove = [...existingIds].filter((id) => !newIds.has(id));
+    if (toAdd.length > 0) await db.from("task_sub_managers").insert(toAdd.map((manager_id) => ({ task_id: params.id, manager_id })));
+    if (toRemove.length > 0) await db.from("task_sub_managers").delete().eq("task_id", params.id).in("manager_id", toRemove);
+    if (toAdd.length > 0 || toRemove.length > 0) changes.push(`업무 ${task.code} 서브 담당자 변경`);
   }
 
-  if (Object.keys(patch).length === 0) return NextResponse.json({ item: task });
+  if (Object.keys(patch).length === 0 && changes.length === 0) return NextResponse.json({ item: task });
 
-  const { data: updated, error } = await db.from("tasks").update(patch).eq("id", params.id).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  let updated = task;
+  if (Object.keys(patch).length > 0) {
+    const { data, error } = await db.from("tasks").update(patch).eq("id", params.id).select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    updated = data;
+  }
 
   for (const c of changes) {
     await db.from("project_logs").insert({ project_id: task.project_id, actor_id: user.id, actor_name: profile.name, change: c });
-  }
-
-  if (reassignedContractorId) {
-    const [{ data: project }, { data: episode }, { data: contractor }] = await Promise.all([
-      db.from("projects").select("name").eq("id", task.project_id).single(),
-      updated.episode_id ? db.from("episodes").select("label").eq("id", updated.episode_id).single() : Promise.resolve({ data: null }),
-      db.from("profiles").select("email,name").eq("id", reassignedContractorId).single(),
-    ]);
-    if (project && contractor) {
-      const { subject, html } = taskReassignedEmail(project.name, episode?.label ?? "적용 안함", contractor.name, updated.memo);
-      await sendMail(contractor.email, subject, html);
-    }
   }
 
   return NextResponse.json({ item: updated });

@@ -61,22 +61,41 @@ export interface ReworkNote {
   created_at: string;
 }
 
+export interface TaskAssignment {
+  id: string;
+  task_id: string;
+  contractor_id: string;
+  started_at: string | null;
+  ended_at: string | null;
+  file_link: string;
+  rating: number | null;
+  handoff_reason: string;
+  created_at: string;
+  contractor?: Profile;
+}
+
+export interface SubManager {
+  id: string;
+  task_id: string;
+  manager_id: string;
+  acknowledged: boolean;
+  comment: string;
+  created_at: string;
+  manager?: Profile;
+}
+
 export interface Task {
   id: string;
   code: string;
   project_id: string;
   category_id: string | null;
   episode_id: string | null;
-  contractor_id: string;
-  manager_id: string | null;
+  contractor_id: string; // 현재(최신) 구간 담당 외주 작업자
+  manager_id: string | null; // 메인 담당자
   status: TaskStatus;
   planned_start_date: string;
   start_notice_sent: boolean;
   memo: string;
-  file_link: string;
-  start_date: string | null;
-  completed_date: string | null;
-  rating: number | null;
   rework_acknowledged: boolean;
   archived: boolean;
   project?: Project;
@@ -85,6 +104,14 @@ export interface Task {
   contractor?: Profile;
   manager?: Profile;
   rework_notes?: ReworkNote[];
+  assignments?: TaskAssignment[];
+  sub_managers?: SubManager[];
+}
+
+// 업무의 현재(최신) 배정 구간을 가져옵니다 (created_at 기준 가장 마지막 구간).
+export function currentAssignment(task: Task): TaskAssignment | null {
+  if (!task.assignments || task.assignments.length === 0) return null;
+  return [...task.assignments].sort((a, b) => a.created_at.localeCompare(b.created_at))[task.assignments.length - 1];
 }
 
 // 프로젝트 상태 계산 - 비활성화(archived)된 업무는 완료 판정에서 제외합니다.

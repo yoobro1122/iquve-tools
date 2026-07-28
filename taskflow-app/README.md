@@ -1,4 +1,55 @@
-# TaskFlow — 미디어팀 외주 업무 관리 시스템 (v1.03)
+# TaskFlow — 미디어팀 외주 업무 관리 시스템 (v1.04)
+
+## v1.04 주요 변경사항 (업무 인계 / 서브 담당자)
+
+1. **업무 인계**: 검수 화면에 "검수 확인 / 재작업 요청 / 다른 작업자에게 인계" 세 가지 선택지가 생겼습니다. 인계하면 이전 작업자의 구간이 마감되고, 새 작업자가 "업무 시작"을 눌러야 본인 구간이 새로 시작됩니다.
+2. **구간별 기록**: 업무 하나가 여러 작업자를 거칠 수 있어, 각 작업자의 시작/종료 시각·제출 파일·평점을 구간(차수)별로 따로 기록합니다 (`task_assignments` 테이블). 비용 지급 자료로 그대로 활용 가능합니다.
+3. **서브 담당자(참조)**: 업무 등록/수정 시 메인 담당자 외에 여러 명을 참조로 지정할 수 있습니다. 참조는 검수 권한 없이 "확인 + 의견"만 남기며, 확인 시 메인 담당자에게 메일이 갑니다.
+4. **알림 확대**: 모든 업무 알림 메일이 메인 담당자 + 서브 담당자 전원에게 함께 발송됩니다.
+5. **외주 작업자 화면 3분할**: 내 업무 / 완료된 업무 / 참여했던 업무(인계로 넘어간 과거 구간, 읽기 전용)로 나뉘어 표시됩니다.
+6. **프로젝트 현황**: 업무를 펼치면 이제 차수(1차/2차...)별로 담당 작업자·시작/종료·작업시간·평점이 나뉘어 표시되고, 평점도 구간별로 매길 수 있습니다. 엑셀 다운로드도 같은 방식으로 세분화됩니다.
+
+### v1.04 마이그레이션 (필수)
+
+```sql
+insert into task_assignments (task_id, contractor_id, started_at, ended_at, file_link, rating, created_at)
+  select id, contractor_id, start_date, completed_date, file_link, rating, created_at from tasks;
+alter table tasks drop column if exists start_date;
+alter table tasks drop column if exists completed_date;
+alter table tasks drop column if exists file_link;
+alter table tasks drop column if exists rating;
+
+create table if not exists task_assignments (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references tasks(id) on delete cascade,
+  contractor_id uuid not null references profiles(id),
+  started_at timestamptz,
+  ended_at timestamptz,
+  file_link text default '',
+  rating int check (rating between 1 and 5),
+  handoff_reason text default '',
+  created_at timestamptz not null default now()
+);
+create table if not exists task_sub_managers (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references tasks(id) on delete cascade,
+  manager_id uuid not null references profiles(id),
+  acknowledged boolean not null default false,
+  comment text default '',
+  created_at timestamptz not null default now(),
+  unique (task_id, manager_id)
+);
+alter table task_assignments enable row level security;
+alter table task_sub_managers enable row level security;
+create policy "task_assignments_select" on task_assignments for select using (
+  contractor_id = auth.uid() or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+);
+create policy "task_sub_managers_select" on task_sub_managers for select using (
+  manager_id = auth.uid() or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+);
+```
+
+⚠️ 위 마이그레이션은 **기존에 tasks 테이블에 start_date/completed_date/file_link/rating 컬럼이 있던 경우**를 위한 것입니다. 처음 설치하시는 경우라면 `supabase/schema.sql`을 그대로 실행하시면 되고 위 SQL은 필요 없습니다.
 
 ## v1.03 주요 변경사항
 

@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const { data, error } = await db
     .from("tasks")
-    .select("*, project:project_id(code,name), episode:episode_id(label), category:category_id(label), manager:manager_id(name)")
+    .select("*, project:project_id(code,name), episode:episode_id(label), category:category_id(label), manager:manager_id(name), assignments:task_assignments(*)")
     .eq("contractor_id", params.id)
     .eq("archived", false)
     .order("created_at", { ascending: false });

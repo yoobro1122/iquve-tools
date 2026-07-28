@@ -7,11 +7,11 @@ import {
   Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
   Boxes, Settings, RotateCcw, ClipboardList, Loader2, Link as LinkIcon,
-  Search, Download, XCircle, Bell, Star,
+  Search, Download, XCircle, Bell, Star, ArrowRightLeft,
 } from "lucide-react";
 import {
   Profile, MajorCategory, Category, Project, Task,
-  TASK_STATUS_LABEL, computeProjectStatus, allTasksDone, ddayLabel, workDuration,
+  TASK_STATUS_LABEL, computeProjectStatus, allTasksDone, ddayLabel, workDuration, currentAssignment,
 } from "@/lib/types";
 
 const PROJECT_STATUS_COLOR: Record<string, string> = {
@@ -61,6 +61,9 @@ export default function BoardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [contractors, setContractors] = useState<Profile[]>([]);
   const [managers, setManagers] = useState<Profile[]>([]);
+  const [pastAssignments, setPastAssignments] = useState<any[]>([]);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [showPastAssignments, setShowPastAssignments] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -105,13 +108,20 @@ export default function BoardPage() {
   const [newEpLabel, setNewEpLabel] = useState("");
 
   const [showNewTask, setShowNewTask] = useState(false);
-  const [newTask, setNewTask] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", planned_start_date: nowLocalDateTimeStr(), memo: "" });
+  const [newTask, setNewTask] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [] as string[] });
 
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
-  const [editTaskDraft, setEditTaskDraft] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", memo: "" });
+  const [editTaskDraft, setEditTaskDraft] = useState({ category_id: "", episode_id: "", manager_id: "", memo: "", sub_manager_ids: [] as string[] });
 
   const [reworkModalTaskId, setReworkModalTaskId] = useState<string | null>(null);
   const [reworkMessage, setReworkMessage] = useState("");
+
+  const [handoffModalTaskId, setHandoffModalTaskId] = useState<string | null>(null);
+  const [handoffContractorId, setHandoffContractorId] = useState("");
+  const [handoffReason, setHandoffReason] = useState("");
+
+  const [subManagerAckTaskId, setSubManagerAckTaskId] = useState<string | null>(null);
+  const [subManagerAckComment, setSubManagerAckComment] = useState("");
 
   const [submitModalTaskId, setSubmitModalTaskId] = useState<string | null>(null);
   const [fileLinkDraft, setFileLinkDraft] = useState("");
@@ -143,13 +153,20 @@ export default function BoardPage() {
 
     const { data: taskData } = await supabase
       .from("tasks")
-      .select("*, project:project_id(*), category:category_id(*), episode:episode_id(*), contractor:contractor_id(*), manager:manager_id(*), rework_notes:task_rework_notes(*)")
+      .select("*, project:project_id(*), category:category_id(*), episode:episode_id(*), contractor:contractor_id(*), manager:manager_id(*), rework_notes:task_rework_notes(*), assignments:task_assignments(*, contractor:contractor_id(*)), sub_managers:task_sub_managers(*, manager:manager_id(*))")
       .order("created_at", { ascending: true });
     setTasks((taskData as unknown as Task[]) ?? []);
 
     if (profile?.role === "manager") {
       const { data: cs } = await supabase.from("profiles").select("*").eq("role", "contractor").order("name");
       setContractors((cs as Profile[]) ?? []);
+    } else {
+      const { data: mine } = await supabase
+        .from("task_assignments")
+        .select("*, task:task_id(*, project:project_id(*), episode:episode_id(*), category:category_id(*))")
+        .eq("contractor_id", user.id)
+        .order("created_at", { ascending: false });
+      setPastAssignments(((mine as any[]) ?? []).filter((a) => a.task && a.task.contractor_id !== user.id));
     }
 
     setLoading(false);
@@ -229,13 +246,19 @@ export default function BoardPage() {
 
   const visibleTasks = useMemo(() => {
     let list = episodeFilteredTasks;
-    if (me?.role === "contractor") list = list.filter((t) => t.contractor_id === me.id);
+    if (me?.role === "contractor") list = list.filter((t) => t.contractor_id === me.id && t.status !== "done");
     if (isAllView && searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter((t) => t.contractor?.name?.toLowerCase().includes(q) || t.manager?.name?.toLowerCase().includes(q));
     }
     return list;
   }, [episodeFilteredTasks, me, isAllView, searchQuery]);
+
+  // 외주 작업자 전용: 본인이 완료한 업무 (별도 "완료된 업무" 섹션에 표시)
+  const myCompletedTasks = useMemo(() => {
+    if (me?.role !== "contractor") return [];
+    return episodeFilteredTasks.filter((t) => t.contractor_id === me.id && t.status === "done");
+  }, [episodeFilteredTasks, me]);
 
   // 카테고리가 수정/삭제되어 목록이 바뀌면, 이미 열려있는 모달의 선택값이 더 이상
   // 존재하지 않는 카테고리를 가리키고 있을 수 있어 자동으로 교정합니다.
@@ -280,7 +303,7 @@ export default function BoardPage() {
 
   // ---------------- task actions ----------------
   async function taskStart(t: Task) { if (await api(`/api/tasks/${t.id}/start`, "POST")) load(); }
-  function openSubmitModal(t: Task) { setSubmitModalTaskId(t.id); setFileLinkDraft(t.file_link || ""); }
+  function openSubmitModal(t: Task) { setSubmitModalTaskId(t.id); setFileLinkDraft(currentAssignment(t)?.file_link || ""); }
   async function confirmSubmit() {
     if (!fileLinkDraft.trim()) { alert("작업 파일 링크를 입력해주세요."); return; }
     if (await api(`/api/tasks/${submitModalTaskId}/submit`, "POST", { file_link: fileLinkDraft.trim() })) {
@@ -299,17 +322,46 @@ export default function BoardPage() {
     if (await api(url, "POST", body)) { setReworkModalTaskId(null); load(); }
   }
 
+  function openHandoffModal(t: Task) {
+    setHandoffModalTaskId(t.id);
+    setHandoffContractorId("");
+    setHandoffReason("");
+  }
+  async function submitHandoff() {
+    if (!handoffContractorId) { alert("인계할 작업자를 선택해주세요."); return; }
+    if (!handoffReason.trim()) { alert("인계 사유를 입력해주세요."); return; }
+    if (await api(`/api/tasks/${handoffModalTaskId}/review`, "POST", { result: "handoff", new_contractor_id: handoffContractorId, note: handoffReason.trim() })) {
+      setHandoffModalTaskId(null);
+      load();
+    }
+  }
+
+  function openSubManagerAck(t: Task) {
+    const mine = (t.sub_managers ?? []).find((s) => s.manager_id === me?.id);
+    setSubManagerAckTaskId(t.id);
+    setSubManagerAckComment(mine?.comment ?? "");
+  }
+  async function submitSubManagerAck() {
+    if (await api(`/api/tasks/${subManagerAckTaskId}/sub-manager-ack`, "POST", { comment: subManagerAckComment })) {
+      setSubManagerAckTaskId(null);
+      load();
+    }
+  }
+
+  async function rateAssignment(assignmentId: string, rating: number) {
+    if (await api(`/api/task-assignments/${assignmentId}`, "PATCH", { rating })) load();
+  }
+
   function openEditTask(t: Task) {
     setEditTaskId(t.id);
-    setEditTaskDraft({ category_id: t.category_id ?? "", episode_id: t.episode_id ?? "", contractor_id: t.contractor_id, manager_id: t.manager_id ?? "", memo: t.memo ?? "" });
+    setEditTaskDraft({
+      category_id: t.category_id ?? "", episode_id: t.episode_id ?? "", manager_id: t.manager_id ?? "", memo: t.memo ?? "",
+      sub_manager_ids: (t.sub_managers ?? []).map((s) => s.manager_id),
+    });
   }
   async function saveEditTask() {
     if (!categories.some((c) => c.id === editTaskDraft.category_id)) {
       alert("카테고리를 선택해주세요.");
-      return;
-    }
-    if (!contractors.some((c) => c.id === editTaskDraft.contractor_id)) {
-      alert("외주 작업자를 선택해주세요.");
       return;
     }
     if (editTaskDraft.manager_id && !managers.some((m) => m.id === editTaskDraft.manager_id)) {
@@ -326,9 +378,6 @@ export default function BoardPage() {
   async function permanentlyDeleteTask(t: Task) {
     if (!confirm(`업무 ${t.code}를 DB에서 완전히 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
     if (await api(`/api/tasks/${t.id}`, "DELETE")) load();
-  }
-  async function rateTask(taskId: string, rating: number) {
-    if (await api(`/api/tasks/${taskId}`, "PATCH", { rating })) load();
   }
 
   async function createTask() {
@@ -485,6 +534,10 @@ export default function BoardPage() {
     const isMine = me!.role === "contractor" && t.contractor_id === me!.id;
     const isManagerView = me!.role === "manager";
     const notes = t.rework_notes ?? [];
+    const cur = currentAssignment(t);
+    const subs = t.sub_managers ?? [];
+    const mySubRow = me!.role === "manager" ? subs.find((s) => s.manager_id === me!.id) : undefined;
+    const isSubManager = !!mySubRow;
 
     return (
       <div className="rounded-xl border border-[#E4E1D6] bg-white p-3.5" style={{ opacity: projectArchived ? 0.6 : 1 }}>
@@ -499,12 +552,22 @@ export default function BoardPage() {
           {contractorName(t)} <span className="text-[#A7A399]">(담당: {managerName(t)})</span> · <span className={`font-semibold ${TASK_STATUS_COLOR[t.status]}`}>{TASK_STATUS_LABEL[t.status]}</span>
         </div>
 
+        {subs.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1">
+            {subs.map((s) => (
+              <span key={s.id} className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${s.acknowledged ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                참조: {s.manager?.name ?? "-"} {s.acknowledged ? "✓" : ""}
+              </span>
+            ))}
+          </div>
+        )}
+
         {t.memo && (
           <div className="mb-2 rounded-lg bg-[#F6F5F0] p-2 text-xs text-[#79766D]"><b>메모</b> {t.memo}</div>
         )}
 
-        {t.file_link && (
-          <a href={t.file_link} target="_blank" rel="noreferrer" className="mb-2 flex items-center gap-1 text-xs text-[#2C56C9] underline">
+        {cur?.file_link && (
+          <a href={cur.file_link} target="_blank" rel="noreferrer" className="mb-2 flex items-center gap-1 text-xs text-[#2C56C9] underline">
             <LinkIcon size={11} /> 작업 파일 확인
           </a>
         )}
@@ -521,8 +584,8 @@ export default function BoardPage() {
         )}
 
         <div className="mb-2 flex justify-between text-[11px] text-[#A7A399]">
-          <span>{t.status === "waiting" ? `등록일 ${fmtDateTime(t.planned_start_date)}` : (t.start_date ? `시작 ${fmtDateTime(t.start_date)}` : "\u00A0")}</span>
-          <span>{t.completed_date ? `종료 ${fmtDateTime(t.completed_date)}` : "\u00A0"}</span>
+          <span>{t.status === "waiting" ? `등록일 ${fmtDateTime(t.planned_start_date)}` : (cur?.started_at ? `시작 ${fmtDateTime(cur.started_at)}` : "\u00A0")}</span>
+          <span>{cur?.ended_at ? `종료 ${fmtDateTime(cur.ended_at)}` : "\u00A0"}</span>
         </div>
 
         {!projectArchived && isMine && t.status === "waiting" && (
@@ -541,17 +604,23 @@ export default function BoardPage() {
           <button onClick={() => openSubmitModal(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Check size={13} /> 수정 완료</button>
         )}
 
-        {!projectArchived && isManagerView && t.status === "reviewing" && (
-          <div className="flex gap-2">
+        {!projectArchived && isManagerView && !isSubManager && t.status === "reviewing" && (
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => reviewApprove(t)} className={`${btnSuccess} flex items-center gap-1`}><Check size={13} /> 검수 확인</button>
             <button onClick={() => openReworkModal(t)} className={`${btnDanger} flex items-center gap-1`}><X size={13} /> 재작업 요청</button>
+            <button onClick={() => openHandoffModal(t)} className={`${btnDefault} flex items-center gap-1`}><ArrowRightLeft size={13} /> 다른 작업자에게 인계</button>
           </div>
         )}
-        {!projectArchived && isManagerView && t.status === "rework_notice" && (
+        {!projectArchived && isManagerView && !isSubManager && t.status === "rework_notice" && (
           <button onClick={() => openReworkModal(t)} className={`${btnDefault} flex items-center gap-1`}><Pencil size={13} /> 메시지 수정</button>
         )}
-        {!projectArchived && isManagerView && ["waiting", "in_progress"].includes(t.status) && (
+        {!projectArchived && isManagerView && !isSubManager && ["waiting", "in_progress"].includes(t.status) && (
           <div className="text-xs text-[#A7A399]">작업자 진행을 기다리는 중입니다.</div>
+        )}
+        {!projectArchived && isSubManager && (
+          <button onClick={() => openSubManagerAck(t)} className={`${btnDefault} flex w-full items-center justify-center gap-1.5`}>
+            {mySubRow?.acknowledged ? "확인 내용 수정" : "확인 + 의견 남기기"}
+          </button>
         )}
       </div>
     );
@@ -679,7 +748,8 @@ export default function BoardPage() {
                   const full = computeProjectStatus(p, tasks);
                   const simple = simplifiedStatus(full);
                   const projTasks = tasks.filter((t) => t.project_id === p.id && !t.archived);
-                  const started = projTasks.filter((t) => t.start_date).map((t) => t.start_date!).sort()[0];
+                  const allSegs = projTasks.flatMap((t) => t.assignments ?? []);
+                  const started = allSegs.filter((a) => a.started_at).map((a) => a.started_at!).sort()[0];
                   const isExpanded = !!expandedStatusRows[p.id];
                   return (
                     <div key={p.id} className="border-b border-[#E4E1D6]">
@@ -705,29 +775,29 @@ export default function BoardPage() {
                       </div>
                       {isExpanded && (
                         <div className="bg-[#FAFAF7] px-3.5 pb-3">
-                          <div className="grid grid-cols-[0.9fr_0.9fr_0.9fr_0.9fr_1.2fr_1.2fr_1fr_1fr] gap-0 border-b border-[#E4E1D6] py-1.5 text-[10.5px] font-bold text-[#A7A399]">
-                            <span>에피소드</span><span>업무</span><span>외주 작업자</span><span>담당자</span><span>시작일시</span><span>종료일시</span><span>작업시간</span><span>평점</span>
+                          <div className="grid grid-cols-[0.8fr_0.8fr_0.4fr_0.8fr_1.2fr_1.2fr_0.9fr_1fr] gap-0 border-b border-[#E4E1D6] py-1.5 text-[10.5px] font-bold text-[#A7A399]">
+                            <span>에피소드</span><span>업무</span><span>차수</span><span>외주 작업자</span><span>시작일시</span><span>종료일시</span><span>작업시간</span><span>평점</span>
                           </div>
-                          {projTasks.map((t) => {
-                            const duration = workDuration(t.start_date, t.completed_date);
-                            return (
-                              <div key={t.id} className="grid grid-cols-[0.9fr_0.9fr_0.9fr_0.9fr_1.2fr_1.2fr_1fr_1fr] items-center gap-0 border-b border-[#EEEDE7] py-1.5 text-[11.5px] last:border-b-0">
+                          {projTasks.flatMap((t) => {
+                            const segs = [...(t.assignments ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
+                            return segs.map((seg, i) => (
+                              <div key={seg.id} className="grid grid-cols-[0.8fr_0.8fr_0.4fr_0.8fr_1.2fr_1.2fr_0.9fr_1fr] items-center gap-0 border-b border-[#EEEDE7] py-1.5 text-[11.5px] last:border-b-0">
                                 <span>{episodeLabel(t)}</span>
                                 <span className="text-[#79766D]">{t.category?.label ?? "미지정"}</span>
-                                <span>{contractorName(t)}</span>
-                                <span>{managerName(t)}</span>
-                                <span className="text-[#79766D]">{t.start_date ? fmtDateTime(t.start_date) : "-"}</span>
-                                <span className="text-[#79766D]">{t.completed_date ? fmtDateTime(t.completed_date) : "-"}</span>
-                                <span className="text-[#79766D]">{duration ?? "-"}</span>
+                                <span className="text-[#79766D]">{i + 1}차</span>
+                                <span>{seg.contractor?.name ?? "-"}</span>
+                                <span className="text-[#79766D]">{seg.started_at ? fmtDateTime(seg.started_at) : "-"}</span>
+                                <span className="text-[#79766D]">{seg.ended_at ? fmtDateTime(seg.ended_at) : "-"}</span>
+                                <span className="text-[#79766D]">{workDuration(seg.started_at, seg.ended_at) ?? "-"}</span>
                                 <span className="flex gap-0.5">
-                                  {[1, 2, 3, 4, 5].map((n) => (
-                                    <button key={n} onClick={() => rateTask(t.id, n)} title={`${n}점`}>
-                                      <Star size={13} className={n <= (t.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-[#D9D6CC]"} />
+                                  {seg.ended_at ? [1, 2, 3, 4, 5].map((n) => (
+                                    <button key={n} onClick={() => rateAssignment(seg.id, n)} title={`${n}점`}>
+                                      <Star size={13} className={n <= (seg.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-[#D9D6CC]"} />
                                     </button>
-                                  ))}
+                                  )) : <span className="text-[#D9D6CC]">-</span>}
                                 </span>
                               </div>
-                            );
+                            ));
                           })}
                           {projTasks.length === 0 && <div className="py-2 text-xs text-[#A7A399]">등록된 업무가 없습니다.</div>}
                         </div>
@@ -811,7 +881,7 @@ export default function BoardPage() {
                 ) : <div />}
                 <div className="flex items-center gap-2">
                   {!isAllView && !selectedProject!.archived && me.role === "manager" && (
-                    <button onClick={() => { setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: nowLocalDateTimeStr(), memo: "" }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
+                    <button onClick={() => { setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [] }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
                       <Plus size={14} /> 업무 등록
                     </button>
                   )}
@@ -853,6 +923,59 @@ export default function BoardPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {me.role === "contractor" && myCompletedTasks.length > 0 && (
+                <div className="mt-7">
+                  <button onClick={() => setShowCompletedTasks((v) => !v)} className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#79766D]">
+                    <ChevronDown size={13} style={{ transform: showCompletedTasks ? "rotate(0deg)" : "rotate(-90deg)" }} />
+                    완료된 업무 · {myCompletedTasks.length}
+                  </button>
+                  {showCompletedTasks && (
+                    <div className="mt-2.5 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+                      {myCompletedTasks.map((t) => {
+                        const cur = currentAssignment(t);
+                        return (
+                          <div key={t.id} className="rounded-xl border border-[#E4E1D6] bg-white p-3.5">
+                            <div className="mb-1.5 text-[10.5px] text-[#A7A399]">{t.project!.code} / {t.code} / {t.project!.name}</div>
+                            <div className="mb-1.5 text-[15px] font-bold">{episodeLabel(t)}</div>
+                            <div className="mb-2 text-xs text-emerald-700">완료</div>
+                            <div className="flex justify-between text-[11px] text-[#A7A399]">
+                              <span>{cur?.started_at ? `시작 ${fmtDateTime(cur.started_at)}` : "-"}</span>
+                              <span>{cur?.ended_at ? `종료 ${fmtDateTime(cur.ended_at)}` : "-"}</span>
+                            </div>
+                            {cur?.rating && <div className="mt-1.5 text-xs text-amber-600">★ {cur.rating}점</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {me.role === "contractor" && pastAssignments.length > 0 && (
+                <div className="mt-7">
+                  <button onClick={() => setShowPastAssignments((v) => !v)} className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#79766D]">
+                    <ChevronDown size={13} style={{ transform: showPastAssignments ? "rotate(0deg)" : "rotate(-90deg)" }} />
+                    참여했던 업무 · {pastAssignments.length}
+                  </button>
+                  {showPastAssignments && (
+                    <div className="mt-2.5 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+                      {pastAssignments.map((a) => (
+                        <div key={a.id} className="rounded-xl border border-[#E4E1D6] bg-white p-3.5 opacity-75">
+                          <div className="mb-1.5 text-[10.5px] text-[#A7A399]">{a.task.project?.code} / {a.task.code} / {a.task.project?.name}</div>
+                          <div className="mb-1.5 text-[15px] font-bold">{a.task.episode?.label ?? "적용 안함"}</div>
+                          <div className="mb-2 text-xs font-semibold text-gray-500">인계됨</div>
+                          <div className="flex justify-between text-[11px] text-[#A7A399]">
+                            <span>{a.started_at ? `시작 ${fmtDateTime(a.started_at)}` : "-"}</span>
+                            <span>{a.ended_at ? `종료 ${fmtDateTime(a.ended_at)}` : "-"}</span>
+                          </div>
+                          {a.rating && <div className="mt-1.5 text-xs text-amber-600">★ {a.rating}점</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1120,6 +1243,28 @@ export default function BoardPage() {
             </div>
 
             <div className="mb-3">
+              <label className="mb-1 block text-xs text-[#79766D]">서브 담당자 (참조 - 확인+의견만 남김)</label>
+              <div className="flex flex-wrap gap-1.5">
+                {managers.filter((m) => m.id !== newTask.manager_id).map((m) => {
+                  const active = newTask.sub_manager_ids.includes(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setNewTask((n) => ({
+                        ...n,
+                        sub_manager_ids: active ? n.sub_manager_ids.filter((id) => id !== m.id) : [...n.sub_manager_ids, m.id],
+                      }))}
+                      className={`rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${active ? "bg-[#1F1E1B] text-white" : "bg-[#EEEDE7] text-[#79766D]"}`}
+                    >
+                      {m.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">등록일시 (오늘 이후로 바꾸면 그 시각에 등록 알림 메일 발송)</label>
               <input type="datetime-local" value={newTask.planned_start_date} onChange={(e) => setNewTask({ ...newTask, planned_start_date: e.target.value })} className={inputCls} />
             </div>
@@ -1156,16 +1301,32 @@ export default function BoardPage() {
               </select>
             </div>
             <div className="mb-3">
-              <label className="mb-1 block text-xs text-[#79766D]">외주 작업자</label>
-              <select value={editTaskDraft.contractor_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, contractor_id: e.target.value })} className={inputCls}>
-                {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">담당자</label>
               <select value={editTaskDraft.manager_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, manager_id: e.target.value })} className={inputCls}>
                 {managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
+              <p className="mt-1 text-[11px] text-[#A7A399]">외주 작업자 변경은 검수 화면의 "다른 작업자에게 인계"로 처리됩니다.</p>
+            </div>
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-[#79766D]">서브 담당자 (참조)</label>
+              <div className="flex flex-wrap gap-1.5">
+                {managers.filter((m) => m.id !== editTaskDraft.manager_id).map((m) => {
+                  const active = editTaskDraft.sub_manager_ids.includes(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setEditTaskDraft((n) => ({
+                        ...n,
+                        sub_manager_ids: active ? n.sub_manager_ids.filter((id) => id !== m.id) : [...n.sub_manager_ids, m.id],
+                      }))}
+                      className={`rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${active ? "bg-[#1F1E1B] text-white" : "bg-[#EEEDE7] text-[#79766D]"}`}
+                    >
+                      {m.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="mb-4">
               <label className="mb-1 block text-xs text-[#79766D]">메모</label>
@@ -1204,6 +1365,43 @@ export default function BoardPage() {
             <div className="flex gap-2">
               <button onClick={submitRework} disabled={!reworkMessage.trim()} className={`${btnDanger} disabled:opacity-50`}>보내기</button>
               <button onClick={() => setReworkModalTaskId(null)} className={btnDefault}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 다른 작업자에게 인계 */}
+      {handoffModalTaskId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setHandoffModalTaskId(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[420px] rounded-2xl bg-white p-5">
+            <h3 className="mb-3 text-[15.5px] font-bold">다른 작업자에게 인계</h3>
+            <label className="mb-1 block text-xs text-[#79766D]">인계할 작업자</label>
+            <select value={handoffContractorId} onChange={(e) => setHandoffContractorId(e.target.value)} className={`${inputCls} mb-3`}>
+              <option value="">선택해주세요</option>
+              {contractors.filter((c) => c.id !== tasks.find((t) => t.id === handoffModalTaskId)?.contractor_id).map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <label className="mb-1 block text-xs text-[#79766D]">인계 사유</label>
+            <textarea rows={4} value={handoffReason} onChange={(e) => setHandoffReason(e.target.value)} placeholder="인계가 필요한 이유를 적어주세요. (비용 지급 기록에도 남습니다)" className={`${inputCls} mb-3 resize-y`} />
+            <div className="flex gap-2">
+              <button onClick={submitHandoff} disabled={!handoffContractorId || !handoffReason.trim()} className={`${btnPrimary} disabled:opacity-50`}>인계하기</button>
+              <button onClick={() => setHandoffModalTaskId(null)} className={btnDefault}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 서브 담당자 확인 + 의견 */}
+      {subManagerAckTaskId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setSubManagerAckTaskId(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[420px] rounded-2xl bg-white p-5">
+            <h3 className="mb-3 text-[15.5px] font-bold">확인 + 의견</h3>
+            <p className="mb-2 text-xs text-[#A7A399]">검수 권한은 없으며, 확인 처리 시 메인 담당자에게 메일이 발송됩니다.</p>
+            <textarea rows={4} value={subManagerAckComment} onChange={(e) => setSubManagerAckComment(e.target.value)} placeholder="의견 (선택)" className={`${inputCls} mb-3 resize-y`} />
+            <div className="flex gap-2">
+              <button onClick={submitSubManagerAck} className={btnPrimary}>확인 완료</button>
+              <button onClick={() => setSubManagerAckTaskId(null)} className={btnDefault}>취소</button>
             </div>
           </div>
         </div>

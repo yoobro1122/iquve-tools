@@ -32,13 +32,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const { data: tasks } = await db
     .from("tasks")
-    .select("*, category:category_id(label), episode:episode_id(label), contractor:contractor_id(name), manager:manager_id(name)")
+    .select("*, category:category_id(label), episode:episode_id(label), manager:manager_id(name), assignments:task_assignments(*, contractor:contractor_id(name))")
     .eq("project_id", params.id)
     .eq("archived", false)
     .order("created_at", { ascending: true });
 
-  const startDates = (tasks ?? []).map((t) => t.start_date).filter(Boolean) as string[];
-  const earliestStart = startDates.length > 0 ? startDates.sort()[0] : null;
+  const allStarts = (tasks ?? []).flatMap((t) => (t.assignments ?? []).map((a: any) => a.started_at)).filter(Boolean) as string[];
+  const earliestStart = allStarts.length > 0 ? allStarts.sort()[0] : null;
 
   const rows: (string | number)[][] = [
     ["프로젝트명", project.name],
@@ -46,24 +46,29 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     ["업무 시작일", fmtDateTime(earliestStart)],
     ["완료일", fmt(project.completed_at)],
     [],
-    ["에피소드", "업무(카테고리)", "외주 작업자", "담당자", "시작일시", "종료일시", "작업시간", "평점"],
+    ["에피소드", "업무(카테고리)", "차수", "외주 작업자", "담당자", "시작일시", "종료일시", "작업시간", "평점", "인계 사유"],
   ];
 
   for (const t of tasks ?? []) {
-    rows.push([
-      t.episode?.label ?? "적용 안함",
-      t.category?.label ?? "미지정",
-      t.contractor?.name ?? "",
-      t.manager?.name ?? "",
-      fmtDateTime(t.start_date),
-      fmtDateTime(t.completed_date),
-      durationLabel(t.start_date, t.completed_date),
-      t.rating ? `${t.rating}점` : "",
-    ]);
+    const segments = (t.assignments ?? []).sort((a: any, b: any) => a.created_at.localeCompare(b.created_at));
+    segments.forEach((a: any, i: number) => {
+      rows.push([
+        t.episode?.label ?? "적용 안함",
+        t.category?.label ?? "미지정",
+        `${i + 1}차`,
+        a.contractor?.name ?? "",
+        t.manager?.name ?? "",
+        fmtDateTime(a.started_at),
+        fmtDateTime(a.ended_at),
+        durationLabel(a.started_at, a.ended_at),
+        a.rating ? `${a.rating}점` : "",
+        a.handoff_reason ?? "",
+      ]);
+    });
   }
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = [{ wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 8 }];
+  ws["!cols"] = [{ wch: 14 }, { wch: 16 }, { wch: 6 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 8 }, { wch: 20 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "프로젝트 현황");
 

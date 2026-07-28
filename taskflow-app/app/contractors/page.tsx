@@ -279,7 +279,7 @@ export default function ContractorsPage() {
                         <div className="mt-0.5 text-[12px] text-[#79766D]">{t.episode?.label ?? "적용 안함"} · {t.category?.label ?? "미지정"}</div>
                         <div className="mt-1 flex justify-between text-[11px] text-[#A7A399]">
                           <span>담당: {t.manager?.name ?? "-"}</span>
-                          <span>{t.completed_date ? fmtDate(t.completed_date) : t.start_date ? fmtDate(t.start_date) : fmtDate(t.planned_start_date)}</span>
+                          <span>{(() => { const cur = [...(t.assignments ?? [])].sort((a: any, b: any) => a.created_at.localeCompare(b.created_at)).slice(-1)[0]; return cur?.ended_at ? fmtDate(cur.ended_at) : cur?.started_at ? fmtDate(cur.started_at) : fmtDate(t.planned_start_date); })()}</span>
                         </div>
                       </div>
                     ))}

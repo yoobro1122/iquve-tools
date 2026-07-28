@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { sendMail } from "@/lib/resend";
 import { taskSubmittedEmail } from "@/lib/email-templates";
+import { notifyManagerStakeholders } from "@/lib/task-notify";
 
 // 업무 종료(최초) 또는 수정 완료(재작업 후 재제출) - 둘 다 status를 'reviewing'으로 전환.
-// 파일 업로드 링크(file_link)를 필수로 받아 저장하고, 담당자가 검수 시 확인할 수 있게 합니다.
+// 파일 업로드 링크는 현재 배정 구간(task_assignments)에 저장됩니다.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -22,18 +22,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (task.status === "rework_notice" && !task.rework_acknowledged)
     return NextResponse.json({ error: "먼저 메시지 확인 완료를 눌러주세요." }, { status: 400 });
 
+  const { data: assignment } = await db
+    .from("task_assignments")
+    .select("*")
+    .eq("task_id", params.id)
+    .eq("contractor_id", user.id)
+    .is("ended_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!assignment) return NextResponse.json({ error: "배정 구간을 찾을 수 없습니다." }, { status: 500 });
+
   const isResubmit = task.status === "rework_notice";
-  const { error } = await db.from("tasks").update({ status: "reviewing", file_link: file_link.trim() }).eq("id", params.id);
+  await db.from("task_assignments").update({ file_link: file_link.trim() }).eq("id", assignment.id);
+  const { error } = await db.from("tasks").update({ status: "reviewing" }).eq("id", params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const recipients: string[] = [];
-  if (task.manager?.email) recipients.push(task.manager.email);
-  else {
-    const { data: managers } = await db.from("profiles").select("email").eq("role", "manager");
-    recipients.push(...(managers ?? []).map((m) => m.email));
-  }
   const { subject, html } = taskSubmittedEmail(task.project.name, task.episode?.label ?? "적용 안함", task.contractor.name, isResubmit, file_link.trim());
-  for (const email of recipients) await sendMail(email, subject, html);
+  await notifyManagerStakeholders(db, task.id, task.manager?.email, subject, html);
 
   await db.from("project_logs").insert({
     project_id: task.project_id, actor_id: user.id, actor_name: task.contractor.name,
