@@ -15,9 +15,9 @@ export async function POST(req: Request) {
   if (!project_id || !category_id || !contractor_id)
     return NextResponse.json({ error: "카테고리와 외주 작업자를 선택해주세요." }, { status: 400 });
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const startDateStr: string = planned_start_date || todayStr;
-  const isImmediate = startDateStr <= todayStr;
+  const nowIso = new Date().toISOString();
+  const scheduledIso: string = planned_start_date ? new Date(planned_start_date).toISOString() : nowIso;
+  const isImmediate = scheduledIso <= nowIso;
 
   const { count } = await db.from("tasks").select("id", { count: "exact", head: true }).eq("project_id", project_id);
   const code = "W" + String((count ?? 0) + 1).padStart(3, "0");
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   const { data, error } = await db.from("tasks").insert({
     project_id, category_id, episode_id: episode_id || null, contractor_id,
     manager_id: manager_id || user.id,
-    planned_start_date: startDateStr,
+    planned_start_date: scheduledIso,
     memo: memo || "",
     start_notice_sent: isImmediate,
     code,

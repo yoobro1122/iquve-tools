@@ -41,6 +41,10 @@ function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+function nowLocalDateTimeStr() {
+  const d = new Date();
+  return `${todayStr()}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 function simplifiedStatus(full: string) {
   if (full === "준비 중") return "준비 중";
   if (full === "업로드 완료") return "완료";
@@ -101,7 +105,7 @@ export default function BoardPage() {
   const [newEpLabel, setNewEpLabel] = useState("");
 
   const [showNewTask, setShowNewTask] = useState(false);
-  const [newTask, setNewTask] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", planned_start_date: todayStr(), memo: "" });
+  const [newTask, setNewTask] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", planned_start_date: nowLocalDateTimeStr(), memo: "" });
 
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
   const [editTaskDraft, setEditTaskDraft] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", memo: "" });
@@ -339,7 +343,7 @@ export default function BoardPage() {
       alert("담당자를 선택해주세요.");
       return;
     }
-    if (await api("/api/tasks", "POST", { project_id: selectedProject!.id, ...newTask })) { setShowNewTask(false); load(); }
+    if (await api("/api/tasks", "POST", { project_id: selectedProject!.id, ...newTask, planned_start_date: new Date(newTask.planned_start_date).toISOString() })) { setShowNewTask(false); load(); }
   }
 
   async function addCategory() {
@@ -516,7 +520,7 @@ export default function BoardPage() {
         )}
 
         <div className="mb-2 flex justify-between text-[11px] text-[#A7A399]">
-          <span>{t.status === "waiting" ? `등록일 ${fmtDate(t.planned_start_date)}` : (t.start_date ? `시작 ${fmtDateTime(t.start_date)}` : "\u00A0")}</span>
+          <span>{t.status === "waiting" ? `등록일 ${fmtDateTime(t.planned_start_date)}` : (t.start_date ? `시작 ${fmtDateTime(t.start_date)}` : "\u00A0")}</span>
           <span>{t.completed_date ? `종료 ${fmtDateTime(t.completed_date)}` : "\u00A0"}</span>
         </div>
 
@@ -806,7 +810,7 @@ export default function BoardPage() {
                 ) : <div />}
                 <div className="flex items-center gap-2">
                   {!isAllView && !selectedProject!.archived && me.role === "manager" && (
-                    <button onClick={() => { setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: todayStr(), memo: "" }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
+                    <button onClick={() => { setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: nowLocalDateTimeStr(), memo: "" }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
                       <Plus size={14} /> 업무 등록
                     </button>
                   )}
@@ -1107,8 +1111,8 @@ export default function BoardPage() {
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 block text-xs text-[#79766D]">등록일 (오늘 이후 날짜로 바꾸면 그날 00시에 등록 알림 메일 발송)</label>
-              <input type="date" value={newTask.planned_start_date} onChange={(e) => setNewTask({ ...newTask, planned_start_date: e.target.value })} className={inputCls} />
+              <label className="mb-1 block text-xs text-[#79766D]">등록일시 (오늘 이후로 바꾸면 그 시각에 등록 알림 메일 발송)</label>
+              <input type="datetime-local" value={newTask.planned_start_date} onChange={(e) => setNewTask({ ...newTask, planned_start_date: e.target.value })} className={inputCls} />
             </div>
 
             <div className="mb-4">

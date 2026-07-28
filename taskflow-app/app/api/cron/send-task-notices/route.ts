@@ -3,8 +3,8 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendMail } from "@/lib/resend";
 import { taskAssignedEmail } from "@/lib/email-templates";
 
-// Vercel Cron이 매일 호출합니다 (vercel.json 참고). planned_start_date가 오늘 이하이고
-// 아직 알림을 보내지 않은 업무들에 대해 "업무 등록" 메일을 발송합니다.
+// Vercel Cron이 주기적으로 호출합니다 (vercel.json 참고). planned_start_date(발송 예정 일시)가
+// 현재 시각 이하이고 아직 알림을 보내지 않은 업무들에 대해 "업무 등록" 메일을 발송합니다.
 // 보안: 쿼리스트링의 secret이 CRON_SECRET과 일치할 때만 실행됩니다.
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -13,14 +13,14 @@ export async function GET(req: Request) {
   }
 
   const db = createServiceRoleClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const nowIso = new Date().toISOString();
 
   const { data: dueTasks, error } = await db
     .from("tasks")
     .select("*, project:project_id(name), episode:episode_id(label), contractor:contractor_id(email,name)")
     .eq("archived", false)
     .eq("start_notice_sent", false)
-    .lte("planned_start_date", today);
+    .lte("planned_start_date", nowIso);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

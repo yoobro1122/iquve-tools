@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/send-task-notices?secret=CRON_SECRET_PLACEHOLDER",
-      "schedule": "0 15 * * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }

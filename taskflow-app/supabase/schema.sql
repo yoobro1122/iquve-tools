@@ -72,7 +72,7 @@ create table if not exists tasks (
   contractor_id uuid not null references profiles(id),
   manager_id uuid references profiles(id),
   status text not null default 'waiting',
-  planned_start_date date not null default current_date, -- 등록 시 지정한 업무 시작 예정일 (알림 메일 기준)
+  planned_start_date timestamptz not null default now(), -- 등록 시 지정한 발송 예정 일시 (알림 메일 기준)
   start_notice_sent boolean not null default false,
   memo text default '',
   file_link text default '',
@@ -193,3 +193,6 @@ create policy "project_logs_select_manager" on project_logs for select using (
 -- alter table tasks alter column start_date type timestamptz using start_date::timestamptz;
 -- alter table tasks alter column completed_date type timestamptz using completed_date::timestamptz;
 -- alter table tasks add column if not exists rating int check (rating between 1 and 5);
+
+-- v1.03 마이그레이션: 등록일에 시:분까지 지정 가능하도록 변경
+-- alter table tasks alter column planned_start_date type timestamptz using planned_start_date::timestamptz;

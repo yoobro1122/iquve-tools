@@ -2,13 +2,24 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Profile, avgDurationLabel } from "@/lib/types";
+import { Profile, avgDurationLabel, TASK_STATUS_LABEL } from "@/lib/types";
 import Header from "@/app/components/Header";
 import { Plus, Pencil, KeyRound, Trash2, Copy, Check, Loader2 } from "lucide-react";
 
 interface ContractorWithStats extends Profile {
   stats: { totalDone: number; avgDurationMinutes: number | null; avgRating: number | null };
 }
+
+function fmtDate(iso: string | null) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+}
+
+const TASK_STATUS_COLOR: Record<string, string> = {
+  waiting: "text-gray-400", in_progress: "text-blue-600", reviewing: "text-amber-700",
+  rework_notice: "text-red-600", done: "text-emerald-700",
+};
 
 export default function ContractorsPage() {
   const supabase = createClient();
@@ -23,6 +34,9 @@ export default function ContractorsPage() {
 
   const [credModal, setCredModal] = useState<{ title: string; email: string; password: string } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const [tasksModal, setTasksModal] = useState<{ contractor: ContractorWithStats; tasks: any[] } | null>(null);
+  const [tasksModalLoading, setTasksModalLoading] = useState(false);
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -47,6 +61,15 @@ export default function ContractorsPage() {
     setDraft({ id: c.id, name: c.name, specialty: c.specialty, note: c.note, email: c.email });
     setError("");
     setFormOpen(true);
+  }
+
+  async function openTasksModal(c: ContractorWithStats) {
+    setTasksModal({ contractor: c, tasks: [] });
+    setTasksModalLoading(true);
+    const res = await fetch(`/api/contractors/${c.id}/tasks`);
+    const data = await res.json();
+    setTasksModal({ contractor: c, tasks: data.items ?? [] });
+    setTasksModalLoading(false);
   }
 
   async function copy(text: string, field: string) {
@@ -136,7 +159,7 @@ export default function ContractorsPage() {
           </div>
           {contractors.map((c) => (
             <div key={c.id} className="grid grid-cols-[1fr_1.2fr_1.5fr_1fr_0.8fr_1fr_0.8fr_110px] items-center gap-0 border-b border-[#E4E1D6] px-4 py-3 text-[13px]">
-              <span className="font-semibold">{c.name}</span>
+              <button onClick={() => openTasksModal(c)} className="text-left font-semibold text-[#2C56C9] underline-offset-2 hover:underline">{c.name}</button>
               <span className="text-[#79766D]">{c.specialty || "-"}</span>
               <span className="text-[#79766D]">{c.email}</span>
               <span className="text-[#A7A399]">{c.note || "-"}</span>
@@ -219,6 +242,52 @@ export default function ContractorsPage() {
               </button>
               <button onClick={() => setCredModal(null)} className="ml-auto rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white">닫기</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 작업자별 전체 업무 열람 */}
+      {tasksModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setTasksModal(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="max-h-[85vh] w-[520px] overflow-y-auto rounded-2xl bg-white p-5">
+            <h3 className="mb-3.5 text-[15.5px] font-bold">{tasksModal.contractor.name}님의 업무</h3>
+            {tasksModalLoading && <div className="text-xs text-[#A7A399]">불러오는 중...</div>}
+            {!tasksModalLoading && tasksModal.tasks.length === 0 && (
+              <div className="text-xs text-[#A7A399]">배정된 업무가 없습니다.</div>
+            )}
+            {!tasksModalLoading && [
+              { key: "waiting", label: "준비 중" },
+              { key: "active", label: "진행 중" },
+              { key: "done", label: "완료" },
+            ].map((group) => {
+              const items = tasksModal.tasks.filter((t) =>
+                group.key === "waiting" ? t.status === "waiting"
+                : group.key === "done" ? t.status === "done"
+                : ["in_progress", "reviewing", "rework_notice"].includes(t.status)
+              );
+              if (items.length === 0) return null;
+              return (
+                <div key={group.key} className="mb-4">
+                  <div className="mb-1.5 text-[12px] font-bold text-[#79766D]">{group.label} · {items.length}건</div>
+                  <div className="flex flex-col gap-1.5">
+                    {items.map((t) => (
+                      <div key={t.id} className="rounded-lg border border-[#E4E1D6] px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[13px] font-semibold">{t.project?.code} · {t.project?.name}</span>
+                          <span className={`text-[11px] font-bold ${(TASK_STATUS_COLOR as any)[t.status]}`}>{(TASK_STATUS_LABEL as any)[t.status]}</span>
+                        </div>
+                        <div className="mt-0.5 text-[12px] text-[#79766D]">{t.episode?.label ?? "적용 안함"} · {t.category?.label ?? "-"}</div>
+                        <div className="mt-1 flex justify-between text-[11px] text-[#A7A399]">
+                          <span>담당: {t.manager?.name ?? "-"}</span>
+                          <span>{t.completed_date ? fmtDate(t.completed_date) : t.start_date ? fmtDate(t.start_date) : fmtDate(t.planned_start_date)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            <button onClick={() => setTasksModal(null)} className="mt-1 rounded-lg border border-[#E4E1D6] px-3.5 py-2 text-sm">닫기</button>
           </div>
         </div>
       )}

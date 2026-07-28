@@ -1,4 +1,9 @@
-# TaskFlow — 미디어팀 외주 업무 관리 시스템 (v1.02)
+# TaskFlow — 미디어팀 외주 업무 관리 시스템 (v1.03)
+
+## v1.03 주요 변경사항
+
+1. **등록일 시:분 지정**: 업무 등록 시 날짜뿐 아니라 시:분까지 지정할 수 있습니다. 지정한 시각에 등록 알림 메일이 발송됩니다 (크론이 10분 간격으로 확인).
+2. **작업자별 전체 업무 열람**: 외주 작업자 관리에서 이름을 클릭하면 그 작업자의 모든 업무(준비 중/진행 중/완료)를 모달로 확인할 수 있습니다.
 
 ## v1.02 주요 변경사항
 
@@ -90,9 +95,12 @@ cp .env.example .env.local
 
 ## 4. 예약 발송 크론 설정 (Vercel Cron)
 
-`vercel.json`에 이미 크론 설정이 들어있습니다 (매일 UTC 15:00 = 한국시간 00:00에 `/api/cron/send-task-notices` 호출).
+v1.03부터는 업무 등록 시 날짜뿐 아니라 시:분까지 지정할 수 있어서, `vercel.json`의 크론이 **10분마다** `/api/cron/send-task-notices`를 호출하도록 설정되어 있습니다 (지정한 시각이 되면 그 다음 10분 내로 메일이 발송됩니다).
 **배포 전에 `vercel.json` 파일을 열어서 `CRON_SECRET_PLACEHOLDER` 부분을 `.env.local`에 넣은 `CRON_SECRET` 값과 동일하게 바꿔주세요.**
-Vercel 프로젝트가 Hobby 플랜이면 크론 실행 빈도 제한이 있을 수 있으니, Vercel 대시보드의 Cron Jobs 메뉴에서 활성화 여부를 확인해주세요.
+
+⚠️ **Vercel Hobby(무료) 플랜은 크론 작업을 하루 1회로 제한합니다.** 10분 간격 크론을 쓰려면 Vercel Pro 플랜이 필요합니다. Hobby 플랜을 쓰고 계시다면 두 가지 방법이 있어요:
+- Vercel을 Pro로 업그레이드하거나
+- [cron-job.org](https://cron-job.org) 같은 무료 외부 크론 서비스에서 `https://your-domain.com/api/cron/send-task-notices?secret=여러분의CRON_SECRET` 주소를 10분 간격으로 호출하도록 등록 (Vercel의 `vercel.json` crons 설정은 이 경우 무시하고 지워도 됩니다)
 
 ## 5. 로컬 실행
 
