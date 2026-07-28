@@ -127,14 +127,14 @@ export default function ManagersPage() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
-          <div className="grid grid-cols-[1fr_1.6fr_1.4fr_auto] gap-0 border-b border-[#E4E1D6] px-4 py-2.5 text-[11.5px] font-bold text-[#79766D]">
+          <div className="grid grid-cols-[1fr_1.6fr_1.4fr_110px] gap-0 border-b border-[#E4E1D6] px-4 py-2.5 text-[11.5px] font-bold text-[#79766D]">
             <span>이름</span><span>이메일</span><span>비고</span><span>관리</span>
           </div>
           {managers.map((m) => {
             const isSelf = m.id === me.id;
             const isLastManager = managers.length <= 1;
             return (
-              <div key={m.id} className="grid grid-cols-[1fr_1.6fr_1.4fr_auto] items-center gap-0 border-b border-[#E4E1D6] px-4 py-3 text-[13px]">
+              <div key={m.id} className="grid grid-cols-[1fr_1.6fr_1.4fr_110px] items-center gap-0 border-b border-[#E4E1D6] px-4 py-3 text-[13px]">
                 <span className="font-semibold">{m.name}{isSelf && <span className="ml-1.5 text-xs font-normal text-[#A7A399]">(나)</span>}</span>
                 <span className="text-[#79766D]">{m.email}</span>
                 <span className="text-[#A7A399]">{m.note || "-"}</span>
