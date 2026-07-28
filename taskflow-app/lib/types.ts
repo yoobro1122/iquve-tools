@@ -65,7 +65,7 @@ export interface Task {
   id: string;
   code: string;
   project_id: string;
-  category_id: string;
+  category_id: string | null;
   episode_id: string | null;
   contractor_id: string;
   manager_id: string | null;

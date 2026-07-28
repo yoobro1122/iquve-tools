@@ -67,7 +67,7 @@ create table if not exists tasks (
   id uuid primary key default gen_random_uuid(),
   code text not null,
   project_id uuid not null references projects(id) on delete cascade,
-  category_id uuid not null references categories(id),
+  category_id uuid references categories(id) on delete set null,
   episode_id uuid references episodes(id),
   contractor_id uuid not null references profiles(id),
   manager_id uuid references profiles(id),
@@ -196,3 +196,8 @@ create policy "project_logs_select_manager" on project_logs for select using (
 
 -- v1.03 마이그레이션: 등록일에 시:분까지 지정 가능하도록 변경
 -- alter table tasks alter column planned_start_date type timestamptz using planned_start_date::timestamptz;
+
+-- v1.03 마이그레이션: 사용 중인 카테고리도 삭제할 수 있도록 (삭제 시 해당 업무는 "미지정"으로 표시)
+-- alter table tasks alter column category_id drop not null;
+-- alter table tasks drop constraint if exists tasks_category_id_fkey;
+-- alter table tasks add constraint tasks_category_id_fkey foreign key (category_id) references categories(id) on delete set null;

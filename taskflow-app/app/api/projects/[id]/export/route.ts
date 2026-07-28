@@ -52,7 +52,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   for (const t of tasks ?? []) {
     rows.push([
       t.episode?.label ?? "적용 안함",
-      t.category?.label ?? "",
+      t.category?.label ?? "미지정",
       t.contractor?.name ?? "",
       t.manager?.name ?? "",
       fmtDateTime(t.start_date),

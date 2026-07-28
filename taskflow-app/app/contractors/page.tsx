@@ -276,7 +276,7 @@ export default function ContractorsPage() {
                           <span className="text-[13px] font-semibold">{t.project?.code} · {t.project?.name}</span>
                           <span className={`text-[11px] font-bold ${(TASK_STATUS_COLOR as any)[t.status]}`}>{(TASK_STATUS_LABEL as any)[t.status]}</span>
                         </div>
-                        <div className="mt-0.5 text-[12px] text-[#79766D]">{t.episode?.label ?? "적용 안함"} · {t.category?.label ?? "-"}</div>
+                        <div className="mt-0.5 text-[12px] text-[#79766D]">{t.episode?.label ?? "적용 안함"} · {t.category?.label ?? "미지정"}</div>
                         <div className="mt-1 flex justify-between text-[11px] text-[#A7A399]">
                           <span>담당: {t.manager?.name ?? "-"}</span>
                           <span>{t.completed_date ? fmtDate(t.completed_date) : t.start_date ? fmtDate(t.start_date) : fmtDate(t.planned_start_date)}</span>

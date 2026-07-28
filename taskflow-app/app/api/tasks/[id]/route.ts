@@ -27,11 +27,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     changes.push(body.archived ? `업무 ${task.code} 삭제 처리 (비활성화)` : `업무 ${task.code} 복원 처리`);
   }
   if (body.category_id && body.category_id !== task.category_id) {
-    const [{ data: oldCat }, { data: newCat }] = await Promise.all([
-      db.from("categories").select("label").eq("id", task.category_id).single(),
+    const [oldCatRes, newCatRes] = await Promise.all([
+      task.category_id ? db.from("categories").select("label").eq("id", task.category_id).single() : Promise.resolve({ data: null }),
       db.from("categories").select("label").eq("id", body.category_id).single(),
     ]);
-    changes.push(`업무 ${task.code} 수정 - 카테고리: ${oldCat?.label} → ${newCat?.label}`);
+    changes.push(`업무 ${task.code} 수정 - 카테고리: ${oldCatRes.data?.label ?? "미지정"} → ${newCatRes.data?.label ?? "미지정"}`);
     patch.category_id = body.category_id;
   }
   if ("episode_id" in body && (body.episode_id || null) !== task.episode_id) {

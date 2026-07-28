@@ -260,6 +260,7 @@ export default function BoardPage() {
     }
     const byCat: Record<string, Task[]> = {};
     categories.forEach((c) => { byCat[c.id] = visibleTasks.filter((t) => t.category_id === c.id); });
+    byCat["UNASSIGNED"] = visibleTasks.filter((t) => !t.category_id);
     return byCat;
   }, [visibleTasks, viewMode, categories]);
 
@@ -300,7 +301,7 @@ export default function BoardPage() {
 
   function openEditTask(t: Task) {
     setEditTaskId(t.id);
-    setEditTaskDraft({ category_id: t.category_id, episode_id: t.episode_id ?? "", contractor_id: t.contractor_id, manager_id: t.manager_id ?? "", memo: t.memo ?? "" });
+    setEditTaskDraft({ category_id: t.category_id ?? "", episode_id: t.episode_id ?? "", contractor_id: t.contractor_id, manager_id: t.manager_id ?? "", memo: t.memo ?? "" });
   }
   async function saveEditTask() {
     if (!categories.some((c) => c.id === editTaskDraft.category_id)) {
@@ -712,7 +713,7 @@ export default function BoardPage() {
                             return (
                               <div key={t.id} className="grid grid-cols-[0.9fr_0.9fr_0.9fr_0.9fr_1.2fr_1.2fr_1fr_1fr] items-center gap-0 border-b border-[#EEEDE7] py-1.5 text-[11.5px] last:border-b-0">
                                 <span>{episodeLabel(t)}</span>
-                                <span className="text-[#79766D]">{t.category?.label ?? "-"}</span>
+                                <span className="text-[#79766D]">{t.category?.label ?? "미지정"}</span>
                                 <span>{contractorName(t)}</span>
                                 <span>{managerName(t)}</span>
                                 <span className="text-[#79766D]">{t.start_date ? fmtDateTime(t.start_date) : "-"}</span>
@@ -831,6 +832,14 @@ export default function BoardPage() {
                       </div>
                     </div>
                   ))}
+                  {(grouped["UNASSIGNED"]?.length ?? 0) > 0 && (
+                    <div>
+                      <div className="mb-2.5 text-[12.5px] font-bold text-[#79766D]">미지정 (삭제된 카테고리) <span className="font-medium text-[#A7A399]">· {grouped["UNASSIGNED"].length}건</span></div>
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+                        {grouped["UNASSIGNED"].map((t) => <TaskCard key={t.id} t={t} />)}
+                      </div>
+                    </div>
+                  )}
                   {visibleTasks.length === 0 && <div className="text-sm text-[#A7A399]">표시할 업무가 없습니다.</div>}
                 </div>
               ) : (
