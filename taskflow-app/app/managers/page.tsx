@@ -128,7 +128,7 @@ export default function ManagersPage() {
 
         <div className="overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
           <div className="grid grid-cols-[1fr_1.6fr_1.4fr_auto] gap-0 border-b border-[#E4E1D6] px-4 py-2.5 text-[11.5px] font-bold text-[#79766D]">
-            <span>이름</span><span>이메일</span><span>비고</span><span></span>
+            <span>이름</span><span>이메일</span><span>비고</span><span>관리</span>
           </div>
           {managers.map((m) => {
             const isSelf = m.id === me.id;

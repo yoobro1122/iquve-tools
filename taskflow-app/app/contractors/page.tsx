@@ -132,7 +132,7 @@ export default function ContractorsPage() {
 
         <div className="overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
           <div className="grid grid-cols-[1fr_1.2fr_1.5fr_1fr_0.8fr_1fr_0.8fr_auto] gap-0 border-b border-[#E4E1D6] px-4 py-2.5 text-[11.5px] font-bold text-[#79766D]">
-            <span>이름</span><span>담당 업무</span><span>이메일</span><span>비고</span><span>총 업무</span><span>평균 작업시간</span><span>평균 평점</span><span></span>
+            <span>이름</span><span>담당 업무</span><span>이메일</span><span>비고</span><span>총 업무</span><span>평균 작업시간</span><span>평균 평점</span><span>관리</span>
           </div>
           {contractors.map((c) => (
             <div key={c.id} className="grid grid-cols-[1fr_1.2fr_1.5fr_1fr_0.8fr_1fr_0.8fr_auto] items-center gap-0 border-b border-[#E4E1D6] px-4 py-3 text-[13px]">
