@@ -109,6 +109,7 @@ export default function BoardPage() {
   const [projectStatusView, setProjectStatusView] = useState(false);
   const [scheduleView, setScheduleView] = useState(false);
   const [expandedContractorRows, setExpandedContractorRows] = useState<Record<string, boolean>>({});
+  const [showEpisodeMatrix, setShowEpisodeMatrix] = useState(true);
   const [projectSort, setProjectSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "name", dir: 1 });
   const [segmentSort, setSegmentSort] = useState<Record<string, { col: string; dir: 1 | -1 }>>({});
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
@@ -1101,34 +1102,40 @@ export default function BoardPage() {
 
               {!isAllView && !selectedProject!.archived && (selectedProject!.episodes ?? []).length > 0 && categories.length > 0 && (
                 <div className="mb-3.5 overflow-x-auto rounded-xl border border-[#E4E1D6] bg-white p-3">
-                  <table className="w-full text-[11px]">
-                    <thead>
-                      <tr>
-                        <th className="pb-1.5 pr-2 text-left font-bold text-[#79766D]">에피소드</th>
-                        {categories.map((c) => <th key={c.id} className="px-1 pb-1.5 text-center font-bold text-[#79766D]">{c.label}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selectedProject!.episodes ?? []).map((ep) => (
-                        <tr key={ep.id}>
-                          <td className="py-1 pr-2 font-semibold">{ep.label}</td>
-                          {categories.map((c) => {
-                            const cellTasks = rawScopeTasks.filter((t) => t.episode_id === ep.id && t.category_id === c.id);
-                            let cell: { label: string; cls: string };
-                            if (cellTasks.length === 0) cell = { label: "-", cls: "text-[#D9D6CC]" };
-                            else if (cellTasks.every((t) => t.status === "done")) cell = { label: "완료", cls: "bg-emerald-50 text-emerald-700" };
-                            else if (cellTasks.some((t) => t.status !== "waiting")) cell = { label: "진행중", cls: "bg-blue-50 text-blue-700" };
-                            else cell = { label: "대기", cls: "bg-gray-100 text-gray-500" };
-                            return (
-                              <td key={c.id} className="px-1 py-1 text-center">
-                                <span className={`inline-block w-full rounded-md px-1.5 py-1 font-semibold ${cell.cls}`}>{cell.label}</span>
-                              </td>
-                            );
-                          })}
+                  <button onClick={() => setShowEpisodeMatrix((v) => !v)} className="mb-1 flex items-center gap-1.5 text-[12px] font-bold text-[#79766D]">
+                    <ChevronDown size={13} style={{ transform: showEpisodeMatrix ? "rotate(0deg)" : "rotate(-90deg)" }} />
+                    작업 상황
+                  </button>
+                  {showEpisodeMatrix && (
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr>
+                          <th className="pb-1.5 pr-2 text-left font-bold text-[#79766D]">에피소드</th>
+                          {categories.map((c) => <th key={c.id} className="px-1 pb-1.5 text-center font-bold text-[#79766D]">{c.label}</th>)}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(selectedEpisodeId === "ALL" ? (selectedProject!.episodes ?? []) : (selectedProject!.episodes ?? []).filter((ep) => ep.id === selectedEpisodeId)).map((ep) => (
+                          <tr key={ep.id}>
+                            <td className="py-1 pr-2 font-semibold">{ep.label}</td>
+                            {categories.map((c) => {
+                              const cellTasks = rawScopeTasks.filter((t) => t.episode_id === ep.id && t.category_id === c.id);
+                              let cell: { label: string; cls: string };
+                              if (cellTasks.length === 0) cell = { label: "-", cls: "text-[#D9D6CC]" };
+                              else if (cellTasks.every((t) => t.status === "done")) cell = { label: "완료", cls: "bg-emerald-50 text-emerald-700" };
+                              else if (cellTasks.some((t) => t.status !== "waiting")) cell = { label: "진행중", cls: "bg-blue-50 text-blue-700" };
+                              else cell = { label: "대기", cls: "bg-gray-100 text-gray-500" };
+                              return (
+                                <td key={c.id} className="px-1 py-1 text-center">
+                                  <span className={`inline-block w-full rounded-md px-1.5 py-1 font-semibold ${cell.cls}`}>{cell.label}</span>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               )}
 
@@ -1521,7 +1528,7 @@ export default function BoardPage() {
 
             <label className="mb-3 flex items-center gap-2 text-[13px]">
               <input type="checkbox" checked={newTask.no_order_constraint} onChange={(e) => setNewTask({ ...newTask, no_order_constraint: e.target.checked })} />
-              순서 제한 없음 (다른 업무를 막지도, 이 업무가 막히지도 않음 - 보이스 등)
+              순서 제한 없음
             </label>
 
             <div className="mb-3">

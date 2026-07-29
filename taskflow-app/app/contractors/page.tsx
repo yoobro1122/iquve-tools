@@ -390,7 +390,7 @@ export default function ContractorsPage() {
                 <input placeholder="새 AI 서비스 추가" value={newServiceLabel} onChange={(e) => setNewServiceLabel(e.target.value)} className="flex-1 rounded-lg border border-[#E4E1D6] px-2.5 py-2 text-[13px]" />
                 <button onClick={addAiService} className="rounded-lg border border-[#E4E1D6] px-3 text-sm">+</button>
               </div>
-              <input placeholder="계정 구분 (선택, 예: 두번째 계정)" value={newAiAccountLabel} onChange={(e) => setNewAiAccountLabel(e.target.value)} className="mb-2 w-full rounded-lg border border-[#E4E1D6] px-2.5 py-2 text-[13px]" />
+              <input placeholder="계정 정보" value={newAiAccountLabel} onChange={(e) => setNewAiAccountLabel(e.target.value)} className="mb-2 w-full rounded-lg border border-[#E4E1D6] px-2.5 py-2 text-[13px]" />
               <div className="flex gap-1.5">
                 <input type="number" placeholder="초기 잔여 크레딧" value={newAiCredit} onChange={(e) => setNewAiCredit(e.target.value)} className="flex-1 rounded-lg border border-[#E4E1D6] px-2.5 py-2 text-[13px]" />
                 <button onClick={addAiAccount} className="rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white">추가</button>
