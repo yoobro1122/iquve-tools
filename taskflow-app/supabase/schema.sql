@@ -84,6 +84,7 @@ create table if not exists tasks (
   rework_acknowledged boolean not null default false,
   reopen_count int not null default 0, -- 완료 후 재작업(재오픈)된 횟수 - 0보다 크면 카드에 "(재진행)" 표시
   order_unlock_notified boolean not null default false, -- 카테고리 순서상 "시작 가능" 알림을 이미 보냈는지
+  no_order_constraint boolean not null default false, -- true면 카테고리 순서 계산에서 완전히 제외 (보이스 등 순서 무관 업무)
   archived boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -367,3 +368,6 @@ create policy "project_logs_select_manager" on project_logs for select using (
 -- create policy "contractor_ai_accounts_select" on contractor_ai_accounts for select using (
 --   contractor_id = auth.uid() or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
 -- );
+
+-- v1.06 마이그레이션: 순서 제한 없음 업무 + 담당자 강제 완료 처리 (기존 컬럼/테이블만 사용, 신규 테이블 없음)
+-- alter table tasks add column if not exists no_order_constraint boolean not null default false;

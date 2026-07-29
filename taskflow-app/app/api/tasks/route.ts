@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { data: profile } = await db.from("profiles").select("role,name").eq("id", user.id).single();
   if (profile?.role !== "manager") return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
 
-  const { project_id, category_id, episode_id, contractor_id, manager_id, sub_manager_ids, planned_start_date, memo } = await req.json();
+  const { project_id, category_id, episode_id, contractor_id, manager_id, sub_manager_ids, planned_start_date, memo, no_order_constraint } = await req.json();
   if (!project_id || !category_id || !contractor_id)
     return NextResponse.json({ error: "카테고리와 외주 작업자를 선택해주세요." }, { status: 400 });
 
@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     planned_start_date: scheduledIso,
     memo: memo || "",
     start_notice_sent: isImmediate,
+    no_order_constraint: !!no_order_constraint,
     code,
   }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

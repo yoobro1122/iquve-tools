@@ -139,10 +139,12 @@ export default function BoardPage() {
   const [newEpLabel, setNewEpLabel] = useState("");
 
   const [showNewTask, setShowNewTask] = useState(false);
-  const [newTask, setNewTask] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [] as string[] });
+  const [newTask, setNewTask] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [] as string[], no_order_constraint: false });
+  const [newTaskIsInternal, setNewTaskIsInternal] = useState(false);
 
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
   const [editTaskDraft, setEditTaskDraft] = useState({ category_id: "", episode_id: "", manager_id: "", memo: "", sub_manager_ids: [] as string[], contractor_id: "", planned_start_date: "" });
+  const [editTaskIsInternal, setEditTaskIsInternal] = useState(false);
 
   const [reworkModalTaskId, setReworkModalTaskId] = useState<string | null>(null);
   const [reworkMessage, setReworkMessage] = useState("");
@@ -155,6 +157,9 @@ export default function BoardPage() {
   const [reopenMode, setReopenMode] = useState<"rework" | "handoff">("rework");
   const [reopenContractorId, setReopenContractorId] = useState("");
   const [reopenReason, setReopenReason] = useState("");
+
+  const [forceCompleteTaskId, setForceCompleteTaskId] = useState<string | null>(null);
+  const [forceCompleteReason, setForceCompleteReason] = useState("");
 
   const [subManagerAckTaskId, setSubManagerAckTaskId] = useState<string | null>(null);
   const [subManagerAckComment, setSubManagerAckComment] = useState("");
@@ -423,6 +428,15 @@ export default function BoardPage() {
     }
   }
 
+  function openForceComplete(t: Task) { setForceCompleteTaskId(t.id); setForceCompleteReason(""); }
+  async function submitForceComplete() {
+    if (!forceCompleteReason.trim()) { alert("완료 처리 사유를 입력해주세요."); return; }
+    if (await api(`/api/tasks/${forceCompleteTaskId}/force-complete`, "POST", { reason: forceCompleteReason.trim() })) {
+      setForceCompleteTaskId(null);
+      load();
+    }
+  }
+
   function openSubManagerAck(t: Task) {
     const mine = (t.sub_managers ?? []).find((s) => s.manager_id === me?.id);
     setSubManagerAckTaskId(t.id);
@@ -443,6 +457,7 @@ export default function BoardPage() {
     setEditTaskId(t.id);
     const d = new Date(t.planned_start_date);
     const localStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    setEditTaskIsInternal(managers.some((m) => m.id === t.contractor_id));
     setEditTaskDraft({
       category_id: t.category_id ?? "", episode_id: t.episode_id ?? "", manager_id: t.manager_id ?? "", memo: t.memo ?? "",
       sub_manager_ids: (t.sub_managers ?? []).map((s) => s.manager_id),
@@ -459,6 +474,13 @@ export default function BoardPage() {
       return;
     }
     const t = tasks.find((x) => x.id === editTaskId);
+    if (t && t.status === "waiting") {
+      const workerList = editTaskIsInternal ? managers : contractors;
+      if (!workerList.some((c) => c.id === editTaskDraft.contractor_id)) {
+        alert(editTaskIsInternal ? "내부 진행자를 선택해주세요." : "외주 작업자를 선택해주세요.");
+        return;
+      }
+    }
     const body: any = { ...editTaskDraft };
     if (t && t.status !== "waiting") {
       // 이미 시작된 업무는 작업자/등록일을 바꿀 수 없으므로 아예 보내지 않음 (변경 안 함)
@@ -484,8 +506,9 @@ export default function BoardPage() {
       alert("카테고리를 선택해주세요.");
       return;
     }
-    if (!contractors.some((c) => c.id === newTask.contractor_id)) {
-      alert("외주 작업자를 선택해주세요.");
+    const workerList = newTaskIsInternal ? managers : contractors;
+    if (!workerList.some((c) => c.id === newTask.contractor_id)) {
+      alert(newTaskIsInternal ? "내부 진행자를 선택해주세요." : "외주 작업자를 선택해주세요.");
       return;
     }
     if (newTask.manager_id && !managers.some((m) => m.id === newTask.manager_id)) {
@@ -646,7 +669,7 @@ export default function BoardPage() {
   function TaskCard({ t }: { t: Task }) {
     const proj = t.project!;
     const projectArchived = proj.archived;
-    const isMine = me!.role === "contractor" && t.contractor_id === me!.id;
+    const isMine = t.contractor_id === me!.id;
     const isManagerView = me!.role === "manager";
     const notes = t.rework_notes ?? [];
     const cur = currentAssignment(t);
@@ -752,6 +775,11 @@ export default function BoardPage() {
         )}
         {!projectArchived && isManagerView && !isSubManager && ["waiting", "in_progress"].includes(t.status) && (
           <div className="text-xs text-[#A7A399]">작업자 진행을 기다리는 중입니다.</div>
+        )}
+        {!projectArchived && isManagerView && !isSubManager && t.status !== "done" && (
+          <button onClick={() => openForceComplete(t)} className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#E4E1D6] px-3.5 py-1.5 text-[11.5px] text-[#79766D]">
+            <Check size={12} /> 담당자 완료 처리
+          </button>
         )}
         {!projectArchived && isSubManager && (
           <button onClick={() => openSubManagerAck(t)} className={`${btnDefault} flex w-full items-center justify-center gap-1.5`}>
@@ -1071,6 +1099,40 @@ export default function BoardPage() {
                 </div>
               )}
 
+              {!isAllView && !selectedProject!.archived && (selectedProject!.episodes ?? []).length > 0 && categories.length > 0 && (
+                <div className="mb-3.5 overflow-x-auto rounded-xl border border-[#E4E1D6] bg-white p-3">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr>
+                        <th className="pb-1.5 pr-2 text-left font-bold text-[#79766D]">에피소드</th>
+                        {categories.map((c) => <th key={c.id} className="px-1 pb-1.5 text-center font-bold text-[#79766D]">{c.label}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedProject!.episodes ?? []).map((ep) => (
+                        <tr key={ep.id}>
+                          <td className="py-1 pr-2 font-semibold">{ep.label}</td>
+                          {categories.map((c) => {
+                            const cellTasks = rawScopeTasks.filter((t) => t.episode_id === ep.id && t.category_id === c.id);
+                            let cell: { label: string; cls: string };
+                            if (cellTasks.length === 0) cell = { label: "-", cls: "text-[#D9D6CC]" };
+                            else if (cellTasks.every((t) => t.status === "done")) cell = { label: "완료", cls: "bg-emerald-50 text-emerald-700" };
+                            else if (cellTasks.some((t) => t.status !== "waiting")) cell = { label: "진행중", cls: "bg-blue-50 text-blue-700" };
+                            else cell = { label: "대기", cls: "bg-gray-100 text-gray-500" };
+                            return (
+                              <td key={c.id} className="px-1 py-1 text-center">
+                                <span className={`inline-block w-full rounded-md px-1.5 py-1 font-semibold ${cell.cls}`}>{cell.label}</span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+
               {!isAllView && selectedProject!.upload_decision === "declined" && selectedProject!.decline_reason && (
                 <div className="mb-3.5 text-xs text-red-600">게재 불가 사유: {selectedProject!.decline_reason}</div>
               )}
@@ -1094,7 +1156,7 @@ export default function BoardPage() {
                 ) : <div />}
                 <div className="flex items-center gap-2">
                   {!isAllView && !selectedProject!.archived && me.role === "manager" && (
-                    <button onClick={() => { setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [] }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
+                    <button onClick={() => { setNewTaskIsInternal(false); setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [], no_order_constraint: false }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
                       <Plus size={14} /> 업무 등록
                     </button>
                   )}
@@ -1445,11 +1507,22 @@ export default function BoardPage() {
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 block text-xs text-[#79766D]">외주 작업자 (등록된 작업자만 선택 가능)</label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-xs text-[#79766D]">{newTaskIsInternal ? "내부 진행자" : "외주 작업자"}</label>
+                <div className="flex rounded-lg bg-[#EEEDE7] p-0.5">
+                  <button type="button" onClick={() => { setNewTaskIsInternal(false); setNewTask((n) => ({ ...n, contractor_id: contractors[0]?.id ?? "" })); }} className={`rounded-md px-2.5 py-1 text-[11.5px] font-semibold ${!newTaskIsInternal ? "bg-white" : "text-[#79766D]"}`}>외주</button>
+                  <button type="button" onClick={() => { setNewTaskIsInternal(true); setNewTask((n) => ({ ...n, contractor_id: managers[0]?.id ?? "" })); }} className={`rounded-md px-2.5 py-1 text-[11.5px] font-semibold ${newTaskIsInternal ? "bg-white" : "text-[#79766D]"}`}>내부</button>
+                </div>
+              </div>
               <select value={newTask.contractor_id} onChange={(e) => setNewTask({ ...newTask, contractor_id: e.target.value })} className={inputCls}>
-                {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {(newTaskIsInternal ? managers : contractors).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+
+            <label className="mb-3 flex items-center gap-2 text-[13px]">
+              <input type="checkbox" checked={newTask.no_order_constraint} onChange={(e) => setNewTask({ ...newTask, no_order_constraint: e.target.checked })} />
+              순서 제한 없음 (다른 업무를 막지도, 이 업무가 막히지도 않음 - 보이스 등)
+            </label>
 
             <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">담당자</label>
@@ -1506,12 +1579,25 @@ export default function BoardPage() {
             {(() => {
               const editingTask = tasks.find((t) => t.id === editTaskId);
               const isWaiting = editingTask?.status === "waiting";
+              const workerList = editTaskIsInternal ? managers : contractors;
               return (
                 <div className="mb-3">
-                  <label className="mb-1 block text-xs text-[#79766D]">외주 작업자{!isWaiting && " (대기중 업무만 변경 가능)"}</label>
-                  <select disabled={!isWaiting} value={editTaskDraft.contractor_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, contractor_id: e.target.value })} className={`${inputCls} disabled:bg-[#F6F5F0] disabled:text-[#A7A399]`}>
-                    {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="block text-xs text-[#79766D]">{editTaskIsInternal ? "내부 진행자" : "외주 작업자"}{!isWaiting && " (대기중 업무만 변경 가능)"}</label>
+                    {isWaiting && (
+                      <div className="flex rounded-lg bg-[#EEEDE7] p-0.5">
+                        <button type="button" onClick={() => { setEditTaskIsInternal(false); setEditTaskDraft((d) => ({ ...d, contractor_id: contractors[0]?.id ?? "" })); }} className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${!editTaskIsInternal ? "bg-white" : "text-[#79766D]"}`}>외주</button>
+                        <button type="button" onClick={() => { setEditTaskIsInternal(true); setEditTaskDraft((d) => ({ ...d, contractor_id: managers[0]?.id ?? "" })); }} className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${editTaskIsInternal ? "bg-white" : "text-[#79766D]"}`}>내부</button>
+                      </div>
+                    )}
+                  </div>
+                  {isWaiting ? (
+                    <select value={editTaskDraft.contractor_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, contractor_id: e.target.value })} className={inputCls}>
+                      {workerList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  ) : (
+                    <div className={`${inputCls} bg-[#F6F5F0] text-[#A7A399]`}>{[...contractors, ...managers].find((c) => c.id === editTaskDraft.contractor_id)?.name ?? "-"}</div>
+                  )}
                   {isWaiting && (
                     <>
                       <label className="mb-1 mt-2.5 block text-xs text-[#79766D]">등록일시</label>
@@ -1666,6 +1752,22 @@ export default function BoardPage() {
             <div className="flex gap-2">
               <button onClick={submitReopen} className={btnPrimary}>{reopenMode === "handoff" ? "인계하기" : "재작업 요청"}</button>
               <button onClick={() => setReopenModalTaskId(null)} className={btnDefault}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 담당자 완료 처리 */}
+      {forceCompleteTaskId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setForceCompleteTaskId(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[420px] rounded-2xl bg-white p-5">
+            <h3 className="mb-3 text-[15.5px] font-bold">담당자 완료 처리</h3>
+            <p className="mb-2 text-xs text-[#A7A399]">작업자가 완료 처리를 하지 않는 경우 등, 담당자가 직접 완료 처리할 수 있습니다. 시작/종료 시각과 평점은 기록되지 않습니다.</p>
+            <label className="mb-1 block text-xs text-[#79766D]">사유</label>
+            <textarea rows={4} value={forceCompleteReason} onChange={(e) => setForceCompleteReason(e.target.value)} placeholder="완료 처리 사유를 입력해주세요." className={`${inputCls} mb-3 resize-y`} />
+            <div className="flex gap-2">
+              <button onClick={submitForceComplete} className={btnPrimary}>완료 처리</button>
+              <button onClick={() => setForceCompleteTaskId(null)} className={btnDefault}>취소</button>
             </div>
           </div>
         </div>

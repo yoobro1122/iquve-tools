@@ -120,6 +120,7 @@ export interface Task {
   rework_acknowledged: boolean;
   reopen_count: number;
   order_unlock_notified: boolean;
+  no_order_constraint: boolean;
   archived: boolean;
   project?: Project;
   category?: Category;
@@ -185,13 +186,15 @@ export function avgDurationLabel(avgMinutes: number | null) {
 // 카테고리 순서상 이 업무를 시작할 수 있는지 확인합니다.
 // 같은 프로젝트+에피소드 안에서, 이 업무의 카테고리보다 순서(sort_order)가 앞선 카테고리의
 // 업무가 하나라도 있다면 그 업무들이 전부 완료(done)여야 시작할 수 있습니다.
+// "순서 제한 없음"(no_order_constraint)이 켜진 업무는 이 계산에서 완전히 제외됩니다 -
+// 그 업무 자신은 언제나 시작 가능하고, 다른 업무를 막는 조건으로도 취급되지 않습니다.
 // 에피소드가 지정되지 않은 업무는 순서 제한 없이 항상 시작 가능합니다.
 export function canStartTask(task: Task, allTasks: Task[], categories: Category[]): boolean {
-  if (!task.episode_id || !task.category_id) return true;
+  if (!task.episode_id || !task.category_id || task.no_order_constraint) return true;
   const myCat = categories.find((c) => c.id === task.category_id);
   if (!myCat) return true;
   const siblings = allTasks.filter(
-    (t) => t.project_id === task.project_id && t.episode_id === task.episode_id && !t.archived && t.id !== task.id
+    (t) => t.project_id === task.project_id && t.episode_id === task.episode_id && !t.archived && t.id !== task.id && !t.no_order_constraint
   );
   const blockers = siblings.filter((t) => {
     const cat = categories.find((c) => c.id === t.category_id);
@@ -203,12 +206,12 @@ export function canStartTask(task: Task, allTasks: Task[], categories: Category[
 // 이 업무보다 앞 순서(같은 에피소드) 업무가 재작업 등으로 미완료 상태로 돌아갔는데,
 // 이 업무는 이미 시작되어 있는 경우를 감지해 경고 배지를 띄웁니다 (자동 중단은 하지 않음).
 export function hasOutOfOrderWarning(task: Task, allTasks: Task[], categories: Category[]): boolean {
-  if (!task.episode_id || !task.category_id) return false;
+  if (!task.episode_id || !task.category_id || task.no_order_constraint) return false;
   if (task.status === "waiting") return false;
   const myCat = categories.find((c) => c.id === task.category_id);
   if (!myCat) return false;
   const siblings = allTasks.filter(
-    (t) => t.project_id === task.project_id && t.episode_id === task.episode_id && !t.archived && t.id !== task.id
+    (t) => t.project_id === task.project_id && t.episode_id === task.episode_id && !t.archived && t.id !== task.id && !t.no_order_constraint
   );
   const blockers = siblings.filter((t) => {
     const cat = categories.find((c) => c.id === t.category_id);

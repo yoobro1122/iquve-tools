@@ -53,7 +53,8 @@ export async function notifyOrderUnlock(db: Db, justDoneTask: { id: string; proj
     .eq("episode_id", justDoneTask.episode_id)
     .eq("archived", false)
     .eq("status", "waiting")
-    .eq("order_unlock_notified", false);
+    .eq("order_unlock_notified", false)
+    .eq("no_order_constraint", false);
 
   for (const candidate of siblings ?? []) {
     if (!candidate.category) continue;
@@ -63,6 +64,7 @@ export async function notifyOrderUnlock(db: Db, justDoneTask: { id: string; proj
       .eq("project_id", justDoneTask.project_id)
       .eq("episode_id", justDoneTask.episode_id)
       .eq("archived", false)
+      .eq("no_order_constraint", false)
       .neq("id", candidate.id);
     const earlier = (blockers ?? []).filter((b: any) => b.category && b.category.sort_order < (candidate.category as any).sort_order);
     const allEarlierDone = earlier.every((b: any) => b.status === "done");
@@ -83,7 +85,8 @@ export async function checkAndWarnOutOfOrder(
   projectName: string
 ) {
   if (!task.episode_id) return;
-  const { data: myTask } = await db.from("tasks").select("category:category_id(sort_order)").eq("id", task.id).single();
+  const { data: myTask } = await db.from("tasks").select("category:category_id(sort_order), no_order_constraint").eq("id", task.id).single();
+  if (myTask?.no_order_constraint) return;
   const myOrder = (myTask?.category as any)?.sort_order;
   if (myOrder == null) return;
 
@@ -93,6 +96,7 @@ export async function checkAndWarnOutOfOrder(
     .eq("project_id", task.project_id)
     .eq("episode_id", task.episode_id)
     .eq("archived", false)
+    .eq("no_order_constraint", false)
     .neq("id", task.id);
 
   const affected = (laterTasks ?? []).filter((t: any) => t.category && t.category.sort_order > myOrder && t.status !== "waiting");
