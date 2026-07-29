@@ -93,6 +93,39 @@ export function subManagerAckEmail(projectName: string, taskLabel: string, subMa
   };
 }
 
+export function taskUnlockedEmail(projectName: string, taskLabel: string, contractorName: string) {
+  return {
+    subject: `[업무 시작 가능] "${taskLabel}" 이전 순서 업무가 완료되었습니다`,
+    html: wrap(
+      "업무 시작 가능 알림",
+      `<p><b>${contractorName}</b>님, 이전 순서 업무가 완료되어 이제 업무를 시작할 수 있습니다.</p>${taskLine(projectName, taskLabel)}`
+    ),
+  };
+}
+
+export function outOfOrderWarningEmail(projectName: string, taskLabel: string, laterTaskLabel: string) {
+  return {
+    subject: `[순서 주의] "${taskLabel}" 재작업 중인데 다음 순서 업무가 이미 진행 중입니다`,
+    html: wrap(
+      "⚠️ 업무 순서 확인 필요",
+      `<p><b>${taskLabel}</b> 업무가 재작업에 들어갔는데, 다음 순서 업무인 <b>${laterTaskLabel}</b>가 이미 진행 중입니다.</p>
+       <p>${taskLine(projectName, taskLabel)}</p>
+       <p>자동으로 멈추지 않으니 직접 확인해주세요.</p>`
+    ),
+  };
+}
+
+export function aiCreditDepletedEmail(contractorName: string, serviceName: string, accountLabel: string) {
+  return {
+    subject: `[크레딧 소진] ${contractorName}님의 ${serviceName} 계정 크레딧이 0이 되었습니다`,
+    html: wrap(
+      "AI 크레딧 소진 알림",
+      `<p><b>${contractorName}</b>님의 <b>${serviceName}</b>${accountLabel ? ` (${accountLabel})` : ""} 계정 잔여 크레딧이 0이 되었습니다.</p>
+       <p>충전이 필요한지 확인해주세요.</p>`
+    ),
+  };
+}
+
 export function publishDecidedEmail(projectName: string, decision: "confirmed" | "declined", reason?: string) {
   return {
     subject: decision === "confirmed" ? `[게재 완료] "${projectName}" 프로젝트가 게재되었습니다` : `[게재 불가] "${projectName}" 프로젝트 게재가 불가 처리되었습니다`,

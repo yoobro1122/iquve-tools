@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { sendMail } from "@/lib/resend";
 import { reviewApprovedEmail, reworkRequestedEmail, taskHandoffEmail } from "@/lib/email-templates";
-import { notifyManagerStakeholders } from "@/lib/task-notify";
+import { notifyManagerStakeholders, notifyOrderUnlock } from "@/lib/task-notify";
 
 // body:
 //   { result: 'pass' }
@@ -41,6 +41,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await sendMail(task.contractor.email, subject, html);
     await notifyManagerStakeholders(db, task.id, task.manager?.email, subject, html);
     await db.from("project_logs").insert({ project_id: task.project_id, actor_id: user.id, actor_name: profile.name, change: `업무 ${task.code} 검수 확인 → 완료` });
+    await notifyOrderUnlock(db, task);
   } else if (result === "reject") {
     await db.from("tasks").update({ status: "rework_notice", rework_acknowledged: false }).eq("id", params.id);
     await db.from("task_rework_notes").insert({ task_id: params.id, message: note ?? "" });

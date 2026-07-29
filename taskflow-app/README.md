@@ -1,4 +1,66 @@
-# TaskFlow — 미디어팀 외주 업무 관리 시스템 (v1.04)
+# TaskFlow — 미디어팀 외주 업무 관리 시스템 (v1.05)
+
+## v1.05 주요 변경사항
+
+1. **일정 관리**: 좌측 "프로젝트 현황" 아래 "일정 관리" 메뉴 추가. 선택된 대분류(또는 전체보기) 안에서 외주 작업자별로 섹션이 나뉘고, 접으면 이름+건수만, 펼치면 대기중/진행중/완료(이번 주만) 업무가 나옵니다.
+2. **업무 수정 강화**: 대기중(waiting) 업무에 한해 외주 작업자와 등록일시를 바로 바꿀 수 있습니다. 등록일을 미래로 바꾸면 그 시각에 알림 메일이 다시 나갑니다. (이미 시작된 업무는 기존처럼 검수 화면의 "인계"로만 작업자를 바꿀 수 있습니다.)
+3. **완료 업무 재작업**: 완료된 업무 카드 우측 상단 연필 아이콘 → "재작업 요청"(동일 작업자) 또는 "다른 작업자에게 인계" 선택 가능. 여러 번 반복 가능하며 매번 별도 구간(시간/평점)이 기록됩니다. 재진행 중에는 상태 옆에 "(재진행)" 표시, 재시작/재종료 시각이 별도로 표시됩니다.
+   - 자동으로 멈추는 로직은 없습니다 — 재작업 중인 업무보다 순서가 늦은 업무가 이미 진행 중이면 카드에 경고 배지가 뜨고, 전체 로그와 메일로도 알려드립니다. 직접 판단해서 조치해주세요.
+4. **카테고리 순서**: 카테고리 목록에 순서(위/아래 화살표)가 생겼습니다. 같은 에피소드 안에서 앞 순서 카테고리의 업무가 전부 완료되어야 다음 순서 업무의 "업무 시작" 버튼이 활성화되고, 활성화되는 순간 담당 작업자에게 메일이 갑니다.
+5. **AI 서비스 크레딧 관리**: 외주 작업자 관리 화면에서 작업자별로 AI 서비스 계정(잔여 크레딧)을 등록할 수 있습니다. 업무 종료 시 사용한 서비스를 선택하고 지금 남은 크레딧을 입력하면 자동으로 소진량이 계산되어 기록됩니다. 크레딧이 0이 되면 전체 로그에 경고가 남고, "AI 크레딧 알림 받기"를 켜둔 담당자에게 메일이 갑니다 (아무도 안 켜뒀다면 전체 담당자에게 발송).
+6. **정렬 기능**: 프로젝트 현황의 프로젝트 목록과, 펼쳤을 때 나오는 업무 구간 목록 둘 다 열 제목을 클릭하면 오름차순/내림차순으로 정렬됩니다.
+7. **상태값 정리**: 음량 확인 Not yet/Complete(회색/녹색), 업로드 확인 Not yet/Complete(회색/녹색), 검수 상태 Not yet/Revision/Complete(회색/노랑/녹색)로 단순화했습니다.
+
+### v1.05 마이그레이션 (필수, 순서대로 실행)
+
+```sql
+-- 1. 상태값 값 변환 (기존 데이터가 있는 경우)
+update projects set volume_check = 'Complete' where volume_check = 'Done';
+update projects set volume_check = 'Not yet' where volume_check = 'Checking';
+update projects set review_status = 'Not yet' where review_status = 'Processing';
+update projects set review_status = 'Revision' where review_status in ('Revision(Kor)', 'R-Complete');
+update projects set review_status = 'Complete' where review_status = 'Complete(Kor)';
+
+-- 2. 카테고리 순서 + 업무 재오픈/순서알림 + AI 크레딧 알림 옵트인
+alter table categories add column if not exists sort_order int not null default 0;
+alter table profiles add column if not exists ai_credit_alert_opt_in boolean not null default false;
+alter table tasks add column if not exists reopen_count int not null default 0;
+alter table tasks add column if not exists order_unlock_notified boolean not null default false;
+alter table task_assignments add column if not exists is_rework boolean not null default false;
+
+-- 3. tasks_select 정책 교체 (참여했던 업무 조회 허용 - 이미 v1.04에서 적용하셨다면 생략)
+drop policy if exists "tasks_select" on tasks;
+create policy "tasks_select" on tasks for select using (
+  contractor_id = auth.uid()
+  or exists (select 1 from task_assignments ta where ta.task_id = tasks.id and ta.contractor_id = auth.uid())
+  or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+);
+
+-- 4. AI 서비스 / 크레딧 테이블
+create table if not exists ai_services (
+  id uuid primary key default gen_random_uuid(),
+  label text not null unique,
+  created_at timestamptz not null default now()
+);
+create table if not exists contractor_ai_accounts (
+  id uuid primary key default gen_random_uuid(),
+  contractor_id uuid not null references profiles(id) on delete cascade,
+  ai_service_id uuid not null references ai_services(id) on delete cascade,
+  account_label text default '',
+  remaining_credit numeric not null default 0,
+  updated_at timestamptz not null default now()
+);
+alter table task_assignments add column if not exists ai_account_id uuid references contractor_ai_accounts(id) on delete set null;
+alter table task_assignments add column if not exists credit_used numeric;
+alter table ai_services enable row level security;
+alter table contractor_ai_accounts enable row level security;
+create policy "ai_services_select" on ai_services for select using (auth.role() = 'authenticated');
+create policy "contractor_ai_accounts_select" on contractor_ai_accounts for select using (
+  contractor_id = auth.uid() or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+);
+```
+
+⚠️ **카테고리 순서 관련 참고**: 마이그레이션 직후엔 모든 카테고리의 `sort_order`가 0으로 동일합니다. "업무 등록" 모달의 카테고리 목록에서 위/아래 화살표로 원하시는 순서로 한 번 정리해주세요 (그래야 "이전 순서 완료 전 시작 불가" 로직이 의도한 대로 동작합니다). 순서를 아직 안 정하셨다면 모든 업무가 항상 시작 가능한 것으로 처리됩니다 (제한 없음).
 
 ## v1.04 주요 변경사항 (업무 인계 / 서브 담당자)
 
@@ -9,16 +71,10 @@
 5. **외주 작업자 화면 3분할**: 내 업무 / 완료된 업무 / 참여했던 업무(인계로 넘어간 과거 구간, 읽기 전용)로 나뉘어 표시됩니다.
 6. **프로젝트 현황**: 업무를 펼치면 이제 차수(1차/2차...)별로 담당 작업자·시작/종료·작업시간·평점이 나뉘어 표시되고, 평점도 구간별로 매길 수 있습니다. 엑셀 다운로드도 같은 방식으로 세분화됩니다.
 
-### v1.04 마이그레이션 (필수)
+### v1.04 마이그레이션 (필수, 순서대로 실행)
 
 ```sql
-insert into task_assignments (task_id, contractor_id, started_at, ended_at, file_link, rating, created_at)
-  select id, contractor_id, start_date, completed_date, file_link, rating, created_at from tasks;
-alter table tasks drop column if exists start_date;
-alter table tasks drop column if exists completed_date;
-alter table tasks drop column if exists file_link;
-alter table tasks drop column if exists rating;
-
+-- 1. 새 테이블 먼저 생성
 create table if not exists task_assignments (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references tasks(id) on delete cascade,
@@ -39,6 +95,18 @@ create table if not exists task_sub_managers (
   created_at timestamptz not null default now(),
   unique (task_id, manager_id)
 );
+
+-- 2. 기존 tasks의 시작/종료/파일링크/평점 데이터를 새 테이블로 이전
+insert into task_assignments (task_id, contractor_id, started_at, ended_at, file_link, rating, created_at)
+  select id, contractor_id, start_date, completed_date, file_link, rating, created_at from tasks;
+
+-- 3. 이전이 끝난 뒤 tasks의 옛 컬럼 삭제
+alter table tasks drop column if exists start_date;
+alter table tasks drop column if exists completed_date;
+alter table tasks drop column if exists file_link;
+alter table tasks drop column if exists rating;
+
+-- 4. RLS 설정
 alter table task_assignments enable row level security;
 alter table task_sub_managers enable row level security;
 create policy "task_assignments_select" on task_assignments for select using (

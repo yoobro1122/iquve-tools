@@ -33,8 +33,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (upload_status === "Complete" && !project.completed_at) patch.completed_at = new Date().toISOString();
   }
   if (review_status && review_status !== project.review_status) {
-    if (review_status === "Complete(Kor)" && !allDone)
-      return NextResponse.json({ error: "모든 업무가 완료되어야 검수 상태를 Complete(Kor)로 바꿀 수 있습니다." }, { status: 400 });
+    if (review_status === "Complete" && !allDone)
+      return NextResponse.json({ error: "모든 업무가 완료되어야 검수 상태를 Complete로 바꿀 수 있습니다." }, { status: 400 });
     changes.push(`검수 상태: ${project.review_status} → ${review_status}`);
     patch.review_status = review_status;
   }

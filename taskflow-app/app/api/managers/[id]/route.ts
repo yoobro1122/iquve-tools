@@ -14,9 +14,11 @@ async function requireManager() {
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const r = await requireManager();
   if (r.error) return r.error;
-  const { name, note } = await req.json();
+  const { name, note, ai_credit_alert_opt_in } = await req.json();
+  const patch: Record<string, unknown> = { name, note };
+  if (typeof ai_credit_alert_opt_in === "boolean") patch.ai_credit_alert_opt_in = ai_credit_alert_opt_in;
   const { data, error } = await r.db!.from("profiles")
-    .update({ name, note })
+    .update(patch)
     .eq("id", params.id)
     .select()
     .single();

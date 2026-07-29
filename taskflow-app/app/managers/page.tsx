@@ -14,7 +14,7 @@ export default function ManagersPage() {
   const [busy, setBusy] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
-  const [draft, setDraft] = useState({ id: "", name: "", note: "", email: "" });
+  const [draft, setDraft] = useState({ id: "", name: "", note: "", email: "", ai_credit_alert_opt_in: false });
   const [error, setError] = useState("");
 
   const [credModal, setCredModal] = useState<{ title: string; email: string; password: string } | null>(null);
@@ -35,12 +35,12 @@ export default function ManagersPage() {
   useEffect(() => { load(); }, [load]);
 
   function openNew() {
-    setDraft({ id: "", name: "", note: "", email: "" });
+    setDraft({ id: "", name: "", note: "", email: "", ai_credit_alert_opt_in: false });
     setError("");
     setFormOpen(true);
   }
   function openEdit(m: Profile) {
-    setDraft({ id: m.id, name: m.name, note: m.note, email: m.email });
+    setDraft({ id: m.id, name: m.name, note: m.note, email: m.email, ai_credit_alert_opt_in: m.ai_credit_alert_opt_in });
     setError("");
     setFormOpen(true);
   }
@@ -61,7 +61,7 @@ export default function ManagersPage() {
       if (draft.id) {
         const res = await fetch(`/api/managers/${draft.id}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: draft.name, note: draft.note }),
+          body: JSON.stringify({ name: draft.name, note: draft.note, ai_credit_alert_opt_in: draft.ai_credit_alert_opt_in }),
         });
         if (!res.ok) { setError((await res.json()).error); return; }
         setFormOpen(false);
@@ -127,17 +127,18 @@ export default function ManagersPage() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
-          <div className="grid grid-cols-[1fr_1.6fr_1.4fr_110px] gap-0 border-b border-[#E4E1D6] px-4 py-2.5 text-[11.5px] font-bold text-[#79766D]">
-            <span>이름</span><span>이메일</span><span>비고</span><span>관리</span>
+          <div className="grid grid-cols-[1fr_1.6fr_1.4fr_0.9fr_110px] gap-0 border-b border-[#E4E1D6] px-4 py-2.5 text-[11.5px] font-bold text-[#79766D]">
+            <span>이름</span><span>이메일</span><span>비고</span><span>AI 크레딧 알림</span><span>관리</span>
           </div>
           {managers.map((m) => {
             const isSelf = m.id === me.id;
             const isLastManager = managers.length <= 1;
             return (
-              <div key={m.id} className="grid grid-cols-[1fr_1.6fr_1.4fr_110px] items-center gap-0 border-b border-[#E4E1D6] px-4 py-3 text-[13px]">
+              <div key={m.id} className="grid grid-cols-[1fr_1.6fr_1.4fr_0.9fr_110px] items-center gap-0 border-b border-[#E4E1D6] px-4 py-3 text-[13px]">
                 <span className="font-semibold">{m.name}{isSelf && <span className="ml-1.5 text-xs font-normal text-[#A7A399]">(나)</span>}</span>
                 <span className="text-[#79766D]">{m.email}</span>
                 <span className="text-[#A7A399]">{m.note || "-"}</span>
+                <span>{m.ai_credit_alert_opt_in ? <span className="text-emerald-600">✓</span> : <span className="text-[#D9D6CC]">-</span>}</span>
                 <div className="flex gap-1.5">
                   <button onClick={() => openEdit(m)} title="수정" className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E4E1D6]"><Pencil size={13} /></button>
                   <button onClick={() => resetPassword(m)} title="비밀번호 초기화" className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E4E1D6]"><KeyRound size={13} /></button>
@@ -174,6 +175,10 @@ export default function ManagersPage() {
                 <label className="mb-1 block text-xs text-[#79766D]">비고</label>
                 <input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} className="w-full rounded-lg border border-[#E4E1D6] px-2.5 py-2 text-[13.5px]" />
               </div>
+              <label className="flex items-center gap-2 text-[13px]">
+                <input type="checkbox" checked={draft.ai_credit_alert_opt_in} onChange={(e) => setDraft({ ...draft, ai_credit_alert_opt_in: e.target.checked })} />
+                AI 크레딧 소진 알림 받기
+              </label>
               {error && <div className="text-xs text-red-600">{error}</div>}
               <div className="flex gap-2 pt-1">
                 <button onClick={save} disabled={busy} className="rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50">저장</button>

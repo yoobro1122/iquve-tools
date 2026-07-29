@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { sendMail } from "@/lib/resend";
+import { taskReassignedEmail } from "@/lib/email-templates";
 
 // 업무 수정(카테고리/에피소드/담당자/메모/서브담당자) + 삭제(비활성화)/복원을 한 라우트에서 처리.
-// body: { category_id?, episode_id?, manager_id?, memo?, sub_manager_ids? } -> 수정
+// body: { category_id?, episode_id?, manager_id?, memo?, sub_manager_ids?, contractor_id?, planned_start_date? } -> 수정
 // body: { archived: true|false } -> 삭제/복원
-// 참고: 외주 작업자 변경(인계)은 검수 화면의 "다른 작업자에게 인계" 액션으로만 처리합니다
-// (구간 기록이 함께 남아야 하기 때문에 이 라우트에서는 contractor_id를 바꾸지 않습니다).
+// 참고: 외주 작업자/등록일시 변경은 "대기중(waiting)" 상태인 업무에서만 허용됩니다.
+// 이미 시작된 업무의 작업자 변경은 검수 화면의 "다른 작업자에게 인계"로만 처리합니다.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -14,7 +16,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { data: profile } = await db.from("profiles").select("role,name").eq("id", user.id).single();
   if (profile?.role !== "manager") return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
 
-  const { data: task } = await db.from("tasks").select("*").eq("id", params.id).single();
+  const { data: task } = await db.from("tasks").select("*, project:project_id(name), episode:episode_id(label)").eq("id", params.id).single();
   if (!task) return NextResponse.json({ error: "업무를 찾을 수 없습니다." }, { status: 404 });
 
   const body = await req.json();
@@ -61,6 +63,34 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     patch.memo = body.memo;
   }
 
+  let reassignedContractor: { email: string; name: string } | null = null;
+  if (body.contractor_id && body.contractor_id !== task.contractor_id) {
+    if (task.status !== "waiting") return NextResponse.json({ error: "대기중인 업무만 작업자를 바로 바꿀 수 있습니다. 이미 시작된 업무는 검수 화면의 인계로 처리해주세요." }, { status: 400 });
+    const [{ data: oldC }, { data: newC }] = await Promise.all([
+      db.from("profiles").select("name").eq("id", task.contractor_id).single(),
+      db.from("profiles").select("name,email").eq("id", body.contractor_id).single(),
+    ]);
+    if (!newC) return NextResponse.json({ error: "작업자를 찾을 수 없습니다." }, { status: 404 });
+    changes.push(`업무 ${task.code} 수정 - 외주 작업자: ${oldC?.name} → ${newC.name}`);
+    patch.contractor_id = body.contractor_id;
+    reassignedContractor = newC;
+    // 아직 시작 전이므로 별도 구간을 만들지 않고, 열려있는 배정 구간의 담당자만 바꿉니다.
+    await db.from("task_assignments").update({ contractor_id: body.contractor_id }).eq("task_id", params.id).is("started_at", null).is("ended_at", null);
+  }
+
+  let sendImmediateNotice = false;
+  if (typeof body.planned_start_date === "string" && body.planned_start_date) {
+    if (task.status !== "waiting") return NextResponse.json({ error: "대기중인 업무만 등록일을 변경할 수 있습니다." }, { status: 400 });
+    const newIso = new Date(body.planned_start_date).toISOString();
+    if (newIso !== task.planned_start_date) {
+      changes.push(`업무 ${task.code} 등록일 변경`);
+      patch.planned_start_date = newIso;
+      const nowIso = new Date().toISOString();
+      if (newIso <= nowIso) sendImmediateNotice = true;
+      patch.start_notice_sent = newIso <= nowIso;
+    }
+  }
+
   if (Array.isArray(body.sub_manager_ids)) {
     const { data: existing } = await db.from("task_sub_managers").select("manager_id").eq("task_id", params.id);
     const existingIds = new Set((existing ?? []).map((r) => r.manager_id));
@@ -83,6 +113,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   for (const c of changes) {
     await db.from("project_logs").insert({ project_id: task.project_id, actor_id: user.id, actor_name: profile.name, change: c });
+  }
+
+  if (reassignedContractor) {
+    const { subject, html } = taskReassignedEmail(task.project.name, task.episode?.label ?? "적용 안함", reassignedContractor.name);
+    await sendMail(reassignedContractor.email, subject, html);
+  }
+  if (sendImmediateNotice) {
+    const contractorId = (patch.contractor_id as string) ?? task.contractor_id;
+    const { data: contractor } = await db.from("profiles").select("email,name").eq("id", contractorId).single();
+    if (contractor) {
+      const { subject, html } = taskReassignedEmail(task.project.name, task.episode?.label ?? "적용 안함", contractor.name);
+      await sendMail(contractor.email, subject, html);
+    }
   }
 
   return NextResponse.json({ item: updated });

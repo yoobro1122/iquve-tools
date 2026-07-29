@@ -18,8 +18,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const { data: tasks } = await db.from("tasks").select("status,contractor_id").eq("project_id", params.id).eq("archived", false);
   const allDone = (tasks?.length ?? 0) > 0 && tasks!.every((t) => t.status === "done");
-  if (!allDone || project.review_status !== "Complete(Kor)")
-    return NextResponse.json({ error: "모든 업무 완료 + 검수 상태 Complete(Kor)일 때만 게시 여부를 결정할 수 있습니다." }, { status: 400 });
+  if (!allDone || project.review_status !== "Complete")
+    return NextResponse.json({ error: "모든 업무 완료 + 검수 상태 Complete일 때만 게시 여부를 결정할 수 있습니다." }, { status: 400 });
 
   const { decision, reason } = await req.json();
   if (!["confirm", "decline"].includes(decision))

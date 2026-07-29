@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
 import {
-  Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown,
+  Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
   Boxes, Settings, RotateCcw, ClipboardList, Loader2, Link as LinkIcon,
-  Search, Download, XCircle, Bell, Star, ArrowRightLeft,
+  Search, Download, XCircle, Bell, Star, ArrowRightLeft, CalendarDays,
 } from "lucide-react";
 import {
   Profile, MajorCategory, Category, Project, Task,
-  TASK_STATUS_LABEL, computeProjectStatus, allTasksDone, ddayLabel, workDuration, currentAssignment,
+  TASK_STATUS_LABEL, computeProjectStatus, allTasksDone, ddayLabel, workDuration, currentAssignment, canStartTask, hasOutOfOrderWarning,
 } from "@/lib/types";
 
 const PROJECT_STATUS_COLOR: Record<string, string> = {
@@ -44,6 +44,33 @@ function todayStr() {
 function nowLocalDateTimeStr() {
   const d = new Date();
   return `${todayStr()}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function isThisWeek(iso: string | null) {
+  if (!iso) return false;
+  const d = new Date(iso);
+  const now = new Date();
+  const day = now.getDay() === 0 ? 7 : now.getDay(); // 월=1 ... 일=7
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (day - 1));
+  monday.setHours(0, 0, 0, 0);
+  const nextMonday = new Date(monday);
+  nextMonday.setDate(monday.getDate() + 7);
+  return d >= monday && d < nextMonday;
+}
+function toggleSort(setSort: (fn: (s: { col: string; dir: 1 | -1 }) => { col: string; dir: 1 | -1 }) => void, col: string) {
+  setSort((s) => (s.col === col ? { col, dir: s.dir === 1 ? -1 : 1 } : { col, dir: 1 }));
+}
+function SortHeader({ label, col, sort, onClick }: { label: string; col: string; sort: { col: string; dir: 1 | -1 }; onClick: (col: string) => void }) {
+  return (
+    <button onClick={() => onClick(col)} className="flex items-center gap-0.5 text-left hover:text-[#1F1E1B]">
+      {label}
+      {sort.col === col && (sort.dir === 1 ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
+    </button>
+  );
+}
+function statusPillStyle(value: string) {
+  if (value === "Not yet") return "bg-gray-100 text-gray-600";
+  if (value === "Revision") return "bg-amber-50 text-amber-700";
+  return "bg-emerald-50 text-emerald-700"; // Complete
 }
 function simplifiedStatus(full: string) {
   if (full === "준비 중") return "준비 중";
@@ -80,6 +107,10 @@ export default function BoardPage() {
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"category" | "status">("category");
   const [projectStatusView, setProjectStatusView] = useState(false);
+  const [scheduleView, setScheduleView] = useState(false);
+  const [expandedContractorRows, setExpandedContractorRows] = useState<Record<string, boolean>>({});
+  const [projectSort, setProjectSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "name", dir: 1 });
+  const [segmentSort, setSegmentSort] = useState<Record<string, { col: string; dir: 1 | -1 }>>({});
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [expandedStatusRows, setExpandedStatusRows] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,7 +142,7 @@ export default function BoardPage() {
   const [newTask, setNewTask] = useState({ category_id: "", episode_id: "", contractor_id: "", manager_id: "", planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [] as string[] });
 
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
-  const [editTaskDraft, setEditTaskDraft] = useState({ category_id: "", episode_id: "", manager_id: "", memo: "", sub_manager_ids: [] as string[] });
+  const [editTaskDraft, setEditTaskDraft] = useState({ category_id: "", episode_id: "", manager_id: "", memo: "", sub_manager_ids: [] as string[], contractor_id: "", planned_start_date: "" });
 
   const [reworkModalTaskId, setReworkModalTaskId] = useState<string | null>(null);
   const [reworkMessage, setReworkMessage] = useState("");
@@ -120,11 +151,19 @@ export default function BoardPage() {
   const [handoffContractorId, setHandoffContractorId] = useState("");
   const [handoffReason, setHandoffReason] = useState("");
 
+  const [reopenModalTaskId, setReopenModalTaskId] = useState<string | null>(null);
+  const [reopenMode, setReopenMode] = useState<"rework" | "handoff">("rework");
+  const [reopenContractorId, setReopenContractorId] = useState("");
+  const [reopenReason, setReopenReason] = useState("");
+
   const [subManagerAckTaskId, setSubManagerAckTaskId] = useState<string | null>(null);
   const [subManagerAckComment, setSubManagerAckComment] = useState("");
 
   const [submitModalTaskId, setSubmitModalTaskId] = useState<string | null>(null);
   const [fileLinkDraft, setFileLinkDraft] = useState("");
+  const [myAiAccounts, setMyAiAccounts] = useState<any[]>([]);
+  const [submitAiAccountId, setSubmitAiAccountId] = useState("");
+  const [submitNewCredit, setSubmitNewCredit] = useState("");
 
   const [showExportPicker, setShowExportPicker] = useState(false);
   const [exportProjectId, setExportProjectId] = useState("");
@@ -167,6 +206,9 @@ export default function BoardPage() {
         .eq("contractor_id", user.id)
         .order("created_at", { ascending: false });
       setPastAssignments(((mine as any[]) ?? []).filter((a) => a.task && a.task.contractor_id !== user.id));
+
+      const { data: aiAccts } = await supabase.from("contractor_ai_accounts").select("*, ai_service:ai_service_id(*)").eq("contractor_id", user.id);
+      setMyAiAccounts(aiAccts ?? []);
     }
 
     setLoading(false);
@@ -301,12 +343,40 @@ export default function BoardPage() {
     return b;
   }, [scopedProjects, tasks]);
 
+  const sortedStatusProjects = useMemo(() => {
+    const withMeta = scopedProjects.map((p) => {
+      const projTasks = tasks.filter((t) => t.project_id === p.id && !t.archived);
+      const allSegs = projTasks.flatMap((t) => t.assignments ?? []);
+      const started = allSegs.filter((a) => a.started_at).map((a) => a.started_at!).sort()[0] ?? null;
+      const simple = simplifiedStatus(computeProjectStatus(p, tasks));
+      return { p, started, simple };
+    });
+    const val = (row: (typeof withMeta)[number]): string => {
+      switch (projectSort.col) {
+        case "status": return row.simple;
+        case "created": return row.p.created_at ?? "";
+        case "started": return row.started ?? "";
+        case "completed": return row.p.completed_at ?? "";
+        case "publish": return row.p.upload_decision ?? "";
+        case "remark": return row.p.remark ?? "";
+        default: return row.p.name ?? "";
+      }
+    };
+    return [...withMeta].sort((a, b) => val(a).localeCompare(val(b)) * projectSort.dir);
+  }, [scopedProjects, tasks, projectSort]);
+
   // ---------------- task actions ----------------
   async function taskStart(t: Task) { if (await api(`/api/tasks/${t.id}/start`, "POST")) load(); }
-  function openSubmitModal(t: Task) { setSubmitModalTaskId(t.id); setFileLinkDraft(currentAssignment(t)?.file_link || ""); }
+  function openSubmitModal(t: Task) { setSubmitModalTaskId(t.id); setFileLinkDraft(currentAssignment(t)?.file_link || ""); setSubmitAiAccountId(""); setSubmitNewCredit(""); }
   async function confirmSubmit() {
     if (!fileLinkDraft.trim()) { alert("작업 파일 링크를 입력해주세요."); return; }
-    if (await api(`/api/tasks/${submitModalTaskId}/submit`, "POST", { file_link: fileLinkDraft.trim() })) {
+    const body: any = { file_link: fileLinkDraft.trim() };
+    if (submitAiAccountId) {
+      if (submitNewCredit === "" || isNaN(Number(submitNewCredit))) { alert("사용한 AI 서비스의 남은 크레딧을 입력해주세요."); return; }
+      body.ai_account_id = submitAiAccountId;
+      body.new_remaining_credit = Number(submitNewCredit);
+    }
+    if (await api(`/api/tasks/${submitModalTaskId}/submit`, "POST", body)) {
       setSubmitModalTaskId(null);
       load();
     }
@@ -336,6 +406,23 @@ export default function BoardPage() {
     }
   }
 
+  function openReopenModal(t: Task) {
+    setReopenModalTaskId(t.id);
+    setReopenMode("rework");
+    setReopenContractorId("");
+    setReopenReason("");
+  }
+  async function submitReopen() {
+    if (!reopenReason.trim()) { alert("재작업/인계 사유를 입력해주세요."); return; }
+    if (reopenMode === "handoff" && !reopenContractorId) { alert("인계할 작업자를 선택해주세요."); return; }
+    const body: any = { mode: reopenMode, reason: reopenReason.trim() };
+    if (reopenMode === "handoff") body.new_contractor_id = reopenContractorId;
+    if (await api(`/api/tasks/${reopenModalTaskId}/reopen`, "POST", body)) {
+      setReopenModalTaskId(null);
+      load();
+    }
+  }
+
   function openSubManagerAck(t: Task) {
     const mine = (t.sub_managers ?? []).find((s) => s.manager_id === me?.id);
     setSubManagerAckTaskId(t.id);
@@ -354,9 +441,12 @@ export default function BoardPage() {
 
   function openEditTask(t: Task) {
     setEditTaskId(t.id);
+    const d = new Date(t.planned_start_date);
+    const localStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     setEditTaskDraft({
       category_id: t.category_id ?? "", episode_id: t.episode_id ?? "", manager_id: t.manager_id ?? "", memo: t.memo ?? "",
       sub_manager_ids: (t.sub_managers ?? []).map((s) => s.manager_id),
+      contractor_id: t.contractor_id, planned_start_date: localStr,
     });
   }
   async function saveEditTask() {
@@ -368,7 +458,16 @@ export default function BoardPage() {
       alert("담당자를 선택해주세요.");
       return;
     }
-    if (await api(`/api/tasks/${editTaskId}`, "PATCH", editTaskDraft)) { setEditTaskId(null); load(); }
+    const t = tasks.find((x) => x.id === editTaskId);
+    const body: any = { ...editTaskDraft };
+    if (t && t.status !== "waiting") {
+      // 이미 시작된 업무는 작업자/등록일을 바꿀 수 없으므로 아예 보내지 않음 (변경 안 함)
+      delete body.contractor_id;
+      delete body.planned_start_date;
+    } else if (body.planned_start_date) {
+      body.planned_start_date = new Date(body.planned_start_date).toISOString();
+    }
+    if (await api(`/api/tasks/${editTaskId}`, "PATCH", body)) { setEditTaskId(null); load(); }
   }
   async function archiveTaskFromModal() {
     if (!confirm("이 업무를 삭제(비활성화) 처리할까요? 나중에 복원할 수 있습니다.")) return;
@@ -409,6 +508,22 @@ export default function BoardPage() {
   async function deleteCategory(id: string) {
     if (!confirm("이 카테고리를 삭제할까요?")) return;
     if (await api(`/api/categories/${id}`, "DELETE")) load();
+  }
+  async function moveCategory(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= categories.length) return;
+    const a = categories[index];
+    const b = categories[target];
+    setBusy(true);
+    try {
+      await Promise.all([
+        fetch(`/api/categories/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sort_order: b.sort_order }) }),
+        fetch(`/api/categories/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sort_order: a.sort_order }) }),
+      ]);
+    } finally {
+      setBusy(false);
+    }
+    load();
   }
   const [newCatLabel, setNewCatLabel] = useState("");
 
@@ -538,19 +653,31 @@ export default function BoardPage() {
     const subs = t.sub_managers ?? [];
     const mySubRow = me!.role === "manager" ? subs.find((s) => s.manager_id === me!.id) : undefined;
     const isSubManager = !!mySubRow;
+    const canStart = canStartTask(t, tasks, categories);
+    const outOfOrder = hasOutOfOrderWarning(t, tasks, categories);
+    const isReopened = t.reopen_count > 0 && t.status !== "done";
 
     return (
       <div className="rounded-xl border border-[#E4E1D6] bg-white p-3.5" style={{ opacity: projectArchived ? 0.6 : 1 }}>
         <div className="mb-1.5 flex items-start justify-between">
           <div className="text-[10.5px] text-[#A7A399]">{proj.code} / {t.code} / {proj.name}</div>
-          {isManagerView && !projectArchived && (
+          {isManagerView && !projectArchived && t.status !== "done" && (
             <button onClick={() => openEditTask(t)} title="업무 수정"><Pencil size={12} className="text-[#79766D]" /></button>
+          )}
+          {isManagerView && !projectArchived && t.status === "done" && (
+            <button onClick={() => openReopenModal(t)} title="완료 업무 수정 (재작업/인계)"><Pencil size={12} className="text-[#79766D]" /></button>
           )}
         </div>
         <div className="mb-1.5 text-[15px] font-bold">{episodeLabel(t)}</div>
         <div className="mb-2 text-[12.5px] text-[#79766D]">
-          {contractorName(t)} <span className="text-[#A7A399]">(담당: {managerName(t)})</span> · <span className={`font-semibold ${TASK_STATUS_COLOR[t.status]}`}>{TASK_STATUS_LABEL[t.status]}</span>
+          {contractorName(t)} <span className="text-[#A7A399]">(담당: {managerName(t)})</span> · <span className={`font-semibold ${TASK_STATUS_COLOR[t.status]}`}>{TASK_STATUS_LABEL[t.status]}{isReopened && " (재진행)"}</span>
         </div>
+
+        {outOfOrder && (
+          <div className="mb-2 rounded-lg bg-red-50 px-2 py-1.5 text-[11px] font-semibold text-red-700">
+            ⚠️ 이전 순서 업무가 재작업 중입니다
+          </div>
+        )}
 
         {subs.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1">
@@ -584,12 +711,21 @@ export default function BoardPage() {
         )}
 
         <div className="mb-2 flex justify-between text-[11px] text-[#A7A399]">
-          <span>{t.status === "waiting" ? `등록일 ${fmtDateTime(t.planned_start_date)}` : (cur?.started_at ? `시작 ${fmtDateTime(cur.started_at)}` : "\u00A0")}</span>
-          <span>{cur?.ended_at ? `종료 ${fmtDateTime(cur.ended_at)}` : "\u00A0"}</span>
+          <span>
+            {t.status === "waiting" ? `등록일 ${fmtDateTime(t.planned_start_date)}` : (cur?.started_at ? `${cur.is_rework ? "재시작" : "시작"} ${fmtDateTime(cur.started_at)}` : "\u00A0")}
+          </span>
+          <span>{cur?.ended_at ? `${cur.is_rework ? "재종료" : "종료"} ${fmtDateTime(cur.ended_at)}` : "\u00A0"}</span>
         </div>
+        {cur?.rating && (
+          <div className="mb-2 text-xs text-amber-600">★ {cur.rating}점{cur.credit_used != null && <span className="ml-2 text-[#A7A399]">크레딧 -{cur.credit_used}</span>}</div>
+        )}
 
         {!projectArchived && isMine && t.status === "waiting" && (
-          <button onClick={() => taskStart(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Play size={13} /> 업무 시작</button>
+          canStart ? (
+            <button onClick={() => taskStart(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Play size={13} /> 업무 시작</button>
+          ) : (
+            <button disabled className={`${btnDefault} flex w-full cursor-not-allowed items-center justify-center gap-1.5 opacity-50`}>이전 순서 업무 완료 대기중</button>
+          )
         )}
         {!projectArchived && isMine && t.status === "in_progress" && (
           <button onClick={() => openSubmitModal(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Check size={13} /> 업무 종료</button>
@@ -697,7 +833,7 @@ export default function BoardPage() {
                 const count = tasks.filter((t) => t.project_id === p.id && !t.archived).length;
                 return sidebarOpen ? (
                   <div key={p.id} className="mb-0.5 flex items-center gap-1">
-                    <button onClick={() => { setSelectedProjectId(p.id); setSelectedEpisodeId("ALL"); setProjectStatusView(false); }} className={`min-w-0 flex-1 rounded-lg px-2.5 py-2 text-left ${active ? "bg-[#E8EDFB]" : ""}`} style={{ opacity: p.archived ? 0.55 : 1 }}>
+                    <button onClick={() => { setSelectedProjectId(p.id); setSelectedEpisodeId("ALL"); setProjectStatusView(false); setScheduleView(false); }} className={`min-w-0 flex-1 rounded-lg px-2.5 py-2 text-left ${active ? "bg-[#E8EDFB]" : ""}`} style={{ opacity: p.archived ? 0.55 : 1 }}>
                       <div className={`text-[10.5px] font-bold ${active ? "text-[#2C56C9]" : "text-[#A7A399]"}`}>{p.code} / 업무 {count}건</div>
                       <div className={`truncate text-[13px] font-semibold ${active ? "text-[#2C56C9]" : ""}`}>{p.name}</div>
                     </button>
@@ -709,7 +845,7 @@ export default function BoardPage() {
                     )}
                   </div>
                 ) : (
-                  <button key={p.id} onClick={() => { setSelectedProjectId(p.id); setSelectedEpisodeId("ALL"); setProjectStatusView(false); }} title={`${p.code} · ${p.name}`} className={`mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-lg text-[10.5px] font-bold ${active ? "bg-[#E8EDFB] text-[#2C56C9]" : "text-[#79766D]"}`} style={{ opacity: p.archived ? 0.55 : 1 }}>
+                  <button key={p.id} onClick={() => { setSelectedProjectId(p.id); setSelectedEpisodeId("ALL"); setProjectStatusView(false); setScheduleView(false); }} title={`${p.code} · ${p.name}`} className={`mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-lg text-[10.5px] font-bold ${active ? "bg-[#E8EDFB] text-[#2C56C9]" : "text-[#79766D]"}`} style={{ opacity: p.archived ? 0.55 : 1 }}>
                     {p.code.slice(0, 4)}
                   </button>
                 );
@@ -718,19 +854,72 @@ export default function BoardPage() {
           ))}
 
           <div className="mt-4 border-t border-[#E4E1D6] pt-3.5">
-            <button onClick={() => { setSelectedProjectId("ALL"); setProjectStatusView(false); }} className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${isAllView && !projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
+            <button onClick={() => { setSelectedProjectId("ALL"); setProjectStatusView(false); setScheduleView(false); }} className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${isAllView && !projectStatusView && !scheduleView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
               <Boxes size={14} />{sidebarOpen && " 전체 업무"}
             </button>
             {me.role === "manager" && (
-              <button onClick={() => setProjectStatusView(true)} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
-                <ClipboardList size={14} />{sidebarOpen && " 프로젝트 현황"}
-              </button>
+              <>
+                <button onClick={() => { setProjectStatusView(true); setScheduleView(false); }} className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
+                  <ClipboardList size={14} />{sidebarOpen && " 프로젝트 현황"}
+                </button>
+                <button onClick={() => { setScheduleView(true); setProjectStatusView(false); }} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${scheduleView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
+                  <CalendarDays size={14} />{sidebarOpen && " 일정 관리"}
+                </button>
+              </>
             )}
           </div>
         </aside>
 
         <main className="flex-1 overflow-x-auto p-6">
-          {projectStatusView && me.role === "manager" ? (
+          {scheduleView && me.role === "manager" ? (
+            <>
+              <h2 className="mb-4 text-lg font-bold">일정 관리</h2>
+              {(() => {
+                const scopedProjectIds = new Set(scopedProjects.map((p) => p.id));
+                const scopedTasks = tasks.filter((t) => scopedProjectIds.has(t.project_id) && !t.archived);
+                const byContractor: Record<string, Task[]> = {};
+                scopedTasks.forEach((t) => { (byContractor[t.contractor_id] ??= []).push(t); });
+                const allContractorIds = Array.from(new Set([...contractors.map((c) => c.id), ...Object.keys(byContractor)]));
+                return allContractorIds.map((cid) => {
+                  const cName = contractors.find((c) => c.id === cid)?.name ?? scopedTasks.find((t) => t.contractor_id === cid)?.contractor?.name ?? "알 수 없음";
+                  const list = byContractor[cid] ?? [];
+                  const waiting = list.filter((t) => t.status === "waiting");
+                  const active = list.filter((t) => ["in_progress", "reviewing", "rework_notice"].includes(t.status));
+                  const doneThisWeek = list.filter((t) => t.status === "done" && isThisWeek(currentAssignment(t)?.ended_at ?? null));
+                  const expanded = !!expandedContractorRows[cid];
+                  const total = waiting.length + active.length + doneThisWeek.length;
+                  return (
+                    <div key={cid} className="mb-3 overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
+                      <button onClick={() => setExpandedContractorRows((s) => ({ ...s, [cid]: !s[cid] }))} className="flex w-full items-center gap-2 px-4 py-3 text-left">
+                        <ChevronDown size={14} style={{ transform: expanded ? "rotate(0deg)" : "rotate(-90deg)" }} className="text-[#A7A399]" />
+                        <span className="text-[14px] font-bold">{cName}</span>
+                        <span className="text-[12px] text-[#A7A399]">대기 {waiting.length} · 진행 {active.length} · 완료(이번 주) {doneThisWeek.length}</span>
+                        <span className="ml-auto text-[11px] text-[#A7A399]">총 {total}건</span>
+                      </button>
+                      {expanded && (
+                        <div className="grid grid-cols-3 gap-3 border-t border-[#E4E1D6] p-4">
+                          {[{ label: "대기중", items: waiting }, { label: "진행중", items: active }, { label: "완료 (이번 주)", items: doneThisWeek }].map((col) => (
+                            <div key={col.label}>
+                              <div className="mb-2 text-[11.5px] font-bold text-[#79766D]">{col.label} · {col.items.length}</div>
+                              <div className="flex flex-col gap-2">
+                                {col.items.map((t) => (
+                                  <div key={t.id} className="rounded-lg border border-[#E4E1D6] p-2.5">
+                                    <div className="text-[10px] text-[#A7A399]">{t.project?.code} · {t.project?.name}</div>
+                                    <div className="text-[12.5px] font-semibold">{episodeLabel(t)} <span className="font-normal text-[#79766D]">· {t.category?.label ?? "미지정"}</span></div>
+                                  </div>
+                                ))}
+                                {col.items.length === 0 && <div className="text-[11px] text-[#A7A399]">없음</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </>
+          ) : projectStatusView && me.role === "manager" ? (
             <>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-bold">프로젝트 현황</h2>
@@ -742,15 +931,20 @@ export default function BoardPage() {
               </div>
               <div className="overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
                 <div className="grid grid-cols-[1.4fr_0.9fr_0.9fr_0.9fr_0.9fr_0.9fr_1.1fr] border-b border-[#E4E1D6] px-3.5 py-2.5 text-[11px] font-bold text-[#79766D]">
-                  <span>프로젝트명</span><span>진행 상태</span><span>등록일</span><span>업무 시작일</span><span>완료일</span><span>게재 상태</span><span>비고</span>
+                  <SortHeader label="프로젝트명" col="name" sort={projectSort} onClick={(c) => toggleSort(setProjectSort, c)} />
+                  <SortHeader label="진행 상태" col="status" sort={projectSort} onClick={(c) => toggleSort(setProjectSort, c)} />
+                  <SortHeader label="등록일" col="created" sort={projectSort} onClick={(c) => toggleSort(setProjectSort, c)} />
+                  <SortHeader label="업무 시작일" col="started" sort={projectSort} onClick={(c) => toggleSort(setProjectSort, c)} />
+                  <SortHeader label="완료일" col="completed" sort={projectSort} onClick={(c) => toggleSort(setProjectSort, c)} />
+                  <SortHeader label="게재 상태" col="publish" sort={projectSort} onClick={(c) => toggleSort(setProjectSort, c)} />
+                  <SortHeader label="비고" col="remark" sort={projectSort} onClick={(c) => toggleSort(setProjectSort, c)} />
                 </div>
-                {scopedProjects.map((p) => {
-                  const full = computeProjectStatus(p, tasks);
-                  const simple = simplifiedStatus(full);
+                {sortedStatusProjects.map(({ p, started, simple }) => {
                   const projTasks = tasks.filter((t) => t.project_id === p.id && !t.archived);
-                  const allSegs = projTasks.flatMap((t) => t.assignments ?? []);
-                  const started = allSegs.filter((a) => a.started_at).map((a) => a.started_at!).sort()[0];
                   const isExpanded = !!expandedStatusRows[p.id];
+                  const segSort = segmentSort[p.id] ?? { col: "episode", dir: 1 as 1 | -1 };
+                  const setSegSort = (fn: (s: { col: string; dir: 1 | -1 }) => { col: string; dir: 1 | -1 }) =>
+                    setSegmentSort((all) => ({ ...all, [p.id]: fn(all[p.id] ?? { col: "episode", dir: 1 }) }));
                   return (
                     <div key={p.id} className="border-b border-[#E4E1D6]">
                       <div className="grid grid-cols-[1.4fr_0.9fr_0.9fr_0.9fr_0.9fr_0.9fr_1.1fr] items-center px-3.5 py-2.5 text-[12.5px]">
@@ -776,15 +970,34 @@ export default function BoardPage() {
                       {isExpanded && (
                         <div className="bg-[#FAFAF7] px-3.5 pb-3">
                           <div className="grid grid-cols-[0.8fr_0.8fr_0.4fr_0.8fr_1.2fr_1.2fr_0.9fr_1fr] gap-0 border-b border-[#E4E1D6] py-1.5 text-[10.5px] font-bold text-[#A7A399]">
-                            <span>에피소드</span><span>업무</span><span>차수</span><span>외주 작업자</span><span>시작일시</span><span>종료일시</span><span>작업시간</span><span>평점</span>
+                            <SortHeader label="에피소드" col="episode" sort={segSort} onClick={(c) => toggleSort(setSegSort, c)} />
+                            <SortHeader label="업무" col="category" sort={segSort} onClick={(c) => toggleSort(setSegSort, c)} />
+                            <span>차수</span>
+                            <SortHeader label="외주 작업자" col="contractor" sort={segSort} onClick={(c) => toggleSort(setSegSort, c)} />
+                            <SortHeader label="시작일시" col="started" sort={segSort} onClick={(c) => toggleSort(setSegSort, c)} />
+                            <SortHeader label="종료일시" col="ended" sort={segSort} onClick={(c) => toggleSort(setSegSort, c)} />
+                            <span>작업시간</span><span>평점</span>
                           </div>
-                          {projTasks.flatMap((t) => {
-                            const segs = [...(t.assignments ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
-                            return segs.map((seg, i) => (
+                          {(() => {
+                            const rows = projTasks.flatMap((t) => {
+                              const segs = [...(t.assignments ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
+                              return segs.map((seg, i) => ({ t, seg, seq: i + 1 }));
+                            });
+                            const segVal = (r: (typeof rows)[number]) => {
+                              switch (segSort.col) {
+                                case "category": return r.t.category?.label ?? "";
+                                case "contractor": return r.seg.contractor?.name ?? "";
+                                case "started": return r.seg.started_at ?? "";
+                                case "ended": return r.seg.ended_at ?? "";
+                                default: return episodeLabel(r.t);
+                              }
+                            };
+                            const sortedRows = [...rows].sort((a, b) => segVal(a).localeCompare(segVal(b)) * segSort.dir);
+                            return sortedRows.map(({ t, seg, seq }) => (
                               <div key={seg.id} className="grid grid-cols-[0.8fr_0.8fr_0.4fr_0.8fr_1.2fr_1.2fr_0.9fr_1fr] items-center gap-0 border-b border-[#EEEDE7] py-1.5 text-[11.5px] last:border-b-0">
                                 <span>{episodeLabel(t)}</span>
                                 <span className="text-[#79766D]">{t.category?.label ?? "미지정"}</span>
-                                <span className="text-[#79766D]">{i + 1}차</span>
+                                <span className="text-[#79766D]">{seq}차</span>
                                 <span>{seg.contractor?.name ?? "-"}</span>
                                 <span className="text-[#79766D]">{seg.started_at ? fmtDateTime(seg.started_at) : "-"}</span>
                                 <span className="text-[#79766D]">{seg.ended_at ? fmtDateTime(seg.ended_at) : "-"}</span>
@@ -798,7 +1011,7 @@ export default function BoardPage() {
                                 </span>
                               </div>
                             ));
-                          })}
+                          })()}
                           {projTasks.length === 0 && <div className="py-2 text-xs text-[#A7A399]">등록된 업무가 없습니다.</div>}
                         </div>
                       )}
@@ -834,9 +1047,9 @@ export default function BoardPage() {
                     ) : (
                       <div onClick={() => me.role === "manager" && openStatusModal()} className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E1D6] bg-[#F6F5F0] px-3 py-2" style={{ cursor: me.role === "manager" ? "pointer" : "default" }}>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${PROJECT_STATUS_COLOR[computeProjectStatus(selectedProject!, tasks)]}`}>{computeProjectStatus(selectedProject!, tasks)}</span>
-                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">음량 {selectedProject!.volume_check}</span>
-                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-600">업로드 {selectedProject!.upload_status}</span>
-                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">검수 {selectedProject!.review_status}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.volume_check)}`}>음량 확인 {selectedProject!.volume_check}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.upload_status)}`}>업로드 확인 {selectedProject!.upload_status}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.review_status)}`}>검수 상태 {selectedProject!.review_status}</span>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${selectedProject!.upload_decision === "confirmed" ? "bg-emerald-50 text-emerald-700" : selectedProject!.upload_decision === "declined" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-500"}`}>
                           게재 {selectedProject!.upload_decision === "confirmed" ? "완료" : selectedProject!.upload_decision === "declined" ? "불가" : "미정"}
                         </span>
@@ -862,7 +1075,7 @@ export default function BoardPage() {
                 <div className="mb-3.5 text-xs text-red-600">게재 불가 사유: {selectedProject!.decline_reason}</div>
               )}
 
-              {!isAllView && !selectedProject!.archived && me.role === "manager" && allTasksDone(selectedProject!, tasks) && selectedProject!.review_status === "Complete(Kor)" && !selectedProject!.upload_decision && (
+              {!isAllView && !selectedProject!.archived && me.role === "manager" && allTasksDone(selectedProject!, tasks) && selectedProject!.review_status === "Complete" && !selectedProject!.upload_decision && (
                 <div className="mb-5 flex items-center gap-2.5 rounded-xl bg-violet-50 px-3.5 py-2.5 text-sm">
                   <span className="font-semibold text-violet-700">프로젝트가 서비스에 게재 되었나요?</span>
                   <div className="ml-auto flex gap-2">
@@ -1114,11 +1327,11 @@ export default function BoardPage() {
               <div>
                 <label className="mb-1 flex items-center gap-1.5 text-xs text-[#79766D]"><Volume2 size={13} /> 음량 확인</label>
                 <select value={draftStatus.volume_check} onChange={(e) => setDraftStatus({ ...draftStatus, volume_check: e.target.value })} className={inputCls}>
-                  {["Checking", "Done", "Not yet"].map((v) => <option key={v} value={v}>{v}</option>)}
+                  {["Not yet", "Complete"].map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <label className="mb-1 flex items-center gap-1.5 text-xs text-[#79766D]"><UploadCloud size={13} /> 프로젝트 업로드</label>
+                <label className="mb-1 flex items-center gap-1.5 text-xs text-[#79766D]"><UploadCloud size={13} /> 업로드 확인</label>
                 <select value={draftStatus.upload_status} onChange={(e) => setDraftStatus({ ...draftStatus, upload_status: e.target.value })} className={inputCls}>
                   <option value="Not yet">Not yet</option>
                   <option value="Complete" disabled={!projectDone}>Complete{!projectDone ? " (모든 업무 완료 필요)" : ""}</option>
@@ -1127,10 +1340,9 @@ export default function BoardPage() {
               <div>
                 <label className="mb-1 flex items-center gap-1.5 text-xs text-[#79766D]"><ClipboardCheck size={13} /> 검수 상태</label>
                 <select value={draftStatus.review_status} onChange={(e) => setDraftStatus({ ...draftStatus, review_status: e.target.value })} className={inputCls}>
-                  <option value="Processing">Processing</option>
-                  <option value="Revision(Kor)">Revision(Kor)</option>
-                  <option value="R-Complete">R-Complete</option>
-                  <option value="Complete(Kor)" disabled={!projectDone}>Complete(Kor){!projectDone ? " (모든 업무 완료 필요)" : ""}</option>
+                  <option value="Not yet">Not yet</option>
+                  <option value="Revision">Revision</option>
+                  <option value="Complete" disabled={!projectDone}>Complete{!projectDone ? " (모든 업무 완료 필요)" : ""}</option>
                 </select>
               </div>
               {!projectDone && <p className="text-[11.5px] text-[#A7A399]">모든 업무가 완료 상태가 되어야 업로드/검수를 Complete로 바꿀 수 있습니다. (삭제된 업무는 계산에서 제외됩니다)</p>}
@@ -1217,13 +1429,17 @@ export default function BoardPage() {
                 <input placeholder="새 카테고리 추가" value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} className={inputCls} style={{ flex: 1 }} />
                 <button onClick={addCategory} className={btnDefault}><Plus size={13} /></button>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {categories.map((c) => (
-                  <span key={c.id} className="flex items-center gap-1 rounded-full bg-[#EEEDE7] py-0.5 pl-2.5 pr-1.5 text-[11px]">
-                    {c.label}
+              <p className="mb-1 text-[10.5px] text-[#A7A399]">순서는 같은 에피소드 안에서 업무 진행 순서로 쓰입니다 (위 → 아래 순).</p>
+              <div className="flex flex-col gap-1">
+                {categories.map((c, i) => (
+                  <div key={c.id} className="flex items-center gap-1.5 rounded-lg bg-[#EEEDE7] py-1 pl-2.5 pr-1.5 text-[11px]">
+                    <span className="w-4 text-[#A7A399]">{i + 1}</span>
+                    <span className="flex-1">{c.label}</span>
+                    <button onClick={() => moveCategory(i, -1)} disabled={i === 0} className="disabled:opacity-30"><ChevronUp size={13} /></button>
+                    <button onClick={() => moveCategory(i, 1)} disabled={i === categories.length - 1} className="disabled:opacity-30"><ChevronDown size={13} /></button>
                     <Pencil size={11} className="cursor-pointer" onClick={() => renameCategory(c.id, c.label)} />
                     <Trash2 size={11} className="cursor-pointer text-red-600" onClick={() => deleteCategory(c.id)} />
-                  </span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1287,6 +1503,24 @@ export default function BoardPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setEditTaskId(null)}>
           <div onClick={(e) => e.stopPropagation()} className="max-h-[88vh] w-[400px] overflow-y-auto rounded-2xl bg-white p-5">
             <h3 className="mb-3.5 text-[15.5px] font-bold">업무 수정</h3>
+            {(() => {
+              const editingTask = tasks.find((t) => t.id === editTaskId);
+              const isWaiting = editingTask?.status === "waiting";
+              return (
+                <div className="mb-3">
+                  <label className="mb-1 block text-xs text-[#79766D]">외주 작업자{!isWaiting && " (대기중 업무만 변경 가능)"}</label>
+                  <select disabled={!isWaiting} value={editTaskDraft.contractor_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, contractor_id: e.target.value })} className={`${inputCls} disabled:bg-[#F6F5F0] disabled:text-[#A7A399]`}>
+                    {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  {isWaiting && (
+                    <>
+                      <label className="mb-1 mt-2.5 block text-xs text-[#79766D]">등록일시</label>
+                      <input type="datetime-local" value={editTaskDraft.planned_start_date} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, planned_start_date: e.target.value })} className={inputCls} />
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             <div className="mb-3">
               <label className="mb-1 block text-xs text-[#79766D]">카테고리</label>
               <select value={editTaskDraft.category_id} onChange={(e) => setEditTaskDraft({ ...editTaskDraft, category_id: e.target.value })} className={inputCls}>
@@ -1348,6 +1582,20 @@ export default function BoardPage() {
             <h3 className="mb-3 text-[15.5px] font-bold">작업 파일 링크</h3>
             <p className="mb-2 text-xs text-[#A7A399]">담당자가 확인할 수 있도록 업로드한 파일의 링크를 입력해주세요.</p>
             <input value={fileLinkDraft} onChange={(e) => setFileLinkDraft(e.target.value)} placeholder="https://drive.google.com/..." className={`${inputCls} mb-3`} />
+            {myAiAccounts.length > 0 && (
+              <div className="mb-3 rounded-lg border border-dashed border-[#E4E1D6] p-3">
+                <label className="mb-1 block text-xs text-[#79766D]">사용한 AI 서비스 (선택)</label>
+                <select value={submitAiAccountId} onChange={(e) => setSubmitAiAccountId(e.target.value)} className={`${inputCls} mb-2`}>
+                  <option value="">사용 안 함</option>
+                  {myAiAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>{a.ai_service?.label}{a.account_label ? ` · ${a.account_label}` : ""} (현재 {a.remaining_credit})</option>
+                  ))}
+                </select>
+                {submitAiAccountId && (
+                  <input type="number" value={submitNewCredit} onChange={(e) => setSubmitNewCredit(e.target.value)} placeholder="지금 남은 크레딧" className={inputCls} />
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               <button onClick={confirmSubmit} className={btnPrimary}>제출하고 종료</button>
               <button onClick={() => setSubmitModalTaskId(null)} className={btnDefault}>취소</button>
@@ -1387,6 +1635,37 @@ export default function BoardPage() {
             <div className="flex gap-2">
               <button onClick={submitHandoff} disabled={!handoffContractorId || !handoffReason.trim()} className={`${btnPrimary} disabled:opacity-50`}>인계하기</button>
               <button onClick={() => setHandoffModalTaskId(null)} className={btnDefault}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 완료된 업무 재작업/인계 */}
+      {reopenModalTaskId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setReopenModalTaskId(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[420px] rounded-2xl bg-white p-5">
+            <h3 className="mb-3 text-[15.5px] font-bold">완료된 업무 재작업</h3>
+            <div className="mb-3 flex gap-2">
+              <button onClick={() => setReopenMode("rework")} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${reopenMode === "rework" ? "bg-[#1F1E1B] text-white" : "border border-[#E4E1D6]"}`}>재작업 요청</button>
+              <button onClick={() => setReopenMode("handoff")} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${reopenMode === "handoff" ? "bg-[#1F1E1B] text-white" : "border border-[#E4E1D6]"}`}>다른 작업자에게 인계</button>
+            </div>
+            {reopenMode === "handoff" && (
+              <>
+                <label className="mb-1 block text-xs text-[#79766D]">인계할 작업자</label>
+                <select value={reopenContractorId} onChange={(e) => setReopenContractorId(e.target.value)} className={`${inputCls} mb-3`}>
+                  <option value="">선택해주세요</option>
+                  {contractors.filter((c) => c.id !== tasks.find((t) => t.id === reopenModalTaskId)?.contractor_id).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
+            <label className="mb-1 block text-xs text-[#79766D]">사유</label>
+            <textarea rows={4} value={reopenReason} onChange={(e) => setReopenReason(e.target.value)} placeholder="재작업/인계가 필요한 이유를 적어주세요." className={`${inputCls} mb-3 resize-y`} />
+            <p className="mb-3 text-[11px] text-[#A7A399]">작업자는 다시 "업무 시작"을 눌러야 새 구간이 시작됩니다. 여러 번 반복될 수 있으며, 매번 별도로 시간이 기록됩니다.</p>
+            <div className="flex gap-2">
+              <button onClick={submitReopen} className={btnPrimary}>{reopenMode === "handoff" ? "인계하기" : "재작업 요청"}</button>
+              <button onClick={() => setReopenModalTaskId(null)} className={btnDefault}>취소</button>
             </div>
           </div>
         </div>

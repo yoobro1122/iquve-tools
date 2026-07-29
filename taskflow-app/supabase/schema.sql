@@ -15,6 +15,7 @@ create table if not exists profiles (
   specialty text default '',
   note text default '',
   must_change_password boolean not null default false,
+  ai_credit_alert_opt_in boolean not null default false, -- AI 크레딧 소진 알림을 받을 담당자
   created_at timestamptz not null default now()
 );
 
@@ -26,14 +27,17 @@ create table if not exists major_categories (
   created_at timestamptz not null default now()
 );
 
--- 3) categories: 업무 카테고리
+-- 3) categories: 업무 카테고리 (sort_order로 진행 순서를 정합니다 - 같은 에피소드 안에서 앞 순서가 끝나야 다음이 시작됨)
 create table if not exists categories (
   id uuid primary key default gen_random_uuid(),
   label text not null unique,
+  sort_order int not null default 0,
   created_at timestamptz not null default now()
 );
 
 -- 4) projects
+-- volume_check: 'Not yet' | 'Complete'   upload_status(업로드 확인): 'Not yet' | 'Complete'
+-- review_status(검수 상태): 'Not yet' | 'Revision' | 'Complete'
 create table if not exists projects (
   id uuid primary key default gen_random_uuid(),
   code text not null,
@@ -43,7 +47,7 @@ create table if not exists projects (
   upload_status text not null default 'Not yet',
   upload_decision text,
   decline_reason text default '',
-  review_status text not null default 'Processing',
+  review_status text not null default 'Not yet',
   remark text default '',
   archived boolean not null default false,
   created_at timestamptz not null default now(),
@@ -78,13 +82,15 @@ create table if not exists tasks (
   start_notice_sent boolean not null default false,
   memo text default '',
   rework_acknowledged boolean not null default false,
+  reopen_count int not null default 0, -- 완료 후 재작업(재오픈)된 횟수 - 0보다 크면 카드에 "(재진행)" 표시
+  order_unlock_notified boolean not null default false, -- 카테고리 순서상 "시작 가능" 알림을 이미 보냈는지
   archived boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
--- 6-1) task_assignments: 업무 배정 구간 (인계가 일어날 때마다 새 구간 생성)
--- 각 구간별로 시작/종료 시각, 제출 파일 링크, 평점을 따로 기록해 비용 지급/평가 자료로 사용합니다.
+-- 6-1) task_assignments: 업무 배정 구간 (인계 또는 완료 후 재작업 시마다 새 구간 생성)
+-- 각 구간별로 시작/종료 시각, 제출 파일 링크, 평점, 사용한 AI 서비스/소진 크레딧을 따로 기록합니다.
 create table if not exists task_assignments (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references tasks(id) on delete cascade,
@@ -93,9 +99,36 @@ create table if not exists task_assignments (
   ended_at timestamptz,
   file_link text default '',
   rating int check (rating between 1 and 5),
-  handoff_reason text default '', -- 이 구간이 인계로 종료된 경우의 사유
+  handoff_reason text default '', -- 인계 또는 완료 후 재작업 요청 사유
+  is_rework boolean not null default false, -- 완료된 업무를 재오픈해서 생긴 구간이면 true (카드에 재시작/재종료로 표시)
+  ai_account_id uuid, -- FK는 아래 contractor_ai_accounts 생성 후 추가
+  credit_used numeric,
   created_at timestamptz not null default now()
 );
+
+-- 6-1-1) ai_services: AI 서비스 카탈로그 (예: Midjourney, Runway 등)
+create table if not exists ai_services (
+  id uuid primary key default gen_random_uuid(),
+  label text not null unique,
+  created_at timestamptz not null default now()
+);
+
+-- 6-1-2) contractor_ai_accounts: 외주 작업자별 AI 서비스 계정 + 잔여 크레딧
+create table if not exists contractor_ai_accounts (
+  id uuid primary key default gen_random_uuid(),
+  contractor_id uuid not null references profiles(id) on delete cascade,
+  ai_service_id uuid not null references ai_services(id) on delete cascade,
+  account_label text default '',
+  remaining_credit numeric not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'task_assignments_ai_account_fkey') then
+    alter table task_assignments add constraint task_assignments_ai_account_fkey
+      foreign key (ai_account_id) references contractor_ai_accounts(id) on delete set null;
+  end if;
+end $$;
 
 -- 6-2) task_sub_managers: 서브 담당자 (이메일 참조 개념) - 확인 여부 + 의견만 남기고 검수 권한은 없음
 create table if not exists task_sub_managers (
@@ -166,6 +199,8 @@ alter table task_assignments enable row level security;
 alter table task_sub_managers enable row level security;
 alter table task_rework_notes enable row level security;
 alter table project_logs enable row level security;
+alter table ai_services enable row level security;
+alter table contractor_ai_accounts enable row level security;
 
 drop policy if exists "profiles_select_all" on profiles;
 create policy "profiles_select_all" on profiles for select using (auth.role() = 'authenticated');
@@ -185,6 +220,7 @@ create policy "episodes_select" on episodes for select using (auth.role() = 'aut
 drop policy if exists "tasks_select" on tasks;
 create policy "tasks_select" on tasks for select using (
   contractor_id = auth.uid()
+  or exists (select 1 from task_assignments ta where ta.task_id = tasks.id and ta.contractor_id = auth.uid())
   or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
 );
 
@@ -197,6 +233,15 @@ create policy "task_assignments_select" on task_assignments for select using (
 drop policy if exists "task_sub_managers_select" on task_sub_managers;
 create policy "task_sub_managers_select" on task_sub_managers for select using (
   manager_id = auth.uid()
+  or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+);
+
+drop policy if exists "ai_services_select" on ai_services;
+create policy "ai_services_select" on ai_services for select using (auth.role() = 'authenticated');
+
+drop policy if exists "contractor_ai_accounts_select" on contractor_ai_accounts;
+create policy "contractor_ai_accounts_select" on contractor_ai_accounts for select using (
+  contractor_id = auth.uid()
   or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
 );
 
@@ -275,4 +320,50 @@ create policy "project_logs_select_manager" on project_logs for select using (
 -- );
 -- create policy "task_sub_managers_select" on task_sub_managers for select using (
 --   manager_id = auth.uid() or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+-- );
+
+-- v1.05 마이그레이션
+-- 1) 상태값 단순화 (기존 데이터 값 변환)
+-- update projects set volume_check = 'Complete' where volume_check = 'Done';
+-- update projects set volume_check = 'Not yet' where volume_check = 'Checking';
+-- update projects set review_status = 'Not yet' where review_status = 'Processing';
+-- update projects set review_status = 'Revision' where review_status in ('Revision(Kor)', 'R-Complete');
+-- update projects set review_status = 'Complete' where review_status = 'Complete(Kor)';
+
+-- 2) 카테고리 순서 + 업무 재오픈/순서알림 + AI 크레딧 알림 옵트인
+-- alter table categories add column if not exists sort_order int not null default 0;
+-- alter table profiles add column if not exists ai_credit_alert_opt_in boolean not null default false;
+-- alter table tasks add column if not exists reopen_count int not null default 0;
+-- alter table tasks add column if not exists order_unlock_notified boolean not null default false;
+-- alter table task_assignments add column if not exists is_rework boolean not null default false;
+
+-- 3) 이전 버전에서 tasks_select 정책이 "현재 담당자만" 이었다면 아래로 교체 (참여했던 업무 조회 허용)
+-- drop policy if exists "tasks_select" on tasks;
+-- create policy "tasks_select" on tasks for select using (
+--   contractor_id = auth.uid()
+--   or exists (select 1 from task_assignments ta where ta.task_id = tasks.id and ta.contractor_id = auth.uid())
+--   or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
+-- );
+
+-- 4) AI 서비스 / 크레딧 테이블
+-- create table if not exists ai_services (
+--   id uuid primary key default gen_random_uuid(),
+--   label text not null unique,
+--   created_at timestamptz not null default now()
+-- );
+-- create table if not exists contractor_ai_accounts (
+--   id uuid primary key default gen_random_uuid(),
+--   contractor_id uuid not null references profiles(id) on delete cascade,
+--   ai_service_id uuid not null references ai_services(id) on delete cascade,
+--   account_label text default '',
+--   remaining_credit numeric not null default 0,
+--   updated_at timestamptz not null default now()
+-- );
+-- alter table task_assignments add column if not exists ai_account_id uuid references contractor_ai_accounts(id) on delete set null;
+-- alter table task_assignments add column if not exists credit_used numeric;
+-- alter table ai_services enable row level security;
+-- alter table contractor_ai_accounts enable row level security;
+-- create policy "ai_services_select" on ai_services for select using (auth.role() = 'authenticated');
+-- create policy "contractor_ai_accounts_select" on contractor_ai_accounts for select using (
+--   contractor_id = auth.uid() or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
 -- );

@@ -3,7 +3,7 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function GET() {
   const db = createServiceRoleClient();
-  const { data, error } = await db.from("categories").select("*").order("sort_order");
+  const { data, error } = await db.from("ai_services").select("*").order("label");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ items: data });
 }
@@ -18,8 +18,7 @@ export async function POST(req: Request) {
 
   const { label } = await req.json();
   if (!label?.trim()) return NextResponse.json({ error: "이름을 입력해주세요." }, { status: 400 });
-  const { data: max } = await db.from("categories").select("sort_order").order("sort_order", { ascending: false }).limit(1).single();
-  const { data, error } = await db.from("categories").insert({ label: label.trim(), sort_order: (max?.sort_order ?? 0) + 1 }).select().single();
+  const { data, error } = await db.from("ai_services").insert({ label: label.trim() }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ item: data });
 }
