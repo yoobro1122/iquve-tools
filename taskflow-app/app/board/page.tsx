@@ -7,7 +7,7 @@ import {
   Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
   Boxes, Settings, RotateCcw, ClipboardList, Loader2, Link as LinkIcon,
-  Search, Download, XCircle, Bell, Star, ArrowRightLeft, CalendarDays,
+  Search, Download, XCircle, Bell, Star, ArrowRightLeft, CalendarDays, Sparkles,
 } from "lucide-react";
 import {
   Profile, MajorCategory, Category, Project, Task,
@@ -44,6 +44,12 @@ function todayStr() {
 function nowLocalDateTimeStr() {
   const d = new Date();
   return `${todayStr()}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function mondayOf(d: Date) {
+  const day = d.getDay() === 0 ? 7 : d.getDay();
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (day - 1));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 }
 function isThisWeek(iso: string | null) {
   if (!iso) return false;
@@ -110,6 +116,10 @@ export default function BoardPage() {
   const [scheduleView, setScheduleView] = useState(false);
   const [expandedContractorRows, setExpandedContractorRows] = useState<Record<string, boolean>>({});
   const [showEpisodeMatrix, setShowEpisodeMatrix] = useState(true);
+  const [scheduleWeekStart, setScheduleWeekStart] = useState(() => mondayOf(new Date()));
+  const [scheduleAiModal, setScheduleAiModal] = useState<{ id: string; name: string } | null>(null);
+  const [scheduleAiAccounts, setScheduleAiAccounts] = useState<any[]>([]);
+  const [scheduleAiLoading, setScheduleAiLoading] = useState(false);
   const [projectSort, setProjectSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "name", dir: 1 });
   const [segmentSort, setSegmentSort] = useState<Record<string, { col: string; dir: 1 | -1 }>>({});
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
@@ -448,6 +458,23 @@ export default function BoardPage() {
       setSubManagerAckTaskId(null);
       load();
     }
+  }
+
+  async function openScheduleAiModal(c: { id: string; name: string }) {
+    setScheduleAiModal(c);
+    setScheduleAiLoading(true);
+    const res = await fetch(`/api/contractors/${c.id}/ai-accounts`);
+    const data = await res.json();
+    setScheduleAiAccounts(data.items ?? []);
+    setScheduleAiLoading(false);
+  }
+
+  function jumpToTask(t: Task) {
+    setMajorCategoryId(t.project!.major_category_id);
+    setSelectedProjectId(t.project_id);
+    setSelectedEpisodeId(t.episode_id ?? "ALL");
+    setScheduleView(false);
+    setProjectStatusView(false);
   }
 
   async function rateAssignment(assignmentId: string, rating: number) {
@@ -902,8 +929,20 @@ export default function BoardPage() {
         <main className="flex-1 overflow-x-auto p-6">
           {scheduleView && me.role === "manager" ? (
             <>
-              <h2 className="mb-4 text-lg font-bold">일정 관리</h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold">일정 관리</h2>
+                <div className="flex items-center gap-2 text-sm">
+                  <button onClick={() => setScheduleWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; })} className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E4E1D6]"><ChevronLeft size={14} /></button>
+                  <span className="font-semibold">
+                    {scheduleWeekStart.getFullYear()}.{scheduleWeekStart.getMonth() + 1}.{scheduleWeekStart.getDate()} ~ {(() => { const e = new Date(scheduleWeekStart); e.setDate(e.getDate() + 6); return `${e.getMonth() + 1}.${e.getDate()}`; })()}
+                  </span>
+                  <button onClick={() => setScheduleWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; })} className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E4E1D6]"><ChevronRight size={14} /></button>
+                  <button onClick={() => setScheduleWeekStart(mondayOf(new Date()))} className={btnDefault}>이번 주</button>
+                </div>
+              </div>
               {(() => {
+                const weekDays = Array.from({ length: 7 }, (_, i) => { const d = new Date(scheduleWeekStart); d.setDate(d.getDate() + i); return d; });
+                const sameDate = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
                 const scopedProjectIds = new Set(scopedProjects.map((p) => p.id));
                 const scopedTasks = tasks.filter((t) => scopedProjectIds.has(t.project_id) && !t.archived);
                 const byContractor: Record<string, Task[]> = {};
@@ -912,35 +951,55 @@ export default function BoardPage() {
                 return allContractorIds.map((cid) => {
                   const cName = contractors.find((c) => c.id === cid)?.name ?? scopedTasks.find((t) => t.contractor_id === cid)?.contractor?.name ?? "알 수 없음";
                   const list = byContractor[cid] ?? [];
-                  const waiting = list.filter((t) => t.status === "waiting");
-                  const active = list.filter((t) => ["in_progress", "reviewing", "rework_notice"].includes(t.status));
-                  const doneThisWeek = list.filter((t) => t.status === "done" && isThisWeek(currentAssignment(t)?.ended_at ?? null));
+                  const activeCount = list.filter((t) => ["in_progress", "reviewing", "rework_notice"].includes(t.status)).length;
+                  const doneThisWeekCount = list.filter((t) => t.status === "done" && weekDays.some((d) => { const cur = currentAssignment(t); return !!cur?.ended_at && sameDate(new Date(cur.ended_at), d); })).length;
                   const expanded = !!expandedContractorRows[cid];
-                  const total = waiting.length + active.length + doneThisWeek.length;
                   return (
                     <div key={cid} className="mb-3 overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
-                      <button onClick={() => setExpandedContractorRows((s) => ({ ...s, [cid]: !s[cid] }))} className="flex w-full items-center gap-2 px-4 py-3 text-left">
-                        <ChevronDown size={14} style={{ transform: expanded ? "rotate(0deg)" : "rotate(-90deg)" }} className="text-[#A7A399]" />
-                        <span className="text-[14px] font-bold">{cName}</span>
-                        <span className="text-[12px] text-[#A7A399]">대기 {waiting.length} · 진행 {active.length} · 완료(이번 주) {doneThisWeek.length}</span>
-                        <span className="ml-auto text-[11px] text-[#A7A399]">총 {total}건</span>
-                      </button>
+                      <div className="flex items-center gap-2 px-4 py-3">
+                        <button onClick={() => setExpandedContractorRows((s) => ({ ...s, [cid]: !s[cid] }))} className="flex flex-1 items-center gap-2 text-left">
+                          <ChevronDown size={14} style={{ transform: expanded ? "rotate(0deg)" : "rotate(-90deg)" }} className="flex-shrink-0 text-[#A7A399]" />
+                          <span className="text-[14px] font-bold">{cName}</span>
+                          <span className="text-[12px] text-[#A7A399]">진행 {activeCount} · 완료(이번 주) {doneThisWeekCount}</span>
+                        </button>
+                        <button onClick={() => openScheduleAiModal({ id: cid, name: cName })} className="flex flex-shrink-0 items-center gap-1 rounded-lg border border-[#E4E1D6] px-2.5 py-1.5 text-[11.5px] text-[#79766D]">
+                          <Sparkles size={12} /> AI 서비스 계정
+                        </button>
+                      </div>
                       {expanded && (
-                        <div className="grid grid-cols-3 gap-3 border-t border-[#E4E1D6] p-4">
-                          {[{ label: "대기중", items: waiting }, { label: "진행중", items: active }, { label: "완료 (이번 주)", items: doneThisWeek }].map((col) => (
-                            <div key={col.label}>
-                              <div className="mb-2 text-[11.5px] font-bold text-[#79766D]">{col.label} · {col.items.length}</div>
-                              <div className="flex flex-col gap-2">
-                                {col.items.map((t) => (
-                                  <div key={t.id} className="rounded-lg border border-[#E4E1D6] p-2.5">
-                                    <div className="text-[10px] text-[#A7A399]">{t.project?.code} · {t.project?.name}</div>
-                                    <div className="text-[12.5px] font-semibold">{episodeLabel(t)} <span className="font-normal text-[#79766D]">· {t.category?.label ?? "미지정"}</span></div>
-                                  </div>
-                                ))}
-                                {col.items.length === 0 && <div className="text-[11px] text-[#A7A399]">없음</div>}
+                        <div className="grid grid-cols-7 gap-2 border-t border-[#E4E1D6] p-3">
+                          {weekDays.map((day) => {
+                            const activeToday = list.filter((t) => {
+                              const cur = currentAssignment(t);
+                              if (!cur?.started_at || t.status === "waiting" || t.status === "done") return false;
+                              const start = new Date(cur.started_at);
+                              const end = cur.ended_at ? new Date(cur.ended_at) : new Date();
+                              return start <= day && day <= end;
+                            });
+                            const doneToday = list.filter((t) => {
+                              const cur = currentAssignment(t);
+                              return t.status === "done" && !!cur?.ended_at && sameDate(new Date(cur.ended_at), day);
+                            });
+                            const isToday = sameDate(day, new Date());
+                            return (
+                              <div key={day.toISOString()} className={`min-h-[84px] rounded-lg p-2 ${isToday ? "bg-[#E8EDFB]" : "bg-[#FAFAF7]"}`}>
+                                <div className="mb-1.5 text-[11px] font-bold text-[#79766D]">{["월", "화", "수", "목", "금", "토", "일"][day.getDay() === 0 ? 6 : day.getDay() - 1]} {day.getMonth() + 1}/{day.getDate()}</div>
+                                <div className="flex flex-col gap-1">
+                                  {activeToday.map((t) => (
+                                    <button key={t.id} onClick={() => jumpToTask(t)} className="rounded-md bg-blue-50 px-1.5 py-1 text-left text-[10.5px] text-blue-700 hover:bg-blue-100">
+                                      {episodeLabel(t)} · {t.category?.label ?? "미지정"}
+                                    </button>
+                                  ))}
+                                  {doneToday.map((t) => (
+                                    <button key={t.id} onClick={() => jumpToTask(t)} className="rounded-md bg-emerald-50 px-1.5 py-1 text-left text-[10.5px] text-emerald-700 hover:bg-emerald-100">
+                                      ✓ {episodeLabel(t)} · {t.category?.label ?? "미지정"}
+                                    </button>
+                                  ))}
+                                  {activeToday.length === 0 && doneToday.length === 0 && <div className="text-[10px] text-[#D9D6CC]">-</div>}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1791,6 +1850,29 @@ export default function BoardPage() {
               <button onClick={submitSubManagerAck} className={btnPrimary}>확인 완료</button>
               <button onClick={() => setSubManagerAckTaskId(null)} className={btnDefault}>취소</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 일정 관리 - 작업자 AI 서비스 계정 (읽기 전용) */}
+      {scheduleAiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setScheduleAiModal(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="max-h-[80vh] w-[420px] overflow-y-auto rounded-2xl bg-white p-5">
+            <h3 className="mb-3.5 text-[15.5px] font-bold">{scheduleAiModal.name}님의 AI 서비스 계정</h3>
+            {scheduleAiLoading && <div className="text-xs text-[#A7A399]">불러오는 중...</div>}
+            {!scheduleAiLoading && scheduleAiAccounts.length === 0 && <div className="text-xs text-[#A7A399]">등록된 AI 계정이 없습니다.</div>}
+            <div className="flex flex-col gap-2">
+              {scheduleAiAccounts.map((a) => (
+                <div key={a.id} className="flex items-center justify-between rounded-lg border border-[#E4E1D6] px-3 py-2">
+                  <div>
+                    <div className="text-[13px] font-semibold">{a.ai_service?.label}{a.account_label ? ` · ${a.account_label}` : ""}</div>
+                    <div className="text-[11px] text-[#A7A399]">잔여 크레딧</div>
+                  </div>
+                  <div className={`text-[14px] font-bold ${Number(a.remaining_credit) <= 0 ? "text-red-600" : ""}`}>{a.remaining_credit}</div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setScheduleAiModal(null)} className="mt-3.5 rounded-lg border border-[#E4E1D6] px-3.5 py-2 text-sm">닫기</button>
           </div>
         </div>
       )}
