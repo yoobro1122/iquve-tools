@@ -120,6 +120,8 @@ export default function BoardPage() {
   const [scheduleAiModal, setScheduleAiModal] = useState<{ id: string; name: string } | null>(null);
   const [scheduleAiAccounts, setScheduleAiAccounts] = useState<any[]>([]);
   const [scheduleAiLoading, setScheduleAiLoading] = useState(false);
+  const [scheduleGroupOpen, setScheduleGroupOpen] = useState<Record<string, boolean>>({});
+  const [scheduleTaskModal, setScheduleTaskModal] = useState<Task | null>(null);
   const [projectSort, setProjectSort] = useState<{ col: string; dir: 1 | -1 }>({ col: "name", dir: 1 });
   const [segmentSort, setSegmentSort] = useState<Record<string, { col: string; dir: 1 | -1 }>>({});
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
@@ -985,30 +987,43 @@ export default function BoardPage() {
                       </div>
                       {expanded && (
                         <div className="grid grid-cols-7 gap-2 border-t border-[#E4E1D6] p-3">
-                          {weekDays.map((day) => {
+                          {weekDays.map((day, dayIdx) => {
                             const waitingToday = list.filter((t) => taskDayBucket(t, day) === "waiting");
                             const activeToday = list.filter((t) => taskDayBucket(t, day) === "active");
                             const doneToday = list.filter((t) => taskDayBucket(t, day) === "done");
                             const isToday = toDay(day).getTime() === today.getTime();
+                            const groups = [
+                              { key: "waiting", label: "대기", items: waitingToday, cls: "bg-gray-100 text-gray-600 hover:bg-gray-200" },
+                              { key: "active", label: "진행", items: activeToday, cls: "bg-blue-50 text-blue-700 hover:bg-blue-100" },
+                              { key: "done", label: "완료", items: doneToday, cls: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" },
+                            ];
                             return (
                               <div key={day.toISOString()} className={`min-h-[84px] rounded-lg p-2 ${isToday ? "bg-[#E8EDFB]" : "bg-[#FAFAF7]"}`}>
                                 <div className="mb-1.5 text-[11px] font-bold text-[#79766D]">{["월", "화", "수", "목", "금", "토", "일"][day.getDay() === 0 ? 6 : day.getDay() - 1]} {day.getMonth() + 1}/{day.getDate()}</div>
                                 <div className="flex flex-col gap-1">
-                                  {waitingToday.map((t) => (
-                                    <button key={t.id} onClick={() => jumpToTask(t)} className="rounded-md bg-gray-100 px-1.5 py-1 text-left text-[10.5px] text-gray-600 hover:bg-gray-200">
-                                      {episodeLabel(t)} · {t.category?.label ?? "미지정"}
-                                    </button>
-                                  ))}
-                                  {activeToday.map((t) => (
-                                    <button key={t.id} onClick={() => jumpToTask(t)} className="rounded-md bg-blue-50 px-1.5 py-1 text-left text-[10.5px] text-blue-700 hover:bg-blue-100">
-                                      {episodeLabel(t)} · {t.category?.label ?? "미지정"}
-                                    </button>
-                                  ))}
-                                  {doneToday.map((t) => (
-                                    <button key={t.id} onClick={() => jumpToTask(t)} className="rounded-md bg-emerald-50 px-1.5 py-1 text-left text-[10.5px] text-emerald-700 hover:bg-emerald-100">
-                                      ✓ {episodeLabel(t)} · {t.category?.label ?? "미지정"}
-                                    </button>
-                                  ))}
+                                  {groups.map((g) => {
+                                    if (g.items.length === 0) return null;
+                                    const groupKey = `${cid}_${dayIdx}_${g.key}`;
+                                    const groupOpen = !!scheduleGroupOpen[groupKey];
+                                    return (
+                                      <div key={g.key}>
+                                        <button onClick={() => setScheduleGroupOpen((s) => ({ ...s, [groupKey]: !s[groupKey] }))} className="flex w-full items-center gap-1 py-0.5 text-[10.5px] font-semibold text-[#79766D]">
+                                          <ChevronDown size={10} style={{ transform: groupOpen ? "rotate(0deg)" : "rotate(-90deg)" }} />
+                                          {g.label} {g.items.length}건
+                                        </button>
+                                        {groupOpen && (
+                                          <div className="flex flex-col gap-1 pb-1 pl-2.5">
+                                            {g.items.map((t) => (
+                                              <button key={t.id} onClick={() => setScheduleTaskModal(t)} className={`rounded-md px-1.5 py-1 text-left text-[10.5px] ${g.cls}`}>
+                                                <div className="font-semibold">{t.project?.name}</div>
+                                                <div>{episodeLabel(t)} · {t.category?.label ?? "미지정"}</div>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                   {waitingToday.length === 0 && activeToday.length === 0 && doneToday.length === 0 && <div className="text-[10px] text-[#D9D6CC]">-</div>}
                                 </div>
                               </div>
@@ -1864,6 +1879,16 @@ export default function BoardPage() {
               <button onClick={submitSubManagerAck} className={btnPrimary}>확인 완료</button>
               <button onClick={() => setSubManagerAckTaskId(null)} className={btnDefault}>취소</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 일정 관리 - 업무 상세 (TaskCard 재사용) */}
+      {scheduleTaskModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5" onClick={() => setScheduleTaskModal(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-[340px]">
+            <TaskCard t={tasks.find((t) => t.id === scheduleTaskModal.id) ?? scheduleTaskModal} />
+            <button onClick={() => setScheduleTaskModal(null)} className="mt-2 w-full rounded-lg border border-[#E4E1D6] bg-white px-3.5 py-2 text-sm">닫기</button>
           </div>
         </div>
       )}
