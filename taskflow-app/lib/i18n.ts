@@ -65,7 +65,35 @@ const dict = {
   new_contractor: { ko: "새 작업자 등록", en: "New Contractor", vi: "Đăng ký mới" },
   managers_title: { ko: "담당자 관리", en: "Manager Management", vi: "Quản lý phụ trách" },
   new_manager: { ko: "새 담당자 등록", en: "New Manager", vi: "Đăng ký mới" },
+
+  completed_tasks_section: { ko: "완료된 업무", en: "Completed Tasks", vi: "Công việc đã hoàn thành" },
+  past_assignments_section: { ko: "참여했던 업무", en: "Past Tasks", vi: "Công việc đã tham gia" },
+  archived_tasks_section: { ko: "삭제된 업무", en: "Deleted Tasks", vi: "Công việc đã xóa" },
+  start_short: { ko: "시작", en: "Start", vi: "Bắt đầu" },
+  end_short: { ko: "종료", en: "End", vi: "Kết thúc" },
+  restart_short: { ko: "재시작", en: "Restart", vi: "Bắt đầu lại" },
+  reend_short: { ko: "재종료", en: "Re-end", vi: "Kết thúc lại" },
+  handed_off: { ko: "인계됨", en: "Handed off", vi: "Đã chuyển giao" },
+  all_short: { ko: "전체", en: "All", vi: "Tất cả" },
+  work_status: { ko: "작업 상황", en: "Work Status", vi: "Tình trạng công việc" },
+  label_pending: { ko: "대기", en: "Waiting", vi: "Chờ" },
+  label_working: { ko: "진행중", en: "In Progress", vi: "Đang thực hiện" },
+  label_working_short: { ko: "진행", en: "Active", vi: "Đang làm" },
+  label_complete: { ko: "완료", en: "Done", vi: "Hoàn thành" },
+  sound_check: { ko: "음량 확인", en: "Sound Check", vi: "Kiểm tra âm thanh" },
+  upload_check: { ko: "업로드 확인", en: "Upload Check", vi: "Kiểm tra tải lên" },
+  qc: { ko: "검수 상태", en: "QC", vi: "QC" },
+  pub_label: { ko: "게재", en: "Pub", vi: "Đăng" },
+  pub_done: { ko: "완료", en: "Done", vi: "Xong" },
+  pub_declined: { ko: "불가", en: "Declined", vi: "Từ chối" },
+  pub_not_yet: { ko: "미정", en: "Not yet", vi: "Chưa xác định" },
 } as const;
+
+export function taskCountLabel(lang: Lang, n: number) {
+  if (lang === "ko") return `업무 ${n}건`;
+  if (lang === "vi") return `${n} công việc`;
+  return `${n} tasks`;
+}
 
 export type DictKey = keyof typeof dict;
 

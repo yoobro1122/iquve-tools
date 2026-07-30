@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
-import { Lang, useLang, t as tr } from "@/lib/i18n";
+import { Lang, useLang, t as tr, taskCountLabel } from "@/lib/i18n";
 import {
   Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
@@ -778,9 +778,9 @@ export default function BoardPage() {
 
         <div className="mb-2 flex justify-between text-[11px] text-[#A7A399]">
           <span>
-            {t.status === "waiting" ? `등록일 ${fmtDateTime(t.planned_start_date)}` : (cur?.started_at ? `${cur.is_rework ? "재시작" : "시작"} ${fmtDateTime(cur.started_at)}` : "\u00A0")}
+            {t.status === "waiting" ? `등록일 ${fmtDateTime(t.planned_start_date)}` : (cur?.started_at ? `${tr(lang, cur.is_rework ? "restart_short" : "start_short")} ${fmtDateTime(cur.started_at)}` : "\u00A0")}
           </span>
-          <span>{cur?.ended_at ? `${cur.is_rework ? "재종료" : "종료"} ${fmtDateTime(cur.ended_at)}` : "\u00A0"}</span>
+          <span>{cur?.ended_at ? `${tr(lang, cur.is_rework ? "reend_short" : "end_short")} ${fmtDateTime(cur.ended_at)}` : "\u00A0"}</span>
         </div>
         {cur?.rating && (
           <div className="mb-2 text-xs text-amber-600">★ {cur.rating}점{cur.credit_used != null && <span className="ml-2 text-[#A7A399]">크레딧 -{cur.credit_used}</span>}</div>
@@ -1006,9 +1006,9 @@ export default function BoardPage() {
                             const doneToday = list.filter((t) => taskDayBucket(t, day) === "done");
                             const isToday = toDay(day).getTime() === today.getTime();
                             const groups = [
-                              { key: "waiting", label: "대기", items: waitingToday, cls: "bg-gray-100 text-gray-600 hover:bg-gray-200" },
-                              { key: "active", label: "진행", items: activeToday, cls: "bg-blue-50 text-blue-700 hover:bg-blue-100" },
-                              { key: "done", label: "완료", items: doneToday, cls: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" },
+                              { key: "waiting", label: tr(lang, "label_pending"), items: waitingToday, cls: "bg-gray-100 text-gray-600 hover:bg-gray-200" },
+                              { key: "active", label: tr(lang, "label_working_short"), items: activeToday, cls: "bg-blue-50 text-blue-700 hover:bg-blue-100" },
+                              { key: "done", label: tr(lang, "label_complete"), items: doneToday, cls: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" },
                             ];
                             return (
                               <div key={day.toISOString()} className={`min-h-[84px] rounded-lg p-2 ${isToday ? "bg-[#E8EDFB]" : "bg-[#FAFAF7]"}`}>
@@ -1159,7 +1159,7 @@ export default function BoardPage() {
                     <h2 className="text-lg font-bold">전체 업무</h2>
                   ) : (
                     <>
-                      <div className="mb-0.5 text-[11px] text-[#A7A399]">{selectedProject!.code} / 업무 {rawScopeTasks.length}건 / {ddayLabel(selectedProject!)}</div>
+                      <div className="mb-0.5 text-[11px] text-[#A7A399]">{selectedProject!.code} / {taskCountLabel(lang, rawScopeTasks.length)} / {ddayLabel(selectedProject!)}</div>
                       <div className="flex items-center gap-2">
                         <h2 className="text-lg font-bold">{selectedProject!.name}</h2>
                         {me.role === "manager" && !selectedProject!.archived && (
@@ -1177,11 +1177,11 @@ export default function BoardPage() {
                     ) : (
                       <div onClick={() => me.role === "manager" && openStatusModal()} className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E1D6] bg-[#F6F5F0] px-3 py-2" style={{ cursor: me.role === "manager" ? "pointer" : "default" }}>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${PROJECT_STATUS_COLOR[computeProjectStatus(selectedProject!, tasks)]}`}>{projectStatusLabel(computeProjectStatus(selectedProject!, tasks), lang)}</span>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.volume_check)}`}>음량 확인 {selectedProject!.volume_check}</span>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.upload_status)}`}>업로드 확인 {selectedProject!.upload_status}</span>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.review_status)}`}>검수 상태 {selectedProject!.review_status}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.volume_check)}`}>{tr(lang, "sound_check")} {selectedProject!.volume_check}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.upload_status)}`}>{tr(lang, "upload_check")} {selectedProject!.upload_status}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.review_status)}`}>{tr(lang, "qc")} {selectedProject!.review_status}</span>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${selectedProject!.upload_decision === "confirmed" ? "bg-emerald-50 text-emerald-700" : selectedProject!.upload_decision === "declined" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-500"}`}>
-                          게재 {selectedProject!.upload_decision === "confirmed" ? "완료" : selectedProject!.upload_decision === "declined" ? "불가" : "미정"}
+                          {tr(lang, "pub_label")} {selectedProject!.upload_decision === "confirmed" ? tr(lang, "pub_done") : selectedProject!.upload_decision === "declined" ? tr(lang, "pub_declined") : tr(lang, "pub_not_yet")}
                         </span>
                       </div>
                     )}
@@ -1191,7 +1191,7 @@ export default function BoardPage() {
 
               {!isAllView && !selectedProject!.archived && (
                 <div className="mb-3.5 flex flex-wrap items-center gap-1.5">
-                  <button onClick={() => setSelectedEpisodeId("ALL")} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold ${selectedEpisodeId === "ALL" ? "bg-[#1F1E1B] text-white" : "bg-[#EEEDE7] text-[#79766D]"}`}>전체</button>
+                  <button onClick={() => setSelectedEpisodeId("ALL")} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold ${selectedEpisodeId === "ALL" ? "bg-[#1F1E1B] text-white" : "bg-[#EEEDE7] text-[#79766D]"}`}>{tr(lang, "all_short")}</button>
                   {(selectedProject!.episodes ?? []).map((ep) => (
                     <button key={ep.id} onClick={() => setSelectedEpisodeId(ep.id)} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold ${selectedEpisodeId === ep.id ? "bg-[#1F1E1B] text-white" : "bg-[#EEEDE7] text-[#79766D]"}`}>{ep.label}</button>
                   ))}
@@ -1205,7 +1205,7 @@ export default function BoardPage() {
                 <div className="mb-3.5 overflow-x-auto rounded-xl border border-[#E4E1D6] bg-white p-3">
                   <button onClick={() => setShowEpisodeMatrix((v) => !v)} className="mb-1 flex items-center gap-1.5 text-[12px] font-bold text-[#79766D]">
                     <ChevronDown size={13} style={{ transform: showEpisodeMatrix ? "rotate(0deg)" : "rotate(-90deg)" }} />
-                    작업 상황
+                    {tr(lang, "work_status")}
                   </button>
                   {showEpisodeMatrix && (
                     <table className="w-full text-[11px]">
@@ -1223,9 +1223,9 @@ export default function BoardPage() {
                               const cellTasks = rawScopeTasks.filter((t) => t.episode_id === ep.id && t.category_id === c.id);
                               let cell: { label: string; cls: string };
                               if (cellTasks.length === 0) cell = { label: "-", cls: "text-[#D9D6CC]" };
-                              else if (cellTasks.every((t) => t.status === "done")) cell = { label: "완료", cls: "bg-emerald-50 text-emerald-700" };
-                              else if (cellTasks.some((t) => t.status !== "waiting")) cell = { label: "진행중", cls: "bg-blue-50 text-blue-700" };
-                              else cell = { label: "대기", cls: "bg-gray-100 text-gray-500" };
+                              else if (cellTasks.every((t) => t.status === "done")) cell = { label: tr(lang, "label_complete"), cls: "bg-emerald-50 text-emerald-700" };
+                              else if (cellTasks.some((t) => t.status !== "waiting")) cell = { label: tr(lang, "label_working"), cls: "bg-blue-50 text-blue-700" };
+                              else cell = { label: tr(lang, "label_pending"), cls: "bg-gray-100 text-gray-500" };
                               return (
                                 <td key={c.id} className="px-1 py-1 text-center">
                                   <span className={`inline-block w-full rounded-md px-1.5 py-1 font-semibold ${cell.cls}`}>{cell.label}</span>
@@ -1313,7 +1313,7 @@ export default function BoardPage() {
                 <div className="mt-7">
                   <button onClick={() => setShowCompletedTasks((v) => !v)} className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#79766D]">
                     <ChevronDown size={13} style={{ transform: showCompletedTasks ? "rotate(0deg)" : "rotate(-90deg)" }} />
-                    완료된 업무 · {myCompletedTasks.length}
+                    {tr(lang, "completed_tasks_section")} · {myCompletedTasks.length}
                   </button>
                   {showCompletedTasks && (
                     <div className="mt-2.5 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
@@ -1323,12 +1323,11 @@ export default function BoardPage() {
                           <div key={t.id} className="rounded-xl border border-[#E4E1D6] bg-white p-3.5">
                             <div className="mb-1.5 text-[10.5px] text-[#A7A399]">{t.project!.code} / {t.code} / {t.project!.name}</div>
                             <div className="mb-1.5 text-[15px] font-bold">{episodeLabel(t)}</div>
-                            <div className="mb-2 text-xs text-emerald-700">완료</div>
+                            <div className="mb-2 text-xs text-emerald-700">{tr(lang, "label_complete")}</div>
                             <div className="flex justify-between text-[11px] text-[#A7A399]">
-                              <span>{cur?.started_at ? `시작 ${fmtDateTime(cur.started_at)}` : "-"}</span>
-                              <span>{cur?.ended_at ? `종료 ${fmtDateTime(cur.ended_at)}` : "-"}</span>
+                              <span>{cur?.started_at ? `${tr(lang, "start_short")} ${fmtDateTime(cur.started_at)}` : "-"}</span>
+                              <span>{cur?.ended_at ? `${tr(lang, "end_short")} ${fmtDateTime(cur.ended_at)}` : "-"}</span>
                             </div>
-                            {cur?.rating && <div className="mt-1.5 text-xs text-amber-600">★ {cur.rating}점</div>}
                           </div>
                         );
                       })}
@@ -1341,7 +1340,7 @@ export default function BoardPage() {
                 <div className="mt-7">
                   <button onClick={() => setShowPastAssignments((v) => !v)} className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#79766D]">
                     <ChevronDown size={13} style={{ transform: showPastAssignments ? "rotate(0deg)" : "rotate(-90deg)" }} />
-                    참여했던 업무 · {pastAssignments.length}
+                    {tr(lang, "past_assignments_section")} · {pastAssignments.length}
                   </button>
                   {showPastAssignments && (
                     <div className="mt-2.5 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
@@ -1349,12 +1348,11 @@ export default function BoardPage() {
                         <div key={a.id} className="rounded-xl border border-[#E4E1D6] bg-white p-3.5 opacity-75">
                           <div className="mb-1.5 text-[10.5px] text-[#A7A399]">{a.task.project?.code} / {a.task.code} / {a.task.project?.name}</div>
                           <div className="mb-1.5 text-[15px] font-bold">{a.task.episode?.label ?? "적용 안함"}</div>
-                          <div className="mb-2 text-xs font-semibold text-gray-500">인계됨</div>
+                          <div className="mb-2 text-xs font-semibold text-gray-500">{tr(lang, "handed_off")}</div>
                           <div className="flex justify-between text-[11px] text-[#A7A399]">
-                            <span>{a.started_at ? `시작 ${fmtDateTime(a.started_at)}` : "-"}</span>
-                            <span>{a.ended_at ? `종료 ${fmtDateTime(a.ended_at)}` : "-"}</span>
+                            <span>{a.started_at ? `${tr(lang, "start_short")} ${fmtDateTime(a.started_at)}` : "-"}</span>
+                            <span>{a.ended_at ? `${tr(lang, "end_short")} ${fmtDateTime(a.ended_at)}` : "-"}</span>
                           </div>
-                          {a.rating && <div className="mt-1.5 text-xs text-amber-600">★ {a.rating}점</div>}
                         </div>
                       ))}
                     </div>
@@ -1366,7 +1364,7 @@ export default function BoardPage() {
                 <div className="mt-7">
                   <button onClick={() => setShowArchivedTasks((v) => !v)} className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#79766D]">
                     <ChevronDown size={13} style={{ transform: showArchivedTasks ? "rotate(0deg)" : "rotate(-90deg)" }} />
-                    삭제된 업무 · {archivedTasksInScope.length}
+                    {tr(lang, "archived_tasks_section")} · {archivedTasksInScope.length}
                   </button>
                   {showArchivedTasks && (
                     <div className="mt-2.5 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
