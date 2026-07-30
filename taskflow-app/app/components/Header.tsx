@@ -3,8 +3,11 @@
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Users, Film, UserCog } from "lucide-react";
+import { Lang, t } from "@/lib/i18n";
 
-export default function Header({ name, role }: { name: string; role: "manager" | "contractor" }) {
+export default function Header({
+  name, role, lang, onLangChange,
+}: { name: string; role: "manager" | "contractor"; lang: Lang; onLangChange: (l: Lang) => void }) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -22,8 +25,8 @@ export default function Header({ name, role }: { name: string; role: "manager" |
           <Film size={17} color="#fff" />
         </div>
         <div>
-          <div className="text-[15px] font-bold leading-tight">TaskFlow <span className="text-[10px] font-normal text-[#A7A399]">v1.07</span></div>
-          <div className="text-[11px] text-[#79766D]">미디어팀 외주 업무 관리</div>
+          <div className="text-[15px] font-bold leading-tight">TaskFlow <span className="text-[10px] font-normal text-[#A7A399]">v1.08</span></div>
+          <div className="text-[11px] text-[#79766D]">{t(lang, "app_subtitle")}</div>
         </div>
       </div>
 
@@ -34,25 +37,38 @@ export default function Header({ name, role }: { name: string; role: "manager" |
               onClick={() => router.push("/board")}
               className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${pathname === "/board" ? "bg-white" : "text-[#79766D]"}`}
             >
-              프로젝트 관리
+              {t(lang, "nav_projects")}
             </button>
             <button
               onClick={() => router.push("/contractors")}
               className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${pathname === "/contractors" ? "bg-white" : "text-[#79766D]"}`}
             >
-              <Users size={13} /> 외주 작업자 관리
+              <Users size={13} /> {t(lang, "nav_contractors")}
             </button>
             <button
               onClick={() => router.push("/managers")}
               className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${pathname === "/managers" ? "bg-white" : "text-[#79766D]"}`}
             >
-              <UserCog size={13} /> 담당자 관리
+              <UserCog size={13} /> {t(lang, "nav_managers")}
             </button>
           </div>
         )}
-        <span className="text-[12.5px] text-[#79766D]">{name} ({role === "manager" ? "담당자" : "외주 작업자"})</span>
+
+        <div className="flex rounded-lg bg-[#EEEDE7] p-0.5">
+          {(["ko", "en", "vi"] as Lang[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => onLangChange(l)}
+              className={`rounded-md px-2 py-1.5 text-[11.5px] font-semibold ${lang === l ? "bg-white" : "text-[#79766D]"}`}
+            >
+              {l === "ko" ? "한" : l === "en" ? "EN" : "VI"}
+            </button>
+          ))}
+        </div>
+
+        <span className="text-[12.5px] text-[#79766D]">{name} ({role === "manager" ? t(lang, "role_manager") : t(lang, "role_contractor")})</span>
         <button onClick={handleLogout} className="rounded-lg border border-[#E4E1D6] px-3 py-1.5 text-[12.5px]">
-          로그아웃
+          {t(lang, "logout")}
         </button>
       </div>
     </header>

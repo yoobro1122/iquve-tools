@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/app/components/Header";
+import { Lang, useLang, t as tr } from "@/lib/i18n";
 import {
   Play, Check, X, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   FolderPlus, Volume2, UploadCloud, ClipboardCheck, Pencil, Trash2,
@@ -73,6 +74,17 @@ function SortHeader({ label, col, sort, onClick }: { label: string; col: string;
     </button>
   );
 }
+function projectStatusLabel(korLabel: string, lang: Lang) {
+  const map: Record<string, string> = {
+    "준비 중": "project_status_ready",
+    "작업 중": "project_status_active",
+    "검수 중": "project_status_reviewing",
+    "확인 완료": "project_status_confirmed",
+    "업로드 완료": "project_status_uploaded",
+  };
+  const key = map[korLabel];
+  return key ? tr(lang, key as any) : korLabel;
+}
 function statusPillStyle(value: string) {
   if (value === "Not yet") return "bg-gray-100 text-gray-600";
   if (value === "Revision") return "bg-amber-50 text-amber-700";
@@ -87,6 +99,7 @@ function simplifiedStatus(full: string) {
 
 export default function BoardPage() {
   const supabase = createClient();
+  const [lang, setLang] = useLang();
   const [me, setMe] = useState<Profile | null>(null);
   const [majorCategories, setMajorCategories] = useState<MajorCategory[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -723,7 +736,7 @@ export default function BoardPage() {
         </div>
         <div className="mb-1.5 text-[15px] font-bold">{episodeLabel(t)}</div>
         <div className="mb-2 text-[12.5px] text-[#79766D]">
-          {contractorName(t)} <span className="text-[#A7A399]">(담당: {managerName(t)})</span> · <span className={`font-semibold ${TASK_STATUS_COLOR[t.status]}`}>{TASK_STATUS_LABEL[t.status]}{isReopened && " (재진행)"}</span>
+          {contractorName(t)} <span className="text-[#A7A399]">(담당: {managerName(t)})</span> · <span className={`font-semibold ${TASK_STATUS_COLOR[t.status]}`}>{tr(lang, `task_status_${t.status}` as any)}{isReopened && " (재진행)"}</span>
         </div>
 
         {outOfOrder && (
@@ -775,13 +788,13 @@ export default function BoardPage() {
 
         {!projectArchived && isMine && t.status === "waiting" && (
           canStart ? (
-            <button onClick={() => taskStart(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Play size={13} /> 업무 시작</button>
+            <button onClick={() => taskStart(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Play size={13} /> {tr(lang, "task_start")}</button>
           ) : (
             <button disabled className={`${btnDefault} flex w-full cursor-not-allowed items-center justify-center gap-1.5 opacity-50`}>이전 순서 업무 완료 대기중</button>
           )
         )}
         {!projectArchived && isMine && t.status === "in_progress" && (
-          <button onClick={() => openSubmitModal(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Check size={13} /> 업무 종료</button>
+          <button onClick={() => openSubmitModal(t)} className={`${btnPrimary} flex w-full items-center justify-center gap-1.5`}><Check size={13} /> {tr(lang, "task_end")}</button>
         )}
         {!projectArchived && isMine && t.status === "reviewing" && (
           <div className="text-xs text-[#A7A399]">담당자 검수를 기다리는 중입니다.</div>
@@ -795,9 +808,9 @@ export default function BoardPage() {
 
         {!projectArchived && isManagerView && !isSubManager && t.status === "reviewing" && (
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => reviewApprove(t)} className={`${btnSuccess} flex items-center gap-1`}><Check size={13} /> 검수 확인</button>
-            <button onClick={() => openReworkModal(t)} className={`${btnDanger} flex items-center gap-1`}><X size={13} /> 재작업 요청</button>
-            <button onClick={() => openHandoffModal(t)} className={`${btnDefault} flex items-center gap-1`}><ArrowRightLeft size={13} /> 다른 작업자에게 인계</button>
+            <button onClick={() => reviewApprove(t)} className={`${btnSuccess} flex items-center gap-1`}><Check size={13} /> {tr(lang, "review_approve")}</button>
+            <button onClick={() => openReworkModal(t)} className={`${btnDanger} flex items-center gap-1`}><X size={13} /> {tr(lang, "rework_request")}</button>
+            <button onClick={() => openHandoffModal(t)} className={`${btnDefault} flex items-center gap-1`}><ArrowRightLeft size={13} /> {tr(lang, "handoff")}</button>
           </div>
         )}
         {!projectArchived && isManagerView && !isSubManager && t.status === "rework_notice" && (
@@ -822,7 +835,7 @@ export default function BoardPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F6F5F0] text-[#1F1E1B]">
-      <Header name={me.name} role={me.role} />
+      <Header name={me.name} role={me.role} lang={lang} onLangChange={setLang} />
 
       {(busy || refreshing) && (
         <div className="fixed left-1/2 top-4 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#1F1E1B] px-4 py-2 text-xs font-semibold text-white shadow-lg">
@@ -848,14 +861,14 @@ export default function BoardPage() {
       )}
 
       <div className="flex items-center gap-1 border-b border-[#E4E1D6] bg-white px-6">
-        <button onClick={() => setMajorCategoryId("ALL_MC")} className={`px-5 py-3 text-[13.5px] font-bold ${isAllMc ? "border-b-2 border-[#2C56C9] text-[#2C56C9]" : "border-b-2 border-transparent text-[#79766D]"}`}>전체 보기</button>
+        <button onClick={() => setMajorCategoryId("ALL_MC")} className={`px-5 py-3 text-[13.5px] font-bold ${isAllMc ? "border-b-2 border-[#2C56C9] text-[#2C56C9]" : "border-b-2 border-transparent text-[#79766D]"}`}>{tr(lang, "all_view")}</button>
         {majorCategories.map((mc) => (
           <button key={mc.id} onClick={() => setMajorCategoryId(mc.id)} className={`px-5 py-3 text-[13.5px] font-bold ${majorCategoryId === mc.id ? "border-b-2 border-[#2C56C9] text-[#2C56C9]" : "border-b-2 border-transparent text-[#79766D]"}`}>{mc.label}</button>
         ))}
         {me.role === "manager" && (
           <>
-            <button onClick={openLogDrawer} className="ml-auto flex items-center gap-1.5 px-2.5 py-2 text-[12.5px] font-semibold text-[#79766D]"><Bell size={13} /> 전체 로그</button>
-            <button onClick={() => setShowMcManage(true)} className="flex items-center gap-1.5 px-2.5 py-2 text-[12.5px] font-semibold text-[#79766D]"><Settings size={13} /> 수정</button>
+            <button onClick={openLogDrawer} className="ml-auto flex items-center gap-1.5 px-2.5 py-2 text-[12.5px] font-semibold text-[#79766D]"><Bell size={13} /> {tr(lang, "full_log")}</button>
+            <button onClick={() => setShowMcManage(true)} className="flex items-center gap-1.5 px-2.5 py-2 text-[12.5px] font-semibold text-[#79766D]"><Settings size={13} /> {tr(lang, "edit")}</button>
           </>
         )}
       </div>
@@ -876,10 +889,10 @@ export default function BoardPage() {
           )}
 
           {[
-            { key: "ready", label: "준비 중 프로젝트" },
-            { key: "inprogress", label: "진행 중 프로젝트" },
-            { key: "done", label: "완료된 프로젝트" },
-            { key: "archived", label: "삭제된 프로젝트" },
+            { key: "ready", label: tr(lang, "ready_projects") },
+            { key: "inprogress", label: tr(lang, "inprogress_projects") },
+            { key: "done", label: tr(lang, "done_projects") },
+            { key: "archived", label: tr(lang, "archived_projects") },
           ].map((bm) => (
             <div key={bm.key} className="mb-1.5">
               <button onClick={() => setOpenBuckets((o) => ({ ...o, [bm.key]: !o[bm.key] }))} className={`flex w-full items-center ${sidebarOpen ? "justify-between" : "justify-center"} px-1 py-1.5 text-[11.5px] font-bold text-[#79766D]`}>
@@ -913,15 +926,15 @@ export default function BoardPage() {
 
           <div className="mt-4 border-t border-[#E4E1D6] pt-3.5">
             <button onClick={() => { setSelectedProjectId("ALL"); setProjectStatusView(false); setScheduleView(false); }} className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${isAllView && !projectStatusView && !scheduleView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
-              <Boxes size={14} />{sidebarOpen && " 전체 업무"}
+              <Boxes size={14} />{sidebarOpen && ` ${tr(lang, "all_tasks")}`}
             </button>
             {me.role === "manager" && (
               <>
                 <button onClick={() => { setProjectStatusView(true); setScheduleView(false); }} className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
-                  <ClipboardList size={14} />{sidebarOpen && " 프로젝트 현황"}
+                  <ClipboardList size={14} />{sidebarOpen && ` ${tr(lang, "project_status")}`}
                 </button>
                 <button onClick={() => { setScheduleView(true); setProjectStatusView(false); }} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${scheduleView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
-                  <CalendarDays size={14} />{sidebarOpen && " 일정 관리"}
+                  <CalendarDays size={14} />{sidebarOpen && ` ${tr(lang, "schedule")}`}
                 </button>
               </>
             )}
@@ -1042,7 +1055,7 @@ export default function BoardPage() {
                 <h2 className="text-lg font-bold">프로젝트 현황</h2>
                 {me.role === "manager" && (
                   <button onClick={() => { setExportProjectId(scopedProjects[0]?.id ?? ""); setShowExportPicker(true); }} className={`${btnDefault} flex items-center gap-1.5`}>
-                    <Download size={14} /> 엑셀 다운로드
+                    <Download size={14} /> {tr(lang, "excel_download")}
                   </button>
                 )}
               </div>
@@ -1163,7 +1176,7 @@ export default function BoardPage() {
                       <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-400">삭제됨</span>
                     ) : (
                       <div onClick={() => me.role === "manager" && openStatusModal()} className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E1D6] bg-[#F6F5F0] px-3 py-2" style={{ cursor: me.role === "manager" ? "pointer" : "default" }}>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${PROJECT_STATUS_COLOR[computeProjectStatus(selectedProject!, tasks)]}`}>{computeProjectStatus(selectedProject!, tasks)}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${PROJECT_STATUS_COLOR[computeProjectStatus(selectedProject!, tasks)]}`}>{projectStatusLabel(computeProjectStatus(selectedProject!, tasks), lang)}</span>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.volume_check)}`}>음량 확인 {selectedProject!.volume_check}</span>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.upload_status)}`}>업로드 확인 {selectedProject!.upload_status}</span>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusPillStyle(selectedProject!.review_status)}`}>검수 상태 {selectedProject!.review_status}</span>
@@ -1246,18 +1259,18 @@ export default function BoardPage() {
                 {isAllView ? (
                   <div className="relative flex-1 max-w-xs">
                     <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#A7A399]" />
-                    <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="작업자/담당자 이름 검색" className="w-full rounded-lg border border-[#E4E1D6] py-2 pl-8 pr-3 text-[13px]" />
+                    <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={tr(lang, "search_placeholder")} className="w-full rounded-lg border border-[#E4E1D6] py-2 pl-8 pr-3 text-[13px]" />
                   </div>
                 ) : <div />}
                 <div className="flex items-center gap-2">
                   {!isAllView && !selectedProject!.archived && me.role === "manager" && (
                     <button onClick={() => { setNewTaskIsInternal(false); setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [], no_order_constraint: false }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
-                      <Plus size={14} /> 업무 등록
+                      <Plus size={14} /> {tr(lang, "register_task")}
                     </button>
                   )}
                   <div className="flex rounded-lg bg-[#EEEDE7] p-0.5">
-                    <button onClick={() => setViewMode("category")} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${viewMode === "category" ? "bg-white" : "text-[#79766D]"}`}>업무별</button>
-                    <button onClick={() => setViewMode("status")} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${viewMode === "status" ? "bg-white" : "text-[#79766D]"}`}>진행상황별</button>
+                    <button onClick={() => setViewMode("category")} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${viewMode === "category" ? "bg-white" : "text-[#79766D]"}`}>{tr(lang, "by_category")}</button>
+                    <button onClick={() => setViewMode("status")} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${viewMode === "status" ? "bg-white" : "text-[#79766D]"}`}>{tr(lang, "by_status")}</button>
                   </div>
                 </div>
               </div>

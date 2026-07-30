@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/lib/types";
 import Header from "@/app/components/Header";
+import { useLang, t } from "@/lib/i18n";
 import { Plus, Pencil, KeyRound, Trash2, Copy, Check, Loader2 } from "lucide-react";
 
 export default function ManagersPage() {
   const supabase = createClient();
+  const [lang, setLang] = useLang();
   const [me, setMe] = useState<Profile | null>(null);
   const [managers, setManagers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,7 @@ export default function ManagersPage() {
 
   return (
     <div>
-      <Header name={me.name} role={me.role} />
+      <Header name={me.name} role={me.role} lang={lang} onLangChange={setLang} />
 
       {busy && (
         <div className="fixed left-1/2 top-4 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#1F1E1B] px-4 py-2 text-xs font-semibold text-white shadow-lg">
@@ -120,9 +122,9 @@ export default function ManagersPage() {
 
       <main className="mx-auto max-w-3xl p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">담당자 관리</h2>
+          <h2 className="text-lg font-bold">{t(lang, "managers_title")}</h2>
           <button onClick={openNew} className="flex items-center gap-1.5 rounded-lg bg-[#1F1E1B] px-3.5 py-2 text-sm font-semibold text-white">
-            <Plus size={14} /> 새 담당자 등록
+            <Plus size={14} /> {t(lang, "new_manager")}
           </button>
         </div>
 
