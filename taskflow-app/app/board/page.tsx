@@ -942,7 +942,22 @@ export default function BoardPage() {
               </div>
               {(() => {
                 const weekDays = Array.from({ length: 7 }, (_, i) => { const d = new Date(scheduleWeekStart); d.setDate(d.getDate() + i); return d; });
-                const sameDate = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+                const toDay = (d: string | Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+                const today = toDay(new Date());
+                // 업무 하나가 특정 날짜에 대기중/진행중/완료 중 어디에 해당하는지 판별
+                // (등록일~시작 전날: 대기중 / 시작일~완료 전날: 진행중 / 완료일 당일만: 완료)
+                const taskDayBucket = (t: Task, day: Date): "waiting" | "active" | "done" | null => {
+                  const cur = currentAssignment(t);
+                  const dayD = toDay(day);
+                  const regD = toDay(t.planned_start_date);
+                  if (dayD < regD) return null;
+                  const startD = cur?.started_at ? toDay(cur.started_at) : null;
+                  const endD = cur?.ended_at ? toDay(cur.ended_at) : null;
+                  if (endD && dayD.getTime() === endD.getTime()) return "done";
+                  if (endD && dayD > endD) return null;
+                  if (startD && dayD >= startD) return "active";
+                  return "waiting";
+                };
                 const scopedProjectIds = new Set(scopedProjects.map((p) => p.id));
                 const scopedTasks = tasks.filter((t) => scopedProjectIds.has(t.project_id) && !t.archived);
                 const byContractor: Record<string, Task[]> = {};
@@ -951,8 +966,10 @@ export default function BoardPage() {
                 return allContractorIds.map((cid) => {
                   const cName = contractors.find((c) => c.id === cid)?.name ?? scopedTasks.find((t) => t.contractor_id === cid)?.contractor?.name ?? "알 수 없음";
                   const list = byContractor[cid] ?? [];
-                  const activeCount = list.filter((t) => ["in_progress", "reviewing", "rework_notice"].includes(t.status)).length;
-                  const doneThisWeekCount = list.filter((t) => t.status === "done" && weekDays.some((d) => { const cur = currentAssignment(t); return !!cur?.ended_at && sameDate(new Date(cur.ended_at), d); })).length;
+                  const todayBuckets = list.map((t) => taskDayBucket(t, today));
+                  const waitingTodayCount = todayBuckets.filter((b) => b === "waiting").length;
+                  const activeTodayCount = todayBuckets.filter((b) => b === "active").length;
+                  const doneTodayCount = todayBuckets.filter((b) => b === "done").length;
                   const expanded = !!expandedContractorRows[cid];
                   return (
                     <div key={cid} className="mb-3 overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
@@ -960,7 +977,7 @@ export default function BoardPage() {
                         <button onClick={() => setExpandedContractorRows((s) => ({ ...s, [cid]: !s[cid] }))} className="flex flex-1 items-center gap-2 text-left">
                           <ChevronDown size={14} style={{ transform: expanded ? "rotate(0deg)" : "rotate(-90deg)" }} className="flex-shrink-0 text-[#A7A399]" />
                           <span className="text-[14px] font-bold">{cName}</span>
-                          <span className="text-[12px] text-[#A7A399]">진행 {activeCount} · 완료(이번 주) {doneThisWeekCount}</span>
+                          <span className="text-[12px] text-[#A7A399]">대기 {waitingTodayCount} · 진행 {activeTodayCount} · 완료 {doneTodayCount} <span className="text-[#D9D6CC]">(금일 기준)</span></span>
                         </button>
                         <button onClick={() => openScheduleAiModal({ id: cid, name: cName })} className="flex flex-shrink-0 items-center gap-1 rounded-lg border border-[#E4E1D6] px-2.5 py-1.5 text-[11.5px] text-[#79766D]">
                           <Sparkles size={12} /> AI 서비스 계정
@@ -969,22 +986,19 @@ export default function BoardPage() {
                       {expanded && (
                         <div className="grid grid-cols-7 gap-2 border-t border-[#E4E1D6] p-3">
                           {weekDays.map((day) => {
-                            const activeToday = list.filter((t) => {
-                              const cur = currentAssignment(t);
-                              if (!cur?.started_at || t.status === "waiting" || t.status === "done") return false;
-                              const start = new Date(cur.started_at);
-                              const end = cur.ended_at ? new Date(cur.ended_at) : new Date();
-                              return start <= day && day <= end;
-                            });
-                            const doneToday = list.filter((t) => {
-                              const cur = currentAssignment(t);
-                              return t.status === "done" && !!cur?.ended_at && sameDate(new Date(cur.ended_at), day);
-                            });
-                            const isToday = sameDate(day, new Date());
+                            const waitingToday = list.filter((t) => taskDayBucket(t, day) === "waiting");
+                            const activeToday = list.filter((t) => taskDayBucket(t, day) === "active");
+                            const doneToday = list.filter((t) => taskDayBucket(t, day) === "done");
+                            const isToday = toDay(day).getTime() === today.getTime();
                             return (
                               <div key={day.toISOString()} className={`min-h-[84px] rounded-lg p-2 ${isToday ? "bg-[#E8EDFB]" : "bg-[#FAFAF7]"}`}>
                                 <div className="mb-1.5 text-[11px] font-bold text-[#79766D]">{["월", "화", "수", "목", "금", "토", "일"][day.getDay() === 0 ? 6 : day.getDay() - 1]} {day.getMonth() + 1}/{day.getDate()}</div>
                                 <div className="flex flex-col gap-1">
+                                  {waitingToday.map((t) => (
+                                    <button key={t.id} onClick={() => jumpToTask(t)} className="rounded-md bg-gray-100 px-1.5 py-1 text-left text-[10.5px] text-gray-600 hover:bg-gray-200">
+                                      {episodeLabel(t)} · {t.category?.label ?? "미지정"}
+                                    </button>
+                                  ))}
                                   {activeToday.map((t) => (
                                     <button key={t.id} onClick={() => jumpToTask(t)} className="rounded-md bg-blue-50 px-1.5 py-1 text-left text-[10.5px] text-blue-700 hover:bg-blue-100">
                                       {episodeLabel(t)} · {t.category?.label ?? "미지정"}
@@ -995,7 +1009,7 @@ export default function BoardPage() {
                                       ✓ {episodeLabel(t)} · {t.category?.label ?? "미지정"}
                                     </button>
                                   ))}
-                                  {activeToday.length === 0 && doneToday.length === 0 && <div className="text-[10px] text-[#D9D6CC]">-</div>}
+                                  {waitingToday.length === 0 && activeToday.length === 0 && doneToday.length === 0 && <div className="text-[10px] text-[#D9D6CC]">-</div>}
                                 </div>
                               </div>
                             );
