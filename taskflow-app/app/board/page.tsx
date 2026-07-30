@@ -952,19 +952,19 @@ export default function BoardPage() {
                   const cur = currentAssignment(t);
                   const dayD = toDay(day);
                   const regD = toDay(t.planned_start_date);
-                  if (dayD < regD) return null;
                   const startD = cur?.started_at ? toDay(cur.started_at) : null;
                   const endD = cur?.ended_at ? toDay(cur.ended_at) : null;
                   if (endD && dayD.getTime() === endD.getTime()) return "done";
                   if (endD && dayD > endD) return null;
                   if (startD && dayD >= startD) return "active";
-                  return "waiting";
+                  if (dayD.getTime() === regD.getTime()) return "waiting";
+                  return null;
                 };
                 const scopedProjectIds = new Set(scopedProjects.map((p) => p.id));
                 const scopedTasks = tasks.filter((t) => scopedProjectIds.has(t.project_id) && !t.archived);
                 const byContractor: Record<string, Task[]> = {};
                 scopedTasks.forEach((t) => { (byContractor[t.contractor_id] ??= []).push(t); });
-                const allContractorIds = Array.from(new Set([...contractors.map((c) => c.id), ...Object.keys(byContractor)]));
+                const allContractorIds = contractors.map((c) => c.id);
                 return allContractorIds.map((cid) => {
                   const cName = contractors.find((c) => c.id === cid)?.name ?? scopedTasks.find((t) => t.contractor_id === cid)?.contractor?.name ?? "알 수 없음";
                   const list = byContractor[cid] ?? [];
@@ -972,7 +972,7 @@ export default function BoardPage() {
                   const waitingTodayCount = todayBuckets.filter((b) => b === "waiting").length;
                   const activeTodayCount = todayBuckets.filter((b) => b === "active").length;
                   const doneTodayCount = todayBuckets.filter((b) => b === "done").length;
-                  const expanded = !!expandedContractorRows[cid];
+                  const expanded = expandedContractorRows[cid] !== false;
                   return (
                     <div key={cid} className="mb-3 overflow-hidden rounded-xl border border-[#E4E1D6] bg-white">
                       <div className="flex items-center gap-2 px-4 py-3">
@@ -1004,7 +1004,7 @@ export default function BoardPage() {
                                   {groups.map((g) => {
                                     if (g.items.length === 0) return null;
                                     const groupKey = `${cid}_${dayIdx}_${g.key}`;
-                                    const groupOpen = !!scheduleGroupOpen[groupKey];
+                                    const groupOpen = scheduleGroupOpen[groupKey] !== false;
                                     return (
                                       <div key={g.key}>
                                         <button onClick={() => setScheduleGroupOpen((s) => ({ ...s, [groupKey]: !s[groupKey] }))} className="flex w-full items-center gap-1 py-0.5 text-[10.5px] font-semibold text-[#79766D]">
