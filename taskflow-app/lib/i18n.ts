@@ -23,6 +23,8 @@ const dict = {
   done_projects: { ko: "완료된 프로젝트", en: "Completed", vi: "Đã hoàn thành" },
   archived_projects: { ko: "삭제된 프로젝트", en: "Deleted", vi: "Đã xóa" },
   all_tasks: { ko: "전체 업무", en: "All Tasks", vi: "Tất cả công việc" },
+  my_tasks: { ko: "내 업무 보기", en: "My Tasks", vi: "Công việc của tôi" },
+  all_tasks_toggle: { ko: "모든 업무 보기", en: "All Tasks", vi: "Tất cả công việc" },
   project_status: { ko: "프로젝트 현황", en: "Project Status", vi: "Tình trạng dự án" },
   schedule: { ko: "일정 관리", en: "Schedule", vi: "Lịch trình" },
 

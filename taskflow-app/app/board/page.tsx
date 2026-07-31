@@ -125,6 +125,7 @@ export default function BoardPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("ALL");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"category" | "status">("category");
+  const [contractorShowAll, setContractorShowAll] = useState(false);
   const [projectStatusView, setProjectStatusView] = useState(false);
   const [scheduleView, setScheduleView] = useState(false);
   const [expandedContractorRows, setExpandedContractorRows] = useState<Record<string, boolean>>({});
@@ -319,13 +320,13 @@ export default function BoardPage() {
 
   const visibleTasks = useMemo(() => {
     let list = episodeFilteredTasks;
-    if (me?.role === "contractor") list = list.filter((t) => t.contractor_id === me.id && t.status !== "done");
+    if (me?.role === "contractor" && !contractorShowAll) list = list.filter((t) => t.contractor_id === me.id && t.status !== "done");
     if (isAllView && searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter((t) => t.contractor?.name?.toLowerCase().includes(q) || t.manager?.name?.toLowerCase().includes(q));
     }
     return list;
-  }, [episodeFilteredTasks, me, isAllView, searchQuery]);
+  }, [episodeFilteredTasks, me, isAllView, searchQuery, contractorShowAll]);
 
   // 외주 작업자 전용: 본인이 완료한 업무 (별도 "완료된 업무" 섹션에 표시)
   const myCompletedTasks = useMemo(() => {
@@ -929,20 +930,18 @@ export default function BoardPage() {
               <Boxes size={14} />{sidebarOpen && ` ${tr(lang, "all_tasks")}`}
             </button>
             {me.role === "manager" && (
-              <>
-                <button onClick={() => { setProjectStatusView(true); setScheduleView(false); }} className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
-                  <ClipboardList size={14} />{sidebarOpen && ` ${tr(lang, "project_status")}`}
-                </button>
-                <button onClick={() => { setScheduleView(true); setProjectStatusView(false); }} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${scheduleView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
-                  <CalendarDays size={14} />{sidebarOpen && ` ${tr(lang, "schedule")}`}
-                </button>
-              </>
+              <button onClick={() => { setProjectStatusView(true); setScheduleView(false); }} className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${projectStatusView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
+                <ClipboardList size={14} />{sidebarOpen && ` ${tr(lang, "project_status")}`}
+              </button>
             )}
+            <button onClick={() => { setScheduleView(true); setProjectStatusView(false); }} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-bold ${sidebarOpen ? "justify-start" : "justify-center"} ${scheduleView ? "bg-[#E8EDFB] text-[#2C56C9]" : ""}`}>
+              <CalendarDays size={14} />{sidebarOpen && ` ${tr(lang, "schedule")}`}
+            </button>
           </div>
         </aside>
 
         <main className="flex-1 overflow-x-auto p-6">
-          {scheduleView && me.role === "manager" ? (
+          {scheduleView ? (
             <>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-bold">일정 관리</h2>
@@ -994,9 +993,11 @@ export default function BoardPage() {
                           <span className="text-[14px] font-bold">{cName}</span>
                           <span className="text-[12px] text-[#A7A399]">대기 {waitingTodayCount} · 진행 {activeTodayCount} · 완료 {doneTodayCount} <span className="text-[#D9D6CC]">(금일 기준)</span></span>
                         </button>
-                        <button onClick={() => openScheduleAiModal({ id: cid, name: cName })} className="flex flex-shrink-0 items-center gap-1 rounded-lg border border-[#E4E1D6] px-2.5 py-1.5 text-[11.5px] text-[#79766D]">
-                          <Sparkles size={12} /> AI 서비스 계정
-                        </button>
+                        {me.role === "manager" && (
+                          <button onClick={() => openScheduleAiModal({ id: cid, name: cName })} className="flex flex-shrink-0 items-center gap-1 rounded-lg border border-[#E4E1D6] px-2.5 py-1.5 text-[11.5px] text-[#79766D]">
+                            <Sparkles size={12} /> AI 서비스 계정
+                          </button>
+                        )}
                       </div>
                       {expanded && (
                         <div className="grid grid-cols-7 gap-2 border-t border-[#E4E1D6] p-3">
@@ -1263,6 +1264,12 @@ export default function BoardPage() {
                   </div>
                 ) : <div />}
                 <div className="flex items-center gap-2">
+                  {me.role === "contractor" && (
+                    <div className="flex rounded-lg bg-[#EEEDE7] p-0.5">
+                      <button onClick={() => setContractorShowAll(false)} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${!contractorShowAll ? "bg-white" : "text-[#79766D]"}`}>{tr(lang, "my_tasks")}</button>
+                      <button onClick={() => setContractorShowAll(true)} className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold ${contractorShowAll ? "bg-white" : "text-[#79766D]"}`}>{tr(lang, "all_tasks_toggle")}</button>
+                    </div>
+                  )}
                   {!isAllView && !selectedProject!.archived && me.role === "manager" && (
                     <button onClick={() => { setNewTaskIsInternal(false); setNewTask({ category_id: categories[0]?.id ?? "", episode_id: selectedEpisodeId !== "ALL" ? selectedEpisodeId : (selectedProject!.episodes?.[0]?.id ?? ""), contractor_id: contractors[0]?.id ?? "", manager_id: me.id, planned_start_date: nowLocalDateTimeStr(), memo: "", sub_manager_ids: [], no_order_constraint: false }); setShowNewTask(true); }} className={`${btnPrimary} flex items-center gap-1.5`}>
                       <Plus size={14} /> {tr(lang, "register_task")}

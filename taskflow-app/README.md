@@ -286,3 +286,19 @@ vercel.json                  Cron 설정
 - 사용자가 직접 입력하는 내용(이름, 프로젝트명, 업무명, 메모, 재작업 메시지 등)은 번역하지 않습니다 — 해외 작업자와의 실제 커뮤니케이션은 영어로 그대로 진행하시면 됩니다.
 - 번역 범위: 상단 내비게이션, 사이드바(프로젝트 목록/전체 업무/프로젝트 현황/일정 관리), 업무 카드의 상태·액션 버튼, 프로젝트 상태 배지, 외주 작업자/담당자 관리 화면 제목 및 등록 버튼.
 - 아직 번역이 안 된 세부 모달/입력 라벨이 보이면 알려주시면 추가로 반영해드릴게요 (lib/i18n.ts에 키만 추가하면 되는 구조라 확장이 쉽습니다).
+
+## v1.09 (외주 작업자 상호 진행상황 공개)
+
+- 외주 작업자도 매니저처럼 프로젝트의 작업 상황(에피소드×카테고리 표), 다른 작업자들의 업무를 볼 수 있습니다.
+- 업무 보드에 "내 업무 보기 / 모든 업무 보기" 토글 추가 (외주 작업자 전용).
+- 일정 관리 화면을 외주 작업자에게도 개방 (단, AI 서비스 계정 조회는 담당자만 가능하도록 유지). 업무 클릭 시 뜨는 모달은 본인 업무가 아니면 액션 버튼 없이 읽기 전용으로 보입니다.
+
+### ⚠️ 필수 DB 마이그레이션 (이거 안 하면 화면에 아무것도 안 뜹니다)
+
+```sql
+drop policy if exists "tasks_select" on tasks;
+create policy "tasks_select" on tasks for select using (auth.role() = 'authenticated');
+
+drop policy if exists "task_assignments_select" on task_assignments;
+create policy "task_assignments_select" on task_assignments for select using (auth.role() = 'authenticated');
+```

@@ -219,17 +219,10 @@ drop policy if exists "episodes_select" on episodes;
 create policy "episodes_select" on episodes for select using (auth.role() = 'authenticated');
 
 drop policy if exists "tasks_select" on tasks;
-create policy "tasks_select" on tasks for select using (
-  contractor_id = auth.uid()
-  or exists (select 1 from task_assignments ta where ta.task_id = tasks.id and ta.contractor_id = auth.uid())
-  or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
-);
+create policy "tasks_select" on tasks for select using (auth.role() = 'authenticated');
 
 drop policy if exists "task_assignments_select" on task_assignments;
-create policy "task_assignments_select" on task_assignments for select using (
-  contractor_id = auth.uid()
-  or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'manager')
-);
+create policy "task_assignments_select" on task_assignments for select using (auth.role() = 'authenticated');
 
 drop policy if exists "task_sub_managers_select" on task_sub_managers;
 create policy "task_sub_managers_select" on task_sub_managers for select using (
