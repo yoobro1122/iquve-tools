@@ -228,10 +228,10 @@ export default function BoardPage() {
       .order("created_at", { ascending: true });
     setTasks((taskData as unknown as Task[]) ?? []);
 
-    if (profile?.role === "manager") {
-      const { data: cs } = await supabase.from("profiles").select("*").eq("role", "contractor").order("name");
-      setContractors((cs as Profile[]) ?? []);
-    } else {
+    const { data: cs } = await supabase.from("profiles").select("*").eq("role", "contractor").order("name");
+    setContractors((cs as Profile[]) ?? []);
+
+    if (profile?.role !== "manager") {
       const { data: mine } = await supabase
         .from("task_assignments")
         .select("*, task:task_id(*, project:project_id(*), episode:episode_id(*), category:category_id(*))")
