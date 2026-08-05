@@ -102,6 +102,7 @@ export default function Home() {
   const [sending, setSending] = useState(false)
   const [saving, setSaving] = useState(false)
   const [sendMode, setSendMode] = useState<'now' | 'scheduled'>('now')
+  const [fromEmail, setFromEmail] = useState('iquve@growv.com')
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('10:00')
   const [sendResult, setSendResult] = useState<{ sentCount: number; failCount: number; remaining: number; hasPending: boolean; campaignId: string; isScheduled?: boolean; scheduledAt?: string } | null>(null)
@@ -310,6 +311,7 @@ export default function Home() {
           .insert({
             title: campaignTitle || subject,
             subject,
+            from_email: fromEmail,
             html_content: htmlContent,
             groups: selectedGroups,
             scheduled_at: scheduledAtStr,
@@ -335,7 +337,7 @@ export default function Home() {
         const res = await fetch('/api/send-campaign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ campaignId: cid, recipientEmails: emails, isContinue: false }),
+          body: JSON.stringify({ campaignId: cid, recipientEmails: emails, isContinue: false, fromEmail }),
         })
         const json = await res.json()
         if (!res.ok) throw new Error(json.error)
@@ -367,6 +369,7 @@ export default function Home() {
     setExcludedEmails(new Set()); setListSearch('')
     setExtraEmails([]); setExtraEmailInput('')
     setSendResult(null); setTab(0)
+    setFromEmail('iquve@growv.com')
   }
 
   const recipientEmails = getRecipientEmails()
@@ -482,6 +485,20 @@ export default function Home() {
         {tab === 1 && (
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 20 }}>메일 작성</h2>
+
+            {/* 발신자 선택 */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 6 }}>발신자</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+              {[
+                { email: 'iquve@growv.com', name: '아이큐브', label: '아이큐브 (iquve@growv.com)' },
+                { email: 'shyou@growv.com', name: '유승훈', label: '유승훈 (shyou@growv.com)' },
+              ].map(s => (
+                <button key={s.email} onClick={() => setFromEmail(s.email)}
+                  style={{ padding: '10px 16px', border: `2px solid ${fromEmail === s.email ? '#3d4fd7' : '#e2e8f0'}`, borderRadius: 10, background: fromEmail === s.email ? '#eff2ff' : 'white', color: fromEmail === s.email ? '#3d4fd7' : '#374151', fontWeight: fromEmail === s.email ? 700 : 400, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }}>
+                  {fromEmail === s.email ? '✓ ' : ''}{s.label}
+                </button>
+              ))}
+            </div>
 
             <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 6 }}>캠페인 이름 (내부용)</div>
             <input value={campaignTitle} onChange={e => setCampaignTitle(e.target.value)} placeholder="예: 4월 뉴스레터"
@@ -727,7 +744,7 @@ export default function Home() {
                 { label: '발송 그룹', value: selectedGroups.join(', ') || '(수기만)' },
                 { label: '마케팅 동의만', value: mktOnly ? 'Y' : 'N' },
                 { label: '총 수신자', value: `${recipientEmails.length.toLocaleString()}명` },
-                { label: '발신자', value: '아이큐브 <iquve@growv.com>' },
+                { label: '발신자', value: fromEmail === 'iquve@growv.com' ? '아이큐브 <iquve@growv.com>' : `유승훈 <${fromEmail}>` },
                 { label: 'HTML 크기', value: `${(htmlContent.length / 1024).toFixed(1)} KB` },
                 { label: '배치 발송', value: '30건씩 · 2초 간격 (스팸 방지)' },
               ].map(r => (

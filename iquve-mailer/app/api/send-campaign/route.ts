@@ -6,7 +6,12 @@ export const runtime = 'nodejs'
 export const maxDuration = 300  // 5분으로 확장 (대량 발송 대비)
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`
+// FROM은 요청별로 동적 결정
+const DEFAULT_FROM = `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`
+const SENDER_MAP: Record<string, string> = {
+  'iquve@growv.com': `아이큐브 <iquve@growv.com>`,
+  'shyou@growv.com': `유승훈 <shyou@growv.com>`,
+}
 
 const BATCH_SIZE    = 10   // 배치 크기
 const BATCH_DELAY_MS = 1000 // 배치 간 딜레이
@@ -26,6 +31,7 @@ export async function POST(req: NextRequest) {
     campaignId = body.campaignId ?? ''
     const isContinue: boolean = body.isContinue ?? false
     const recipientEmails: string[] = body.recipientEmails ?? []
+    const fromEmail: string = body.fromEmail ?? ''
 
     if (!campaignId) return NextResponse.json({ error: 'campaignId 필요' }, { status: 400 })
 
@@ -33,6 +39,9 @@ export async function POST(req: NextRequest) {
       .from('campaigns').select('*').eq('id', campaignId).single()
     if (cErr || !campaign) return NextResponse.json({ error: '캠페인 없음' }, { status: 404 })
     if (campaign.status === 'sending') return NextResponse.json({ error: '이미 발송 중' }, { status: 409 })
+
+    // 발신자 결정: body > campaign.from_email > 환경변수 기본값
+    const resolvedFrom = SENDER_MAP[fromEmail] ?? SENDER_MAP[campaign.from_email] ?? DEFAULT_FROM
 
     // 발송 대상 결정 - 제한 없이 전체
     let allEmails: string[]
@@ -67,7 +76,7 @@ export async function POST(req: NextRequest) {
       for (const email of batch) {
         try {
           const result = await resend.emails.send({
-            from: FROM, to: email,
+            from: resolvedFrom, to: email,
             subject: campaign.subject,
             html: campaign.html_content,
           })

@@ -7,7 +7,11 @@ export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`
+const DEFAULT_FROM = `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`
+const SENDER_MAP: Record<string, string> = {
+  'iquve@growv.com': `아이큐브 <iquve@growv.com>`,
+  'shyou@growv.com': `유승훈 <shyou@growv.com>`,
+}
 
 const BATCH_SIZE  = 10
 const MAIL_DELAY  = 600  // 초당 2건 제한 → 600ms 간격
@@ -58,6 +62,7 @@ export async function GET(req: NextRequest) {
         pending_emails: pending,
       }).eq('id', campaign.id)
 
+      const resolvedFrom = SENDER_MAP[campaign.from_email] ?? DEFAULT_FROM
       let sentCount = 0, failCount = 0
       const sentEmails: string[] = []
       const logs: { campaign_id: string; email: string; status: string; error_msg?: string }[] = []
@@ -67,7 +72,7 @@ export async function GET(req: NextRequest) {
         for (const email of batch) {
           try {
             const result = await resend.emails.send({
-              from: FROM, to: email,
+              from: resolvedFrom, to: email,
               subject: campaign.subject,
               html: campaign.html_content,
             })
