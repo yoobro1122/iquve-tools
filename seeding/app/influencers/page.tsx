@@ -61,8 +61,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 }
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
-const APP_VERSION =
-  "v3.2.0 (2026-07-21) - 인스타 검색결과에 팔로워수·최근게시물일 자동 표시";
+const APP_VERSION = "v3.3.0 (2026-07-21) - 인스타 최대 팔로워수 필터 추가";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -429,11 +428,13 @@ function YoutubeTab() {
 function InstagramTab() {
   const [usernameInput, setUsernameInput] = useState("");
   const [minFollowers, setMinFollowers] = useState(5000);
+  const [maxFollowers, setMaxFollowers] = useState<string>("");
   const [discoverResults, setDiscoverResults] = useState<DiscoverResult[]>([]);
   const [discoverErrors, setDiscoverErrors] = useState<
     { username: string; reason: string }[]
   >([]);
   const [filteredByMinFollowers, setFilteredByMinFollowers] = useState<string[]>([]);
+  const [filteredByMaxFollowers, setFilteredByMaxFollowers] = useState<string[]>([]);
   const [alreadyInDb, setAlreadyInDb] = useState<string[]>([]);
   const [loadingDiscover, setLoadingDiscover] = useState(false);
   const [savedUsernames, setSavedUsernames] = useState<Set<string>>(new Set());
@@ -445,6 +446,7 @@ function InstagramTab() {
     setDiscoverResults(data.results ?? []);
     setDiscoverErrors(data.errors ?? []);
     setFilteredByMinFollowers(data.filteredByMinFollowers ?? []);
+    setFilteredByMaxFollowers(data.filteredByMaxFollowers ?? []);
     setAlreadyInDb(data.alreadyInDb ?? []);
   };
 
@@ -452,9 +454,9 @@ function InstagramTab() {
     if (!keyword.trim()) return;
     setLoadingKeywordSearch(true);
     try {
-      const res = await fetch(
-        `/api/instagram/search?q=${encodeURIComponent(keyword)}&minFollowers=${minFollowers}`
-      );
+      const params = new URLSearchParams({ q: keyword, minFollowers: String(minFollowers) });
+      if (maxFollowers) params.set("maxFollowers", maxFollowers);
+      const res = await fetch(`/api/instagram/search?${params.toString()}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       applyDiscoverResponse(data);
@@ -479,7 +481,11 @@ function InstagramTab() {
       const res = await fetch("/api/instagram/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usernames, minFollowers }),
+        body: JSON.stringify({
+          usernames,
+          minFollowers,
+          maxFollowers: maxFollowers ? Number(maxFollowers) : undefined,
+        }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -540,6 +546,16 @@ function InstagramTab() {
               className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
               value={minFollowers}
               onChange={(e) => setMinFollowers(Number(e.target.value))}
+            />
+          </div>
+          <div className="w-40">
+            <label className="block text-xs text-slate-500 mb-1">최대 팔로워수</label>
+            <input
+              type="number"
+              placeholder="제한 없음"
+              className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+              value={maxFollowers}
+              onChange={(e) => setMaxFollowers(e.target.value)}
             />
           </div>
           <button
@@ -646,6 +662,12 @@ function InstagramTab() {
         {filteredByMinFollowers.length > 0 && (
           <p className="text-xs text-slate-400">
             최소 팔로워수 미달로 제외됨: {filteredByMinFollowers.map((u) => `@${u}`).join(", ")}
+          </p>
+        )}
+
+        {filteredByMaxFollowers.length > 0 && (
+          <p className="text-xs text-slate-400">
+            최대 팔로워수 초과로 제외됨: {filteredByMaxFollowers.map((u) => `@${u}`).join(", ")}
           </p>
         )}
 

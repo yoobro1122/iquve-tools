@@ -3,21 +3,22 @@ import { fetchHikerProfiles } from "@/lib/hikerapi";
 import { getSupabaseServer } from "@/lib/supabase";
 
 // POST /api/instagram/discover
-// body: { usernames: string[], minFollowers?: number }
+// body: { usernames: string[], minFollowers?: number, maxFollowers?: number }
 // HikerAPI(서드파티)로 인스타그램 공개 프로필을 조회합니다. Meta 공식 App Review 불필요.
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const usernames: string[] = body.usernames ?? [];
   const minFollowers: number = body.minFollowers ?? 0;
+  const maxFollowers: number | undefined =
+    body.maxFollowers != null ? Number(body.maxFollowers) : undefined;
 
   if (!Array.isArray(usernames) || usernames.length === 0) {
     return NextResponse.json({ error: "usernames 배열이 필요합니다." }, { status: 400 });
   }
 
   try {
-    const { results, errors, filteredByMinFollowers } = await fetchHikerProfiles(usernames, {
-      minFollowers,
-    });
+    const { results, errors, filteredByMinFollowers, filteredByMaxFollowers } =
+      await fetchHikerProfiles(usernames, { minFollowers, maxFollowers });
 
     // 이미 DB에 등록된 계정은 결과에서 제외
     const supabase = getSupabaseServer();
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
       results: filtered,
       errors,
       filteredByMinFollowers,
+      filteredByMaxFollowers,
       alreadyInDb,
     });
   } catch (err: any) {

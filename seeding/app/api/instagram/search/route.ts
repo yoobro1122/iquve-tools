@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchInstagramAccounts, fetchHikerProfiles } from "@/lib/hikerapi";
 import { getSupabaseServer } from "@/lib/supabase";
 
-// GET /api/instagram/search?q=육아&minFollowers=5000
+// GET /api/instagram/search?q=육아&minFollowers=5000&maxFollowers=50000
 // 키워드로 계정을 찾은 뒤, 각 계정의 팔로워수·소개글·최근 게시물일까지 자동으로 채워서 반환합니다.
 // (검색 API 자체는 팔로워수를 안 주는 경우가 많아서, 프로필 조회를 자동으로 한 번 더 합니다)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q");
   const minFollowers = Number(searchParams.get("minFollowers") ?? 0);
+  const maxFollowersRaw = searchParams.get("maxFollowers");
+  const maxFollowers = maxFollowersRaw ? Number(maxFollowersRaw) : undefined;
 
   if (!q) {
     return NextResponse.json({ error: "검색어(q)가 필요합니다." }, { status: 400 });
@@ -23,13 +25,13 @@ export async function GET(req: NextRequest) {
         results: [],
         errors: [],
         filteredByMinFollowers: [],
+        filteredByMaxFollowers: [],
         alreadyInDb: [],
       });
     }
 
-    const { results, errors, filteredByMinFollowers } = await fetchHikerProfiles(usernames, {
-      minFollowers,
-    });
+    const { results, errors, filteredByMinFollowers, filteredByMaxFollowers } =
+      await fetchHikerProfiles(usernames, { minFollowers, maxFollowers });
 
     // 이미 DB에 등록된 계정은 결과에서 제외
     const supabase = getSupabaseServer();
@@ -47,6 +49,7 @@ export async function GET(req: NextRequest) {
       results: filtered,
       errors,
       filteredByMinFollowers,
+      filteredByMaxFollowers,
       alreadyInDb,
     });
   } catch (err: any) {

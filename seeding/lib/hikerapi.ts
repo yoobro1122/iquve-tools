@@ -53,6 +53,7 @@ export interface FetchHikerProfilesResult {
   results: HikerProfile[];
   errors: HikerProfileError[];
   filteredByMinFollowers: string[];
+  filteredByMaxFollowers: string[];
 }
 
 export interface InstagramSearchCandidate {
@@ -101,14 +102,16 @@ export async function searchInstagramAccounts(
 // username 목록을 순차 조회 (레이트리밋 보호용 딜레이 포함)
 export async function fetchHikerProfiles(
   usernames: string[],
-  opts: { minFollowers?: number } = {}
+  opts: { minFollowers?: number; maxFollowers?: number } = {}
 ): Promise<FetchHikerProfilesResult> {
   const accessKey = await requireConfig("hikerapi_access_key");
   const minFollowers = opts.minFollowers ?? 0;
+  const maxFollowers = opts.maxFollowers ?? Infinity;
 
   const results: HikerProfile[] = [];
   const errors: HikerProfileError[] = [];
   const filteredByMinFollowers: string[] = [];
+  const filteredByMaxFollowers: string[] = [];
 
   for (const username of usernames) {
     try {
@@ -137,6 +140,10 @@ export async function fetchHikerProfiles(
         filteredByMinFollowers.push(username);
         continue;
       }
+      if (followersCount > maxFollowers) {
+        filteredByMaxFollowers.push(username);
+        continue;
+      }
 
       const userId = data.pk ? String(data.pk) : null;
       const lastPostAt = userId ? await getLatestPostDate(userId, accessKey) : null;
@@ -160,5 +167,5 @@ export async function fetchHikerProfiles(
     }
   }
 
-  return { results, errors, filteredByMinFollowers };
+  return { results, errors, filteredByMinFollowers, filteredByMaxFollowers };
 }
