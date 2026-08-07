@@ -62,7 +62,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
 const APP_VERSION =
-  "v3.5.0 (2026-07-21) - 검색 UI 통합(토글), 파싱 실패 시 원인 표시";
+  "v3.6.0 (2026-07-21) - 인스타 검색 파싱을 재귀 탐색으로 전면 교체";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");

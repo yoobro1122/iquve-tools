@@ -64,9 +64,44 @@ export interface InstagramSearchCandidate {
   profilePicUrl: string | null;
 }
 
-// 키워드로 계정 검색. 응답 구조가 문서에 따라 다를 수 있어 방어적으로 파싱합니다.
-// 팔로워수 등 상세 정보가 없는 경우, 여기서 얻은 username을 fetchHikerProfiles에
-// 다시 넣어서 상세 조회하는 2단계 흐름으로 씁니다.
+// 인스타그램 응답(특히 해시태그/탐색 피드)은 sections -> layout_content -> ... 식으로
+// 깊고 다양하게 중첩되어 있어서 고정된 경로로 파싱하기 어렵습니다.
+// 그래서 JSON 전체를 재귀적으로 훑어서 "username" 문자열 필드를 가진 객체를
+// 전부 찾아내는 방식으로 처리합니다 (구조가 어떻게 바뀌어도 안전).
+function extractUsersRecursively(
+  node: any,
+  out: Map<string, InstagramSearchCandidate>,
+  depth = 0
+) {
+  if (node == null || depth > 15) return;
+
+  if (Array.isArray(node)) {
+    for (const item of node) extractUsersRecursively(item, out, depth + 1);
+    return;
+  }
+
+  if (typeof node !== "object") return;
+
+  if (
+    typeof node.username === "string" &&
+    node.username.length > 0 &&
+    !out.has(node.username)
+  ) {
+    out.set(node.username, {
+      username: node.username,
+      fullName: node.full_name ?? null,
+      isVerified: Boolean(node.is_verified),
+      followerCount: node.follower_count != null ? Number(node.follower_count) : null,
+      profilePicUrl: node.profile_pic_url ?? null,
+    });
+  }
+
+  for (const key of Object.keys(node)) {
+    extractUsersRecursively(node[key], out, depth + 1);
+  }
+}
+
+// 키워드로 계정 검색.
 export async function searchInstagramAccounts(
   query: string
 ): Promise<InstagramSearchCandidate[]> {
@@ -82,54 +117,24 @@ export async function searchInstagramAccounts(
   }
 
   const data = await res.json();
+  const found = new Map<string, InstagramSearchCandidate>();
+  extractUsersRecursively(data, found);
 
-  // 예상되는 위치에서 배열을 찾음. 못 찾으면 응답 형식이 다르다는 뜻이므로
-  // 원본 응답 일부를 에러에 담아 화면에서 바로 확인할 수 있게 합니다.
-  const rawList: any[] | null = Array.isArray(data.users)
-    ? data.users
-    : Array.isArray(data.results)
-    ? data.results
-    : Array.isArray(data.items)
-    ? data.items
-    : Array.isArray(data)
-    ? data
-    : null;
-
-  if (rawList === null) {
+  if (found.size === 0) {
     throw new Error(
-      `계정 검색 응답 형식을 인식하지 못했습니다. 원본 응답: ${JSON.stringify(data).slice(0, 400)}`
+      `계정 검색 결과에서 username을 인식하지 못했습니다. 원본 응답 일부: ${JSON.stringify(
+        data
+      ).slice(0, 500)}`
     );
   }
 
-  const candidates = rawList
-    .map((item: any) => {
-      const u = item.user ?? item;
-      return {
-        username: u.username,
-        fullName: u.full_name ?? null,
-        isVerified: Boolean(u.is_verified),
-        followerCount: u.follower_count != null ? Number(u.follower_count) : null,
-        profilePicUrl: u.profile_pic_url ?? null,
-      };
-    })
-    .filter((c: any) => !!c.username);
-
-  // 배열은 찾았지만 그 안에서 username을 하나도 못 뽑았다면, item 구조가 예상과
-  // 다르다는 뜻이므로 첫 item의 원본 구조를 에러로 노출합니다.
-  if (rawList.length > 0 && candidates.length === 0) {
-    throw new Error(
-      `계정 목록은 찾았지만 username 필드를 인식하지 못했습니다. 첫 항목 원본: ${JSON.stringify(
-        rawList[0]
-      ).slice(0, 400)}`
-    );
-  }
-
-  return candidates;
+  return Array.from(found.values());
 }
 
 // 해시태그로 게시물을 찾고, 게시자 username을 추출합니다.
 // Meta 공식 API와 달리 게시자 정보를 가리지 않아서 실제 username을 얻을 수 있습니다.
-// 응답 구조가 문서에 따라 다를 수 있어 방어적으로 파싱합니다.
+// 응답이 sections -> layout_content -> ... 식으로 깊게 중첩되어 있어서
+// 고정 경로 대신 재귀 탐색으로 username을 찾습니다.
 export async function searchInstagramByHashtag(
   hashtag: string,
   mediaType: "top" | "recent" = "top"
@@ -147,50 +152,18 @@ export async function searchInstagramByHashtag(
   }
 
   const data = await res.json();
+  const found = new Map<string, InstagramSearchCandidate>();
+  extractUsersRecursively(data, found);
 
-  const items: any[] | null = Array.isArray(data)
-    ? data
-    : Array.isArray(data.items)
-    ? data.items
-    : Array.isArray(data.medias)
-    ? data.medias
-    : null;
-
-  if (items === null) {
+  if (found.size === 0) {
     throw new Error(
-      `해시태그 검색 응답 형식을 인식하지 못했습니다. 원본 응답: ${JSON.stringify(data).slice(
-        0,
-        400
-      )}`
+      `해시태그 검색 결과에서 username을 인식하지 못했습니다. 원본 응답 일부: ${JSON.stringify(
+        data
+      ).slice(0, 500)}`
     );
   }
 
-  const map = new Map<string, InstagramSearchCandidate>();
-  for (const item of items) {
-    // 게시물 오브젝트 안에서 작성자 정보가 있을만한 위치들을 방어적으로 탐색
-    const u = item.user ?? item.owner ?? item.caption?.user ?? null;
-    const username = u?.username;
-    if (!username || map.has(username)) continue;
-    map.set(username, {
-      username,
-      fullName: u.full_name ?? null,
-      isVerified: Boolean(u.is_verified),
-      followerCount: null,
-      profilePicUrl: u.profile_pic_url ?? null,
-    });
-  }
-
-  // 게시물은 찾았지만 작성자 정보를 하나도 못 뽑았다면, item 구조가 예상과 다르다는
-  // 뜻이므로 첫 item의 원본 구조를 에러로 노출합니다.
-  if (items.length > 0 && map.size === 0) {
-    throw new Error(
-      `게시물은 찾았지만 작성자 정보를 인식하지 못했습니다. 첫 게시물 원본: ${JSON.stringify(
-        items[0]
-      ).slice(0, 400)}`
-    );
-  }
-
-  return Array.from(map.values());
+  return Array.from(found.values());
 }
 
 // username 목록을 순차 조회 (레이트리밋 보호용 딜레이 포함)
