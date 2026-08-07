@@ -61,7 +61,8 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 }
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
-const APP_VERSION = "v3.4.0 (2026-07-21) - 인스타 해시태그 검색 추가 (모수 확대)";
+const APP_VERSION =
+  "v3.5.0 (2026-07-21) - 검색 UI 통합(토글), 파싱 실패 시 원인 표시";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -439,8 +440,9 @@ function InstagramTab() {
   const [loadingDiscover, setLoadingDiscover] = useState(false);
   const [savedUsernames, setSavedUsernames] = useState<Set<string>>(new Set());
 
-  const [keyword, setKeyword] = useState("육아");
-  const [loadingKeywordSearch, setLoadingKeywordSearch] = useState(false);
+  const [searchMode, setSearchMode] = useState<"keyword" | "hashtag">("keyword");
+  const [query, setQuery] = useState("육아");
+  const [loadingSearch, setLoadingSearch] = useState(false);
 
   const applyDiscoverResponse = (data: any) => {
     setDiscoverResults(data.results ?? []);
@@ -450,43 +452,32 @@ function InstagramTab() {
     setAlreadyInDb(data.alreadyInDb ?? []);
   };
 
-  const searchByKeyword = async () => {
-    if (!keyword.trim()) return;
-    setLoadingKeywordSearch(true);
+  const runSearch = async () => {
+    if (!query.trim()) return;
+    setLoadingSearch(true);
     try {
-      const params = new URLSearchParams({ q: keyword, minFollowers: String(minFollowers) });
+      const params = new URLSearchParams({ minFollowers: String(minFollowers) });
       if (maxFollowers) params.set("maxFollowers", maxFollowers);
-      const res = await fetch(`/api/instagram/search?${params.toString()}`);
+
+      const endpoint =
+        searchMode === "hashtag"
+          ? (() => {
+              params.set("tag", query.replace(/^#/, ""));
+              return "/api/instagram/hashtag-search";
+            })()
+          : (() => {
+              params.set("q", query);
+              return "/api/instagram/search";
+            })();
+
+      const res = await fetch(`${endpoint}?${params.toString()}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       applyDiscoverResponse(data);
     } catch (err: any) {
       alert(err.message);
     } finally {
-      setLoadingKeywordSearch(false);
-    }
-  };
-
-  const [hashtag, setHashtag] = useState("육아");
-  const [loadingHashtagSearch, setLoadingHashtagSearch] = useState(false);
-
-  const searchByHashtag = async () => {
-    if (!hashtag.trim()) return;
-    setLoadingHashtagSearch(true);
-    try {
-      const params = new URLSearchParams({
-        tag: hashtag.replace(/^#/, ""),
-        minFollowers: String(minFollowers),
-      });
-      if (maxFollowers) params.set("maxFollowers", maxFollowers);
-      const res = await fetch(`/api/instagram/hashtag-search?${params.toString()}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      applyDiscoverResponse(data);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoadingHashtagSearch(false);
+      setLoadingSearch(false);
     }
   };
 
@@ -551,18 +542,41 @@ function InstagramTab() {
       </p>
 
       <section className="space-y-3">
-        <h2 className="font-medium text-sm">키워드로 계정 찾기</h2>
-        <div className="flex gap-2 items-end">
+        <div className="flex items-center gap-3">
+          <h2 className="font-medium text-sm">계정 찾기</h2>
+          <div className="inline-flex rounded border border-slate-300 overflow-hidden text-xs">
+            <button
+              onClick={() => setSearchMode("keyword")}
+              className={`px-3 py-1.5 ${
+                searchMode === "keyword" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+              }`}
+            >
+              계정명 검색
+            </button>
+            <button
+              onClick={() => setSearchMode("hashtag")}
+              className={`px-3 py-1.5 border-l border-slate-300 ${
+                searchMode === "hashtag" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+              }`}
+            >
+              해시태그 검색
+            </button>
+          </div>
+        </div>
+
+        <div className="flex gap-2 items-end flex-wrap">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">검색 키워드</label>
+            <label className="block text-xs text-slate-500 mb-1">
+              {searchMode === "hashtag" ? "해시태그 (# 없이)" : "검색 키워드"}
+            </label>
             <input
               className="border border-slate-300 rounded px-3 py-2 text-sm w-56"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="예: 육아, 아이책"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchMode === "hashtag" ? "예: 육아, 아이책" : "예: 육아, 아이책"}
             />
           </div>
-          <div className="w-40">
+          <div className="w-36">
             <label className="block text-xs text-slate-500 mb-1">최소 팔로워수</label>
             <input
               type="number"
@@ -571,7 +585,7 @@ function InstagramTab() {
               onChange={(e) => setMinFollowers(Number(e.target.value))}
             />
           </div>
-          <div className="w-40">
+          <div className="w-36">
             <label className="block text-xs text-slate-500 mb-1">최대 팔로워수</label>
             <input
               type="number"
@@ -582,42 +596,19 @@ function InstagramTab() {
             />
           </div>
           <button
-            onClick={searchByKeyword}
-            disabled={loadingKeywordSearch}
+            onClick={runSearch}
+            disabled={loadingSearch}
             className="bg-slate-900 text-white rounded px-4 py-2 text-sm disabled:opacity-50"
           >
-            {loadingKeywordSearch ? "검색 중..." : "계정 검색"}
+            {loadingSearch ? "검색 중..." : "검색"}
           </button>
         </div>
-        <p className="text-xs text-slate-400">
-          검색 후보(최대 20개)를 찾아서 팔로워수·소개글·최근 게시물일까지 자동으로 채워요.
-          후보가 많을수록 조회 비용이 조금 더 들어요 (계정당 약 2회 호출).
-        </p>
-      </section>
 
-      <section className="space-y-3 border-t border-slate-200 pt-6">
-        <h2 className="font-medium text-sm">해시태그로 계정 찾기</h2>
-        <div className="flex gap-2 items-end">
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">해시태그</label>
-            <input
-              className="border border-slate-300 rounded px-3 py-2 text-sm w-56"
-              value={hashtag}
-              onChange={(e) => setHashtag(e.target.value)}
-              placeholder="예: 육아, 아이책 (# 없이)"
-            />
-          </div>
-          <button
-            onClick={searchByHashtag}
-            disabled={loadingHashtagSearch}
-            className="bg-slate-900 text-white rounded px-4 py-2 text-sm disabled:opacity-50"
-          >
-            {loadingHashtagSearch ? "검색 중..." : "해시태그 검색"}
-          </button>
-        </div>
         <p className="text-xs text-slate-400">
-          위에서 설정한 최소/최대 팔로워수가 그대로 적용돼요. 해당 해시태그를 최근에 쓴
-          게시물의 작성자들을 찾아서 계정명 검색보다 훨씬 넓은 모수를 확보할 수 있어요.
+          {searchMode === "hashtag"
+            ? "해당 해시태그를 최근에 쓴 게시물의 작성자들을 찾아요. 계정명 검색보다 훨씬 넓은 모수를 확보할 수 있어요."
+            : "username/이름에 키워드가 포함된 계정만 찾아요. 모수가 적으면 해시태그 검색을 함께 써보세요."}
+          {" "}후보(최대 20개)마다 팔로워수·소개글·최근 게시물일까지 자동으로 채워요 (계정당 약 2회 호출).
         </p>
       </section>
 
@@ -688,10 +679,7 @@ function InstagramTab() {
               </button>
             </div>
           ))}
-          {discoverResults.length === 0 &&
-            !loadingKeywordSearch &&
-            !loadingHashtagSearch &&
-            !loadingDiscover && (
+          {discoverResults.length === 0 && !loadingSearch && !loadingDiscover && (
             <p className="text-xs text-slate-400">검색 결과가 여기 표시됩니다.</p>
           )}
         </div>

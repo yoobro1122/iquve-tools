@@ -82,10 +82,26 @@ export async function searchInstagramAccounts(
   }
 
   const data = await res.json();
-  const rawList: any[] =
-    data.users ?? data.results ?? data.items ?? (Array.isArray(data) ? data : []);
 
-  return rawList
+  // 예상되는 위치에서 배열을 찾음. 못 찾으면 응답 형식이 다르다는 뜻이므로
+  // 원본 응답 일부를 에러에 담아 화면에서 바로 확인할 수 있게 합니다.
+  const rawList: any[] | null = Array.isArray(data.users)
+    ? data.users
+    : Array.isArray(data.results)
+    ? data.results
+    : Array.isArray(data.items)
+    ? data.items
+    : Array.isArray(data)
+    ? data
+    : null;
+
+  if (rawList === null) {
+    throw new Error(
+      `계정 검색 응답 형식을 인식하지 못했습니다. 원본 응답: ${JSON.stringify(data).slice(0, 400)}`
+    );
+  }
+
+  const candidates = rawList
     .map((item: any) => {
       const u = item.user ?? item;
       return {
@@ -97,6 +113,18 @@ export async function searchInstagramAccounts(
       };
     })
     .filter((c: any) => !!c.username);
+
+  // 배열은 찾았지만 그 안에서 username을 하나도 못 뽑았다면, item 구조가 예상과
+  // 다르다는 뜻이므로 첫 item의 원본 구조를 에러로 노출합니다.
+  if (rawList.length > 0 && candidates.length === 0) {
+    throw new Error(
+      `계정 목록은 찾았지만 username 필드를 인식하지 못했습니다. 첫 항목 원본: ${JSON.stringify(
+        rawList[0]
+      ).slice(0, 400)}`
+    );
+  }
+
+  return candidates;
 }
 
 // 해시태그로 게시물을 찾고, 게시자 username을 추출합니다.
@@ -119,7 +147,23 @@ export async function searchInstagramByHashtag(
   }
 
   const data = await res.json();
-  const items: any[] = Array.isArray(data) ? data : data.items ?? data.medias ?? [];
+
+  const items: any[] | null = Array.isArray(data)
+    ? data
+    : Array.isArray(data.items)
+    ? data.items
+    : Array.isArray(data.medias)
+    ? data.medias
+    : null;
+
+  if (items === null) {
+    throw new Error(
+      `해시태그 검색 응답 형식을 인식하지 못했습니다. 원본 응답: ${JSON.stringify(data).slice(
+        0,
+        400
+      )}`
+    );
+  }
 
   const map = new Map<string, InstagramSearchCandidate>();
   for (const item of items) {
@@ -134,6 +178,16 @@ export async function searchInstagramByHashtag(
       followerCount: null,
       profilePicUrl: u.profile_pic_url ?? null,
     });
+  }
+
+  // 게시물은 찾았지만 작성자 정보를 하나도 못 뽑았다면, item 구조가 예상과 다르다는
+  // 뜻이므로 첫 item의 원본 구조를 에러로 노출합니다.
+  if (items.length > 0 && map.size === 0) {
+    throw new Error(
+      `게시물은 찾았지만 작성자 정보를 인식하지 못했습니다. 첫 게시물 원본: ${JSON.stringify(
+        items[0]
+      ).slice(0, 400)}`
+    );
   }
 
   return Array.from(map.values());
