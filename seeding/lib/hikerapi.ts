@@ -99,6 +99,46 @@ export async function searchInstagramAccounts(
     .filter((c: any) => !!c.username);
 }
 
+// 해시태그로 게시물을 찾고, 게시자 username을 추출합니다.
+// Meta 공식 API와 달리 게시자 정보를 가리지 않아서 실제 username을 얻을 수 있습니다.
+// 응답 구조가 문서에 따라 다를 수 있어 방어적으로 파싱합니다.
+export async function searchInstagramByHashtag(
+  hashtag: string,
+  mediaType: "top" | "recent" = "top"
+): Promise<InstagramSearchCandidate[]> {
+  const accessKey = await requireConfig("hikerapi_access_key");
+  const cleanTag = hashtag.replace(/^#/, "");
+  const url = `${HIKER_BASE}/v2/hashtag/medias/${mediaType}?name=${encodeURIComponent(cleanTag)}`;
+  const res = await fetch(url, {
+    headers: { "x-access-key": accessKey, accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`해시태그 검색 실패: ${res.status} ${body}`);
+  }
+
+  const data = await res.json();
+  const items: any[] = Array.isArray(data) ? data : data.items ?? data.medias ?? [];
+
+  const map = new Map<string, InstagramSearchCandidate>();
+  for (const item of items) {
+    // 게시물 오브젝트 안에서 작성자 정보가 있을만한 위치들을 방어적으로 탐색
+    const u = item.user ?? item.owner ?? item.caption?.user ?? null;
+    const username = u?.username;
+    if (!username || map.has(username)) continue;
+    map.set(username, {
+      username,
+      fullName: u.full_name ?? null,
+      isVerified: Boolean(u.is_verified),
+      followerCount: null,
+      profilePicUrl: u.profile_pic_url ?? null,
+    });
+  }
+
+  return Array.from(map.values());
+}
+
 // username 목록을 순차 조회 (레이트리밋 보호용 딜레이 포함)
 export async function fetchHikerProfiles(
   usernames: string[],

@@ -61,7 +61,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 }
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
-const APP_VERSION = "v3.3.0 (2026-07-21) - 인스타 최대 팔로워수 필터 추가";
+const APP_VERSION = "v3.4.0 (2026-07-21) - 인스타 해시태그 검색 추가 (모수 확대)";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -467,6 +467,29 @@ function InstagramTab() {
     }
   };
 
+  const [hashtag, setHashtag] = useState("육아");
+  const [loadingHashtagSearch, setLoadingHashtagSearch] = useState(false);
+
+  const searchByHashtag = async () => {
+    if (!hashtag.trim()) return;
+    setLoadingHashtagSearch(true);
+    try {
+      const params = new URLSearchParams({
+        tag: hashtag.replace(/^#/, ""),
+        minFollowers: String(minFollowers),
+      });
+      if (maxFollowers) params.set("maxFollowers", maxFollowers);
+      const res = await fetch(`/api/instagram/hashtag-search?${params.toString()}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      applyDiscoverResponse(data);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoadingHashtagSearch(false);
+    }
+  };
+
   const runDiscover = async () => {
     const usernames = usernameInput
       .split(/[\n,]/)
@@ -573,6 +596,32 @@ function InstagramTab() {
       </section>
 
       <section className="space-y-3 border-t border-slate-200 pt-6">
+        <h2 className="font-medium text-sm">해시태그로 계정 찾기</h2>
+        <div className="flex gap-2 items-end">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">해시태그</label>
+            <input
+              className="border border-slate-300 rounded px-3 py-2 text-sm w-56"
+              value={hashtag}
+              onChange={(e) => setHashtag(e.target.value)}
+              placeholder="예: 육아, 아이책 (# 없이)"
+            />
+          </div>
+          <button
+            onClick={searchByHashtag}
+            disabled={loadingHashtagSearch}
+            className="bg-slate-900 text-white rounded px-4 py-2 text-sm disabled:opacity-50"
+          >
+            {loadingHashtagSearch ? "검색 중..." : "해시태그 검색"}
+          </button>
+        </div>
+        <p className="text-xs text-slate-400">
+          위에서 설정한 최소/최대 팔로워수가 그대로 적용돼요. 해당 해시태그를 최근에 쓴
+          게시물의 작성자들을 찾아서 계정명 검색보다 훨씬 넓은 모수를 확보할 수 있어요.
+        </p>
+      </section>
+
+      <section className="space-y-3 border-t border-slate-200 pt-6">
         <h2 className="font-medium text-sm">또는 username 직접 입력해서 조회</h2>
         <textarea
           className="w-full border border-slate-300 rounded px-3 py-2 text-sm h-20"
@@ -639,7 +688,10 @@ function InstagramTab() {
               </button>
             </div>
           ))}
-          {discoverResults.length === 0 && !loadingKeywordSearch && !loadingDiscover && (
+          {discoverResults.length === 0 &&
+            !loadingKeywordSearch &&
+            !loadingHashtagSearch &&
+            !loadingDiscover && (
             <p className="text-xs text-slate-400">검색 결과가 여기 표시됩니다.</p>
           )}
         </div>
