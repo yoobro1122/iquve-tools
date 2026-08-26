@@ -62,7 +62,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
 const APP_VERSION =
-  "v3.6.0 (2026-07-21) - 인스타 검색 파싱을 재귀 탐색으로 전면 교체";
+  "v3.7.0 (2026-07-21) - 네이버 검색 필터링 단계별 개수 표시, 0=필터없음";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -726,6 +726,12 @@ function NaverTab() {
   const [withinDays, setWithinDays] = useState(7);
   const [dedupe, setDedupe] = useState(true);
   const [results, setResults] = useState<NaverBlogResult[]>([]);
+  const [searchMeta, setSearchMeta] = useState<{
+    totalRawCount: number;
+    excludedByDate: number;
+    excludedByDedupe: number;
+    excludedByDb: number;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [followerInputs, setFollowerInputs] = useState<Record<string, string>>({});
   const [savedLinks, setSavedLinks] = useState<Set<string>>(new Set());
@@ -742,6 +748,12 @@ function NaverTab() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResults(data.results);
+      setSearchMeta({
+        totalRawCount: data.totalRawCount ?? 0,
+        excludedByDate: data.excludedByDate ?? 0,
+        excludedByDedupe: data.excludedByDedupe ?? 0,
+        excludedByDb: data.excludedByDb ?? 0,
+      });
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -790,7 +802,7 @@ function NaverTab() {
           />
         </div>
         <div className="w-36">
-          <label className="block text-xs text-slate-500 mb-1">최근 활동(일)</label>
+          <label className="block text-xs text-slate-500 mb-1">최근 활동(일, 0=제한없음)</label>
           <input
             type="number"
             className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
@@ -876,6 +888,24 @@ function NaverTab() {
           <p className="text-sm text-slate-400">검색 결과가 여기 표시됩니다.</p>
         )}
       </div>
+
+      {searchMeta && (
+        <p className="text-xs text-slate-400">
+          네이버에서 {searchMeta.totalRawCount}건 검색됨
+          {searchMeta.excludedByDate > 0 &&
+            ` · 최근 ${withinDays}일 이내 아님 ${searchMeta.excludedByDate}건 제외`}
+          {searchMeta.excludedByDedupe > 0 &&
+            ` · 같은 블로거 중복 ${searchMeta.excludedByDedupe}건 제외`}
+          {searchMeta.excludedByDb > 0 && ` · 이미 DB에 있음 ${searchMeta.excludedByDb}건 제외`}
+          {" · "}최종 {results.length}건 표시
+          {searchMeta.totalRawCount > 0 && results.length === 0 && (
+            <span className="text-amber-600">
+              {" "}
+              — "최근 활동(일)" 값을 늘리거나 0으로 두면(필터 없음) 더 나올 수 있어요.
+            </span>
+          )}
+        </p>
+      )}
     </div>
   );
 }
