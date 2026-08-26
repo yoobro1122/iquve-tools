@@ -794,7 +794,7 @@ export default function Home() {
                     }}
                     disabled={sending || (sendMode === 'scheduled' && !scheduledDate)}
                     style={{ padding: '16px 52px', background: sending ? '#94a3b8' : sendMode === 'scheduled' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'linear-gradient(135deg,#e84393,#f472b6)', color: 'white', border: 'none', borderRadius: 14, fontSize: 16, fontWeight: 900, cursor: (sending || (sendMode === 'scheduled' && !scheduledDate)) ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: sending ? 'none' : '0 4px 20px rgba(99,102,241,.4)' }}>
-                    {sending ? <><Spinner /> 처리 중...</> : sendMode === 'scheduled' ? `📅 ${scheduledDate ? scheduledDate + ' ' + scheduledTime + ' 발송 예약' : '예약 발송 설정'}` : '🚀 메일 발송 시작'}
+                    {sending ? <><Spinner /> 발송 중... (완료까지 잠시 기다려주세요)</> : sendMode === 'scheduled' ? `📅 ${scheduledDate ? scheduledDate + ' ' + scheduledTime + ' 발송 예약' : '예약 발송 설정'}` : '🚀 메일 발송 시작'}
                   </button>
                   <p style={{ marginTop: 12, fontSize: 13, color: '#94a3b8' }}>
                     {sendMode === 'now' ? '발송 후 취소할 수 없습니다.' : '예약 후 발송 이력에서 취소 가능합니다.'}
