@@ -64,10 +64,62 @@ export interface InstagramSearchCandidate {
   profilePicUrl: string | null;
 }
 
+// node가 "게시물(media)"처럼 보이는지 판별: id류 필드 + user 필드(username 포함)를
+// 동시에 갖고 있으면 게시물로 간주합니다. 이렇게 하면 캡션에 태그된 계정, 추천 계정 등
+// "게시물이 아닌 곳"에 등장하는 username은 걸러낼 수 있습니다.
+function looksLikeMediaWithPoster(node: any): { username: string; u: any } | null {
+  if (!node || typeof node !== "object") return null;
+  const hasMediaId =
+    typeof node.id === "string" || typeof node.pk === "string" || typeof node.code === "string";
+  const u = node.user;
+  const hasPosterUser = u && typeof u === "object" && typeof u.username === "string";
+  if (hasMediaId && hasPosterUser) return { username: u.username, u };
+  return null;
+}
+
+// 게시물(media) 오브젝트에 직접 붙어있는 user(게시자)만 추출. 캡션 태그, 추천 계정 등
+// 게시물이 아닌 곳에 등장하는 username은 무시합니다 (해시태그 검색 전용, 노이즈 최소화).
+function extractPostersRecursively(
+  node: any,
+  out: Map<string, InstagramSearchCandidate>,
+  depth = 0
+) {
+  if (node == null || depth > 20) return;
+
+  if (Array.isArray(node)) {
+    for (const item of node) extractPostersRecursively(item, out, depth + 1);
+    return;
+  }
+
+  if (typeof node !== "object") return;
+
+  const poster = looksLikeMediaWithPoster(node);
+  if (poster && !out.has(poster.username)) {
+    out.set(poster.username, {
+      username: poster.username,
+      fullName: poster.u.full_name ?? null,
+      isVerified: Boolean(poster.u.is_verified),
+      followerCount: poster.u.follower_count != null ? Number(poster.u.follower_count) : null,
+      profilePicUrl: poster.u.profile_pic_url ?? null,
+    });
+    // media를 찾았으면 그 안의 user 서브트리(캡션 태그 등)까지 더 뒤질 필요는 없음
+    for (const key of Object.keys(node)) {
+      if (key === "user") continue;
+      extractPostersRecursively(node[key], out, depth + 1);
+    }
+    return;
+  }
+
+  for (const key of Object.keys(node)) {
+    extractPostersRecursively(node[key], out, depth + 1);
+  }
+}
+
 // 인스타그램 응답(특히 해시태그/탐색 피드)은 sections -> layout_content -> ... 식으로
 // 깊고 다양하게 중첩되어 있어서 고정된 경로로 파싱하기 어렵습니다.
 // 그래서 JSON 전체를 재귀적으로 훑어서 "username" 문자열 필드를 가진 객체를
-// 전부 찾아내는 방식으로 처리합니다 (구조가 어떻게 바뀌어도 안전).
+// 전부 찾아내는 방식으로 처리합니다 (구조가 어떻게 바뀌어도 안전). 계정 검색(제목/이름
+// 기반)처럼 노이즈가 적은 곳에서만 사용합니다.
 function extractUsersRecursively(
   node: any,
   out: Map<string, InstagramSearchCandidate>,
@@ -153,11 +205,11 @@ export async function searchInstagramByHashtag(
 
   const data = await res.json();
   const found = new Map<string, InstagramSearchCandidate>();
-  extractUsersRecursively(data, found);
+  extractPostersRecursively(data, found);
 
   if (found.size === 0) {
     throw new Error(
-      `해시태그 검색 결과에서 username을 인식하지 못했습니다. 원본 응답 일부: ${JSON.stringify(
+      `해시태그 검색 결과에서 게시자 정보를 인식하지 못했습니다. 원본 응답 일부: ${JSON.stringify(
         data
       ).slice(0, 500)}`
     );

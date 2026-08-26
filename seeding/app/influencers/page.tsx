@@ -62,7 +62,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
 const APP_VERSION =
-  "v3.7.0 (2026-07-21) - 네이버 검색 필터링 단계별 개수 표시, 0=필터없음";
+  "v3.8.0 (2026-07-21) - 해시태그 검색 정밀화 (게시물 작성자만 추출)";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
