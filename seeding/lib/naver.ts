@@ -25,37 +25,59 @@ function stripTags(s: string) {
 // 키워드로 블로그 포스트 검색. sort=sim(정확도순) - 실제 네이버 검색 노출순위와
 // 완전히 동일하지는 않지만, date(최신순)보다 실제 검색결과 상단 노출과 더 가까운 편입니다.
 // 참고: 진짜 검색 노출순위(C-Rank 등)는 비공개 알고리즘이라 API로는 확인 불가합니다.
+//
+// 네이버 API는 한 번 요청(display)에 최대 100건까지만 주기 때문에, 그 이상 필요하면
+// start 파라미터로 페이지를 넘겨가며 여러 번 호출합니다 (start+display-1 <= 1000, 즉
+// 전체 최대 1000건까지 가져올 수 있음 - 네이버 API 자체의 상한).
 export async function searchNaverBlogs(
   query: string,
-  display = 30
+  totalWanted = 100
 ): Promise<NaverBlogResult[]> {
   const clientId = await requireConfig("naver_client_id", "NAVER_CLIENT_ID");
   const clientSecret = await requireConfig("naver_client_secret", "NAVER_CLIENT_SECRET");
 
-  const url = `${NAVER_BASE}?query=${encodeURIComponent(
-    query
-  )}&display=${display}&sort=sim`;
+  const cappedTotal = Math.min(totalWanted, 1000);
+  const results: NaverBlogResult[] = [];
+  let start = 1;
 
-  const res = await fetch(url, {
-    headers: {
-      "X-Naver-Client-Id": clientId,
-      "X-Naver-Client-Secret": clientSecret,
-    },
-  });
+  while (results.length < cappedTotal) {
+    const display = Math.min(100, cappedTotal - results.length);
+    const url = `${NAVER_BASE}?query=${encodeURIComponent(
+      query
+    )}&display=${display}&start=${start}&sort=sim`;
 
-  if (!res.ok) {
-    throw new Error(`네이버 블로그 검색 실패: ${res.status} ${await res.text()}`);
+    const res = await fetch(url, {
+      headers: {
+        "X-Naver-Client-Id": clientId,
+        "X-Naver-Client-Secret": clientSecret,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`네이버 블로그 검색 실패: ${res.status} ${await res.text()}`);
+    }
+
+    const data = await res.json();
+    const items = data.items ?? [];
+
+    results.push(
+      ...items.map((item: any) => ({
+        title: stripTags(item.title ?? ""),
+        link: item.link,
+        description: stripTags(item.description ?? ""),
+        bloggername: item.bloggername ?? "",
+        bloggerlink: item.bloggerlink ?? "",
+        postdate: item.postdate ?? "",
+      }))
+    );
+
+    // 더 이상 결과가 없으면(마지막 페이지) 중단
+    if (items.length < display) break;
+
+    start += display;
   }
 
-  const data = await res.json();
-  return (data.items ?? []).map((item: any) => ({
-    title: stripTags(item.title ?? ""),
-    link: item.link,
-    description: stripTags(item.description ?? ""),
-    bloggername: item.bloggername ?? "",
-    bloggerlink: item.bloggerlink ?? "",
-    postdate: item.postdate ?? "",
-  }));
+  return results;
 }
 
 // postdate(YYYYMMDD)가 최근 N일 이내인지 확인
