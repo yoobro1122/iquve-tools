@@ -302,3 +302,9 @@ create policy "tasks_select" on tasks for select using (auth.role() = 'authentic
 drop policy if exists "task_assignments_select" on task_assignments;
 create policy "task_assignments_select" on task_assignments for select using (auth.role() = 'authenticated');
 ```
+
+## v1.10 (속도 개선)
+
+- 업무 등록/시작/종료/검수/인계/재작업/평점/프로젝트 상태변경 등 대부분의 동작 후, 앱 전체 데이터(대분류/카테고리/담당자/작업자 목록까지)를 매번 다시 불러오던 것을 **프로젝트+업무 데이터만** 다시 불러오도록 바꿨습니다. 잘 안 바뀌는 참조 데이터(카테고리 목록, 담당자/작업자 명단)는 페이지 진입 시 한 번만 불러옵니다.
+- 카테고리/대분류 추가·수정·삭제처럼 그 참조 데이터 자체가 바뀌는 몇몇 동작만 예전처럼 전체를 다시 불러옵니다 (자주 쓰는 동작이 아니라 체감 영향 적음).
+- DB 마이그레이션 없이 코드만 바뀐 변경입니다.

@@ -204,6 +204,43 @@ export default function BoardPage() {
   const [systemLogs, setSystemLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
+  const TASK_SELECT = "*, project:project_id(*), category:category_id(*), episode:episode_id(*), contractor:contractor_id(*), manager:manager_id(*), rework_notes:task_rework_notes(*), assignments:task_assignments(*, contractor:contractor_id(*)), sub_managers:task_sub_managers(*, manager:manager_id(*))";
+
+  // 프로젝트/업무(+에피소드)만 다시 불러옵니다 - 업무 등록/시작/종료/검수 등 대부분의 동작 후에는
+  // 이것만 다시 부르면 되고, 카테고리/대분류/담당자·작업자 목록 같은 잘 안 바뀌는 데이터는
+  // 다시 불러올 필요가 없어서 훨씬 빠릅니다.
+  const loadTasksData = useCallback(async (role: string, userId: string) => {
+    const [projRes, taskRes] = await Promise.all([
+      supabase.from("projects").select("*, episodes(*)").order("created_at", { ascending: false }),
+      supabase.from("tasks").select(TASK_SELECT).order("created_at", { ascending: true }),
+    ]);
+    setProjects((projRes.data as Project[]) ?? []);
+    setTasks((taskRes.data as unknown as Task[]) ?? []);
+
+    if (role !== "manager") {
+      const [mineRes, aiRes] = await Promise.all([
+        supabase
+          .from("task_assignments")
+          .select("*, task:task_id(*, project:project_id(*), episode:episode_id(*), category:category_id(*))")
+          .eq("contractor_id", userId)
+          .order("created_at", { ascending: false }),
+        supabase.from("contractor_ai_accounts").select("*, ai_service:ai_service_id(*)").eq("contractor_id", userId),
+      ]);
+      setPastAssignments(((mineRes.data as any[]) ?? []).filter((a) => a.task && a.task.contractor_id !== userId));
+      setMyAiAccounts(aiRes.data ?? []);
+    }
+  }, [supabase]);
+
+  const refreshTasks = useCallback(async () => {
+    if (!me) return;
+    setRefreshing(true);
+    try {
+      await loadTasksData(me.role, me.id);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [me, loadTasksData]);
+
   const load = useCallback(async (isInitial = false) => {
     if (!isInitial) setRefreshing(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -211,41 +248,22 @@ export default function BoardPage() {
     const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     setMe(profile as Profile);
 
-    const [mcRes, catRes, projRes, mgrRes] = await Promise.all([
+    const [mcRes, catRes, mgrRes, csRes] = await Promise.all([
       supabase.from("major_categories").select("*").order("sort_order"),
       supabase.from("categories").select("*").order("label"),
-      supabase.from("projects").select("*, episodes(*)").order("created_at", { ascending: false }),
       supabase.from("profiles").select("*").eq("role", "manager").order("name"),
+      supabase.from("profiles").select("*").eq("role", "contractor").order("name"),
     ]);
     setMajorCategories((mcRes.data as MajorCategory[]) ?? []);
     setCategories((catRes.data as Category[]) ?? []);
-    setProjects((projRes.data as Project[]) ?? []);
     setManagers((mgrRes.data as Profile[]) ?? []);
+    setContractors((csRes.data as Profile[]) ?? []);
 
-    const { data: taskData } = await supabase
-      .from("tasks")
-      .select("*, project:project_id(*), category:category_id(*), episode:episode_id(*), contractor:contractor_id(*), manager:manager_id(*), rework_notes:task_rework_notes(*), assignments:task_assignments(*, contractor:contractor_id(*)), sub_managers:task_sub_managers(*, manager:manager_id(*))")
-      .order("created_at", { ascending: true });
-    setTasks((taskData as unknown as Task[]) ?? []);
-
-    const { data: cs } = await supabase.from("profiles").select("*").eq("role", "contractor").order("name");
-    setContractors((cs as Profile[]) ?? []);
-
-    if (profile?.role !== "manager") {
-      const { data: mine } = await supabase
-        .from("task_assignments")
-        .select("*, task:task_id(*, project:project_id(*), episode:episode_id(*), category:category_id(*))")
-        .eq("contractor_id", user.id)
-        .order("created_at", { ascending: false });
-      setPastAssignments(((mine as any[]) ?? []).filter((a) => a.task && a.task.contractor_id !== user.id));
-
-      const { data: aiAccts } = await supabase.from("contractor_ai_accounts").select("*, ai_service:ai_service_id(*)").eq("contractor_id", user.id);
-      setMyAiAccounts(aiAccts ?? []);
-    }
+    await loadTasksData(profile?.role ?? "contractor", user.id);
 
     setLoading(false);
     setRefreshing(false);
-  }, [supabase]);
+  }, [supabase, loadTasksData]);
 
   useEffect(() => { load(true); }, [load]);
 
@@ -398,7 +416,7 @@ export default function BoardPage() {
   }, [scopedProjects, tasks, projectSort]);
 
   // ---------------- task actions ----------------
-  async function taskStart(t: Task) { if (await api(`/api/tasks/${t.id}/start`, "POST")) load(); }
+  async function taskStart(t: Task) { if (await api(`/api/tasks/${t.id}/start`, "POST")) refreshTasks(); }
   function openSubmitModal(t: Task) { setSubmitModalTaskId(t.id); setFileLinkDraft(currentAssignment(t)?.file_link || ""); setSubmitAiAccountId(""); setSubmitNewCredit(""); }
   async function confirmSubmit() {
     if (!fileLinkDraft.trim()) { alert("작업 파일 링크를 입력해주세요."); return; }
@@ -410,18 +428,18 @@ export default function BoardPage() {
     }
     if (await api(`/api/tasks/${submitModalTaskId}/submit`, "POST", body)) {
       setSubmitModalTaskId(null);
-      load();
+      refreshTasks();
     }
   }
-  async function acknowledgeMessage(t: Task) { if (await api(`/api/tasks/${t.id}/acknowledge`, "POST")) load(); }
-  async function reviewApprove(t: Task) { if (await api(`/api/tasks/${t.id}/review`, "POST", { result: "pass" })) load(); }
+  async function acknowledgeMessage(t: Task) { if (await api(`/api/tasks/${t.id}/acknowledge`, "POST")) refreshTasks(); }
+  async function reviewApprove(t: Task) { if (await api(`/api/tasks/${t.id}/review`, "POST", { result: "pass" })) refreshTasks(); }
   function openReworkModal(t: Task) { setReworkModalTaskId(t.id); setReworkMessage(""); }
   async function submitRework() {
     const t = tasks.find((x) => x.id === reworkModalTaskId);
     if (!t) return;
     const url = t.status === "reviewing" ? `/api/tasks/${t.id}/review` : `/api/tasks/${t.id}/rework-edit`;
     const body = t.status === "reviewing" ? { result: "reject", note: reworkMessage } : { message: reworkMessage };
-    if (await api(url, "POST", body)) { setReworkModalTaskId(null); load(); }
+    if (await api(url, "POST", body)) { setReworkModalTaskId(null); refreshTasks(); }
   }
 
   function openHandoffModal(t: Task) {
@@ -434,7 +452,7 @@ export default function BoardPage() {
     if (!handoffReason.trim()) { alert("인계 사유를 입력해주세요."); return; }
     if (await api(`/api/tasks/${handoffModalTaskId}/review`, "POST", { result: "handoff", new_contractor_id: handoffContractorId, note: handoffReason.trim() })) {
       setHandoffModalTaskId(null);
-      load();
+      refreshTasks();
     }
   }
 
@@ -451,7 +469,7 @@ export default function BoardPage() {
     if (reopenMode === "handoff") body.new_contractor_id = reopenContractorId;
     if (await api(`/api/tasks/${reopenModalTaskId}/reopen`, "POST", body)) {
       setReopenModalTaskId(null);
-      load();
+      refreshTasks();
     }
   }
 
@@ -460,7 +478,7 @@ export default function BoardPage() {
     if (!forceCompleteReason.trim()) { alert("완료 처리 사유를 입력해주세요."); return; }
     if (await api(`/api/tasks/${forceCompleteTaskId}/force-complete`, "POST", { reason: forceCompleteReason.trim() })) {
       setForceCompleteTaskId(null);
-      load();
+      refreshTasks();
     }
   }
 
@@ -472,7 +490,7 @@ export default function BoardPage() {
   async function submitSubManagerAck() {
     if (await api(`/api/tasks/${subManagerAckTaskId}/sub-manager-ack`, "POST", { comment: subManagerAckComment })) {
       setSubManagerAckTaskId(null);
-      load();
+      refreshTasks();
     }
   }
 
@@ -494,7 +512,7 @@ export default function BoardPage() {
   }
 
   async function rateAssignment(assignmentId: string, rating: number) {
-    if (await api(`/api/task-assignments/${assignmentId}`, "PATCH", { rating })) load();
+    if (await api(`/api/task-assignments/${assignmentId}`, "PATCH", { rating })) refreshTasks();
   }
 
   function openEditTask(t: Task) {
@@ -533,16 +551,16 @@ export default function BoardPage() {
     } else if (body.planned_start_date) {
       body.planned_start_date = new Date(body.planned_start_date).toISOString();
     }
-    if (await api(`/api/tasks/${editTaskId}`, "PATCH", body)) { setEditTaskId(null); load(); }
+    if (await api(`/api/tasks/${editTaskId}`, "PATCH", body)) { setEditTaskId(null); refreshTasks(); }
   }
   async function archiveTaskFromModal() {
     if (!confirm("이 업무를 삭제(비활성화) 처리할까요? 나중에 복원할 수 있습니다.")) return;
-    if (await api(`/api/tasks/${editTaskId}`, "PATCH", { archived: true })) { setEditTaskId(null); load(); }
+    if (await api(`/api/tasks/${editTaskId}`, "PATCH", { archived: true })) { setEditTaskId(null); refreshTasks(); }
   }
-  async function restoreTask(t: Task) { if (await api(`/api/tasks/${t.id}`, "PATCH", { archived: false })) load(); }
+  async function restoreTask(t: Task) { if (await api(`/api/tasks/${t.id}`, "PATCH", { archived: false })) refreshTasks(); }
   async function permanentlyDeleteTask(t: Task) {
     if (!confirm(`업무 ${t.code}를 DB에서 완전히 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
-    if (await api(`/api/tasks/${t.id}`, "DELETE")) load();
+    if (await api(`/api/tasks/${t.id}`, "DELETE")) refreshTasks();
   }
 
   async function createTask() {
@@ -559,7 +577,7 @@ export default function BoardPage() {
       alert("담당자를 선택해주세요.");
       return;
     }
-    if (await api("/api/tasks", "POST", { project_id: selectedProject!.id, ...newTask, planned_start_date: new Date(newTask.planned_start_date).toISOString() })) { setShowNewTask(false); load(); }
+    if (await api("/api/tasks", "POST", { project_id: selectedProject!.id, ...newTask, planned_start_date: new Date(newTask.planned_start_date).toISOString() })) { setShowNewTask(false); refreshTasks(); }
   }
 
   async function addCategory() {
@@ -590,22 +608,22 @@ export default function BoardPage() {
     } finally {
       setBusy(false);
     }
-    load();
+    refreshTasks();
   }
   const [newCatLabel, setNewCatLabel] = useState("");
 
   async function addEpisode() {
     if (!newEpLabel.trim() || !selectedProject) return;
-    if (await api(`/api/projects/${selectedProject.id}/episodes`, "POST", { label: newEpLabel.trim() })) { setNewEpLabel(""); load(); }
+    if (await api(`/api/projects/${selectedProject.id}/episodes`, "POST", { label: newEpLabel.trim() })) { setNewEpLabel(""); refreshTasks(); }
   }
   async function renameEpisode(id: string, current: string) {
     const label = prompt("에피소드 이름 수정", current);
     if (!label) return;
-    if (await api(`/api/episodes/${id}`, "PATCH", { label })) load();
+    if (await api(`/api/episodes/${id}`, "PATCH", { label })) refreshTasks();
   }
   async function deleteEpisode(id: string) {
     if (!confirm("이 에피소드를 삭제할까요? (해당 에피소드가 지정된 업무는 '적용 안함'으로 바뀝니다)")) return;
-    if (await api(`/api/episodes/${id}`, "DELETE")) { if (selectedEpisodeId === id) setSelectedEpisodeId("ALL"); load(); }
+    if (await api(`/api/episodes/${id}`, "DELETE")) { if (selectedEpisodeId === id) setSelectedEpisodeId("ALL"); refreshTasks(); }
   }
 
   async function addMajorCategory() {
@@ -632,20 +650,20 @@ export default function BoardPage() {
     const data = await api(`/api/projects/${selectedProject!.id}`, "PATCH", editProjectDraft);
     if (!data) return;
     setEditProjectOpen(false);
-    load();
+    refreshTasks();
   }
   async function deleteProjectFromModal() {
     if (!confirm("이 프로젝트를 삭제(비활성화) 처리할까요? 나중에 복원할 수 있습니다.")) return;
     if (await api(`/api/projects/${selectedProject!.id}`, "PATCH", { archived: true })) {
       setEditProjectOpen(false);
       setSelectedProjectId("ALL");
-      load();
+      refreshTasks();
     }
   }
-  async function restoreProject(p: Project) { if (await api(`/api/projects/${p.id}`, "PATCH", { archived: false })) load(); }
+  async function restoreProject(p: Project) { if (await api(`/api/projects/${p.id}`, "PATCH", { archived: false })) refreshTasks(); }
   async function permanentlyDeleteProject(p: Project) {
     if (!confirm(`프로젝트 "${p.name}"를 DB에서 완전히 삭제할까요? 하위 업무/에피소드도 모두 함께 삭제되며, 이 작업은 되돌릴 수 없습니다.`)) return;
-    if (await api(`/api/projects/${p.id}`, "DELETE")) { if (selectedProjectId === p.id) setSelectedProjectId("ALL"); load(); }
+    if (await api(`/api/projects/${p.id}`, "DELETE")) { if (selectedProjectId === p.id) setSelectedProjectId("ALL"); refreshTasks(); }
   }
 
   function openNewProjectModal() {
@@ -660,7 +678,7 @@ export default function BoardPage() {
     setMajorCategoryId(newProjectDraft.major_category_id);
     setSelectedProjectId(data.item.id);
     setShowNewProject(false);
-    load();
+    refreshTasks();
   }
 
   async function openLogDrawer() {
@@ -683,16 +701,16 @@ export default function BoardPage() {
     setStatusModalOpen(true);
   }
   async function saveStatus() {
-    if (await api(`/api/projects/${selectedProject!.id}/status`, "PATCH", draftStatus)) { setStatusModalOpen(false); load(); }
+    if (await api(`/api/projects/${selectedProject!.id}/status`, "PATCH", draftStatus)) { setStatusModalOpen(false); refreshTasks(); }
   }
   async function handlePublishConfirm() {
-    if (await api(`/api/projects/${selectedProject!.id}/publish`, "POST", { decision: "confirm" })) load();
+    if (await api(`/api/projects/${selectedProject!.id}/publish`, "POST", { decision: "confirm" })) refreshTasks();
   }
   function openDeclineModal() { setDeclineReasonDraft(""); setDeclineModalOpen(true); }
   async function submitDecline() {
     if (await api(`/api/projects/${selectedProject!.id}/publish`, "POST", { decision: "decline", reason: declineReasonDraft })) {
       setDeclineModalOpen(false);
-      load();
+      refreshTasks();
     }
   }
 
@@ -1563,7 +1581,7 @@ export default function BoardPage() {
             <h3 className="mb-3 text-[15.5px] font-bold">비고</h3>
             <textarea rows={4} value={remarkDraft} onChange={(e) => setRemarkDraft(e.target.value)} className={`${inputCls} mb-3 resize-y`} />
             <div className="flex gap-2">
-              <button onClick={async () => { await supabase.from("projects").update({ remark: remarkDraft }).eq("id", remarkModalProjectId); setRemarkModalProjectId(null); load(); }} className={btnPrimary}>저장</button>
+              <button onClick={async () => { await supabase.from("projects").update({ remark: remarkDraft }).eq("id", remarkModalProjectId); setRemarkModalProjectId(null); refreshTasks(); }} className={btnPrimary}>저장</button>
               <button onClick={() => setRemarkModalProjectId(null)} className={btnDefault}>취소</button>
             </div>
           </div>

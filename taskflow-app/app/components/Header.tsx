@@ -25,7 +25,7 @@ export default function Header({
           <Film size={17} color="#fff" />
         </div>
         <div>
-          <div className="text-[15px] font-bold leading-tight">TaskFlow <span className="text-[10px] font-normal text-[#A7A399]">v1.09</span></div>
+          <div className="text-[15px] font-bold leading-tight">TaskFlow <span className="text-[10px] font-normal text-[#A7A399]">v1.10</span></div>
           <div className="text-[11px] text-[#79766D]">{t(lang, "app_subtitle")}</div>
         </div>
       </div>
