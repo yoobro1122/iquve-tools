@@ -2,20 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchNaverBlogs, isWithinDays, dedupeByBlogger } from "@/lib/naver";
 import { getSupabaseServer } from "@/lib/supabase";
 
-// GET /api/naver/search?q=육아 그림책&withinDays=7&dedupe=true&count=200
+// GET /api/naver/search?q=육아 그림책&withinDays=7&dedupe=true&count=200&sort=date
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q");
   const withinDays = searchParams.get("withinDays");
   const dedupe = searchParams.get("dedupe") === "true";
   const count = Math.min(Number(searchParams.get("count") ?? 100), 1000);
+  const sort = searchParams.get("sort") === "date" ? "date" : "sim";
 
   if (!q) {
     return NextResponse.json({ error: "검색어(q)가 필요합니다." }, { status: 400 });
   }
 
   try {
-    const rawResults = await searchNaverBlogs(q, count);
+    const rawResults = await searchNaverBlogs(q, count, sort);
     const totalRawCount = rawResults.length;
 
     let results = rawResults;

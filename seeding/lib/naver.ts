@@ -22,16 +22,21 @@ function stripTags(s: string) {
   return s.replace(/<\/?b>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
 }
 
-// 키워드로 블로그 포스트 검색. sort=sim(정확도순) - 실제 네이버 검색 노출순위와
-// 완전히 동일하지는 않지만, date(최신순)보다 실제 검색결과 상단 노출과 더 가까운 편입니다.
-// 참고: 진짜 검색 노출순위(C-Rank 등)는 비공개 알고리즘이라 API로는 확인 불가합니다.
+// 키워드로 블로그 포스트 검색.
+// sort=sim(정확도순, 기본): 실제 네이버 검색결과 상단 노출과 어느 정도 비슷하지만,
+//   최신 글보다 텍스트 관련성 높은 오래된 글이 먼저 나올 수 있습니다.
+// sort=date(최신순): 발행일 기준 최신순. "최근 게시물 위주로 찾고 싶다"는 목적엔 이게 더 맞음.
+// 참고: 오픈API의 색인은 네이버 실제 검색(naver.com)과 별도로 관리되는 색인이라, 실제
+// 검색에는 나오는 최신 글이 오픈API에는 아직 안 들어와 있을 수 있습니다 (API 자체의 한계이며
+// 진짜 검색 노출순위(C-Rank 등)는 비공개 알고리즘이라 API로는 확인 불가합니다).
 //
 // 네이버 API는 한 번 요청(display)에 최대 100건까지만 주기 때문에, 그 이상 필요하면
 // start 파라미터로 페이지를 넘겨가며 여러 번 호출합니다 (start+display-1 <= 1000, 즉
 // 전체 최대 1000건까지 가져올 수 있음 - 네이버 API 자체의 상한).
 export async function searchNaverBlogs(
   query: string,
-  totalWanted = 100
+  totalWanted = 100,
+  sort: "sim" | "date" = "sim"
 ): Promise<NaverBlogResult[]> {
   const clientId = await requireConfig("naver_client_id", "NAVER_CLIENT_ID");
   const clientSecret = await requireConfig("naver_client_secret", "NAVER_CLIENT_SECRET");
@@ -44,7 +49,7 @@ export async function searchNaverBlogs(
     const display = Math.min(100, cappedTotal - results.length);
     const url = `${NAVER_BASE}?query=${encodeURIComponent(
       query
-    )}&display=${display}&start=${start}&sort=sim`;
+    )}&display=${display}&start=${start}&sort=${sort}`;
 
     const res = await fetch(url, {
       headers: {

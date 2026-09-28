@@ -62,7 +62,7 @@ function deriveNaverEmail(url: string | null | undefined): string | null {
 
 // 배포 확인용 버전 표시 - 코드가 바뀔 때마다 이 값을 올려주세요.
 const APP_VERSION =
-  "v3.9.0 (2026-07-21) - 네이버 검색 개수 확대 (최대 1000건, 페이지네이션)";
+  "v4.1.0 (2026-07-21) - 해시태그 검색, 요청한 태그와 다른 구간 제외";
 
 export default function InfluencerToolPage() {
   const [tab, setTab] = useState<Tab>("db");
@@ -726,6 +726,7 @@ function NaverTab() {
   const [withinDays, setWithinDays] = useState(7);
   const [dedupe, setDedupe] = useState(true);
   const [count, setCount] = useState(100);
+  const [sort, setSort] = useState<"sim" | "date">("date");
   const [results, setResults] = useState<NaverBlogResult[]>([]);
   const [searchMeta, setSearchMeta] = useState<{
     totalRawCount: number;
@@ -745,6 +746,7 @@ function NaverTab() {
         withinDays: String(withinDays),
         dedupe: String(dedupe),
         count: String(count),
+        sort,
       });
       const res = await fetch(`/api/naver/search?${params.toString()}`);
       const data = await res.json();
@@ -802,6 +804,17 @@ function NaverTab() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="예: 육아 그림책 추천, 유아 영어전집"
           />
+        </div>
+        <div className="w-36">
+          <label className="block text-xs text-slate-500 mb-1">정렬</label>
+          <select
+            className="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as "sim" | "date")}
+          >
+            <option value="date">최신순</option>
+            <option value="sim">정확도순</option>
+          </select>
         </div>
         <div className="w-36">
           <label className="block text-xs text-slate-500 mb-1">검색 개수 (최대 1000)</label>

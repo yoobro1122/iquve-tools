@@ -79,19 +79,40 @@ function looksLikeMediaWithPoster(node: any): { username: string; u: any } | nul
 
 // 게시물(media) 오브젝트에 직접 붙어있는 user(게시자)만 추출. 캡션 태그, 추천 계정 등
 // 게시물이 아닌 곳에 등장하는 username은 무시합니다 (해시태그 검색 전용, 노이즈 최소화).
+//
+// 응답 안에는 요청한 해시태그 말고도 "추천 콘텐츠" 묶음이 각각 자기 tag 필드를 달고
+// 같이 섞여 오는 경우가 있습니다 (예: 다른 인기 릴스). 그래서 트리를 내려가다가
+// "tag" 필드를 만나면 그 값을 기억해두고, 요청한 태그와 다른 값이면 그 구간 전체를
+// 건너뜁니다 (관련 없는 계정이 섞여 나오는 걸 방지).
 function extractPostersRecursively(
   node: any,
   out: Map<string, InstagramSearchCandidate>,
+  targetTag: string,
+  currentTag: string | null = null,
   depth = 0
 ) {
   if (node == null || depth > 20) return;
 
   if (Array.isArray(node)) {
-    for (const item of node) extractPostersRecursively(item, out, depth + 1);
+    for (const item of node) extractPostersRecursively(item, out, targetTag, currentTag, depth + 1);
     return;
   }
 
   if (typeof node !== "object") return;
+
+  // 이 구간이 어떤 태그에 속하는지 나타내는 필드를 만나면 컨텍스트 갱신
+  let nextTag = currentTag;
+  if (typeof node.tag === "string" && node.tag.length > 0) {
+    nextTag = node.tag;
+  } else if (typeof node.name === "string" && node.media_count != null) {
+    // 일부 응답은 해시태그 오브젝트 자체를 {name, media_count} 형태로 표현하기도 함
+    nextTag = node.name;
+  }
+
+  // 이 구간이 요청한 태그와 명백히 다른 태그로 표시되어 있다면 통째로 건너뜀
+  if (nextTag && nextTag.toLowerCase() !== targetTag.toLowerCase()) {
+    return;
+  }
 
   const poster = looksLikeMediaWithPoster(node);
   if (poster && !out.has(poster.username)) {
@@ -105,13 +126,13 @@ function extractPostersRecursively(
     // media를 찾았으면 그 안의 user 서브트리(캡션 태그 등)까지 더 뒤질 필요는 없음
     for (const key of Object.keys(node)) {
       if (key === "user") continue;
-      extractPostersRecursively(node[key], out, depth + 1);
+      extractPostersRecursively(node[key], out, targetTag, nextTag, depth + 1);
     }
     return;
   }
 
   for (const key of Object.keys(node)) {
-    extractPostersRecursively(node[key], out, depth + 1);
+    extractPostersRecursively(node[key], out, targetTag, nextTag, depth + 1);
   }
 }
 
@@ -205,11 +226,11 @@ export async function searchInstagramByHashtag(
 
   const data = await res.json();
   const found = new Map<string, InstagramSearchCandidate>();
-  extractPostersRecursively(data, found);
+  extractPostersRecursively(data, found, cleanTag);
 
   if (found.size === 0) {
     throw new Error(
-      `해시태그 검색 결과에서 게시자 정보를 인식하지 못했습니다. 원본 응답 일부: ${JSON.stringify(
+      `해시태그 검색 결과에서 "${cleanTag}" 태그와 일치하는 게시자 정보를 인식하지 못했습니다. 원본 응답 일부: ${JSON.stringify(
         data
       ).slice(0, 500)}`
     );
